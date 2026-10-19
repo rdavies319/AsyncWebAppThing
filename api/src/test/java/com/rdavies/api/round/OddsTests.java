@@ -36,6 +36,17 @@ class OddsTests {
     }
 
     @Test
+    void payoutCapLowersTheMaxStakeOnLongShots() {
+        // R = 99 HIGHER pays 98x: floor(10000 * 10000 / 980000) = 102
+        assertEquals(102, Odds.maxStake(980_000, 500, 10_000));
+        // R = 50 HIGHER pays 1.96x: 500 * 1.96 = 980 is well under the cap
+        assertEquals(500, Odds.maxStake(19_600, 500, 10_000));
+        // The capped stake really stays within the cap, and one more point would not
+        assertTrue(Odds.payout(102, 980_000) <= 10_000);
+        assertTrue(Odds.payout(103, 980_000) > 10_000);
+    }
+
+    @Test
     void impossibleDirectionsAreNotAllowed() {
         assertFalse(Odds.isAllowed(100, PredictionType.HIGHER));
         assertFalse(Odds.isAllowed(1, PredictionType.LOWER));

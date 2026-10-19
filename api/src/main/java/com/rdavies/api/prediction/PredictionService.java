@@ -1,5 +1,6 @@
 package com.rdavies.api.prediction;
 
+import com.rdavies.api.GameProperties;
 import com.rdavies.api.round.Odds;
 import com.rdavies.api.round.Round;
 import com.rdavies.api.round.RoundRepository;
@@ -8,6 +9,7 @@ import com.rdavies.api.round.RoundStatus;
 import com.rdavies.api.wallet.LedgerEntry;
 import com.rdavies.api.wallet.LedgerRepository;
 import com.rdavies.api.wallet.WalletRepository;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,6 +19,9 @@ import java.util.Optional;
 
 @Service
 public class PredictionService {
+    private static final String ALREADY_PREDICTED = "You have already predicted this round";
+
+    private final GameProperties game;
     private final RoundRepository roundRepository;
     private final RoundService roundService;
     private final PredictionRepository predictionRepository;
@@ -24,9 +29,10 @@ public class PredictionService {
     private final LedgerRepository ledgerRepository;
     private final Clock clock;
 
-    public PredictionService(RoundRepository roundRepository, RoundService roundService,
+    public PredictionService(GameProperties game, RoundRepository roundRepository, RoundService roundService,
                              PredictionRepository predictionRepository, WalletRepository walletRepository,
                              LedgerRepository ledgerRepository, Clock clock) {
+        this.game = game;
         this.roundRepository = roundRepository;
         this.roundService = roundService;
         this.predictionRepository = predictionRepository;
@@ -50,8 +56,8 @@ public class PredictionService {
         if (type == null) {
             throw new IllegalArgumentException("Choose higher or lower");
         }
-        if (stake == null || stake <= 0) {
-            throw new IllegalArgumentException("Stake must be a positive number of points");
+        if (stake == null) {
+            throw new IllegalArgumentException("Enter a stake");
         }
 
         // 1. Verify round is still OPEN and its deadline hasn't passed. FOR SHARE keeps the engine
@@ -66,8 +72,14 @@ public class PredictionService {
         if (!Odds.isAllowed(round.rollValue(), type)) {
             throw new IllegalArgumentException(type + " cannot win against " + round.rollValue());
         }
+        long multiplierBps = Odds.multiplierBps(round.rollValue(), type);
+        long maxStake = Odds.maxStake(multiplierBps, game.maxStake(), game.maxPayout());
+        if (stake < game.minStake() || stake > maxStake) {
+            throw new IllegalArgumentException(
+                    "Stake must be between " + game.minStake() + " and " + maxStake + " pts on " + type);
+        }
         if (predictionRepository.existsByRoundIdAndUserId(roundId, userId)) {
-            throw new IllegalStateException("You have already predicted this round");
+            throw new IllegalStateException(ALREADY_PREDICTED);
         }
 
         // 2. Atomic stake deduction
@@ -76,9 +88,15 @@ public class PredictionService {
             throw new IllegalStateException("Insufficient funds in wallet");
         }
 
-        // 3. Record prediction, locking in the multiplier
-        Prediction saved = predictionRepository.save(new Prediction(null, userId, roundId, type, stake,
-                Odds.multiplierBps(round.rollValue(), type), PredictionStatus.PENDING, null, now, null));
+        // 3. Record prediction, locking in the multiplier. The unique (user_id, round_id) constraint
+        //    catches a concurrent duplicate that slipped past the check above; rethrowing rolls back the debit.
+        Prediction saved;
+        try {
+            saved = predictionRepository.save(new Prediction(null, userId, roundId, type, stake,
+                    multiplierBps, PredictionStatus.PENDING, null, now, null));
+        } catch (DuplicateKeyException e) {
+            throw new IllegalStateException(ALREADY_PREDICTED, e);
+        }
 
         // 4. Audit ledger
         ledgerRepository.save(new LedgerEntry(null, userId, -stake, LedgerEntry.Reason.STAKE, saved.id(), now));

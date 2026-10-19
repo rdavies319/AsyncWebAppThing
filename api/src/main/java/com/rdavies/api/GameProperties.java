@@ -1,0 +1,26 @@
+package com.rdavies.api;
+
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.bind.DefaultValue;
+
+import java.time.Duration;
+
+/**
+ * Game settings from spec section 3, overridable as game.* properties.
+ *
+ * @param cutoff       predictions close this long before the next roll
+ * @param minStake     smallest stake accepted
+ * @param maxStake     largest stake accepted, before the payout cap lowers it
+ * @param maxPayout    most one prediction can pay out, stake included
+ * @param signupBonus  points credited to a new wallet
+ * @param topUpTarget  the daily top-up refills a wallet to this balance
+ */
+@ConfigurationProperties("game")
+public record GameProperties(
+    @DefaultValue("10s") Duration cutoff,
+    @DefaultValue("10") long minStake,
+    @DefaultValue("500") long maxStake,
+    @DefaultValue("10000") long maxPayout,
+    @DefaultValue("1000") long signupBonus,
+    @DefaultValue("1000") long topUpTarget
+) {}

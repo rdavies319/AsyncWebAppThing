@@ -1,5 +1,6 @@
 package com.rdavies.api.web;
 
+import com.rdavies.api.GameProperties;
 import com.rdavies.api.prediction.PredictionService;
 import com.rdavies.api.prediction.PredictionType;
 import com.rdavies.api.round.RoundService;
@@ -15,9 +16,11 @@ public class GameController {
     private final RoundService roundService;
     private final PredictionService predictionService;
     private final WalletService walletService;
+    private final GameProperties game;
 
     public GameController(RoundService roundService, PredictionService predictionService,
-                          WalletService walletService) {
+                          WalletService walletService, GameProperties game) {
+        this.game = game;
         this.roundService = roundService;
         this.predictionService = predictionService;
         this.walletService = walletService;
@@ -36,6 +39,7 @@ public class GameController {
         roundService.getNextRollCommit().ifPresent(commit -> model.addAttribute("nextCommit", commit));
         predictionService.getLastResult(1L).ifPresent(result -> model.addAttribute("lastResult", result));
         model.addAttribute("serverNow", roundService.now().toEpochMilli());
+        model.addAttribute("minStake", game.minStake());
         model.addAttribute("wallet", walletService.getWallet(1L));
         return "game";
     }

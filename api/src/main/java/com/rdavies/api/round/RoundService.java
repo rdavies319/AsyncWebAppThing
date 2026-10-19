@@ -1,5 +1,6 @@
 package com.rdavies.api.round;
 
+import com.rdavies.api.GameProperties;
 import org.springframework.stereotype.Service;
 
 import java.time.Clock;
@@ -10,15 +11,14 @@ import java.util.Optional;
 @Service
 public class RoundService {
     private final RoundRepository roundRepository;
+    private final GameProperties game;
     private final Clock clock;
 
-    public RoundService(RoundRepository roundRepository, Clock clock) {
+    public RoundService(RoundRepository roundRepository, GameProperties game, Clock clock) {
         this.roundRepository = roundRepository;
+        this.game = game;
         this.clock = clock;
     }
-
-    /** Predictions close this long before the roll at the next minute boundary. */
-    static final Duration PREDICTION_CUTOFF = Duration.ofSeconds(5);
 
     public Optional<Round> getCurrentRound() {
         return roundRepository.findOpenRound();
@@ -44,9 +44,9 @@ public class RoundService {
         return round.startsAt().plus(Duration.ofMinutes(1));
     }
 
-    /** When predictions close for this round, by the server clock. */
+    /** When predictions close for this round, by the server clock: game.cutoff before the next roll. */
     public Instant predictionDeadline(Round round) {
-        return rollTime(round).minus(PREDICTION_CUTOFF);
+        return rollTime(round).minus(game.cutoff());
     }
 
     /** A settled round and the next round's roll, which its predictions were settled against. */

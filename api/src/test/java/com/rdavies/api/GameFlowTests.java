@@ -185,12 +185,67 @@ class GameFlowTests {
     }
 
     @Test
-    void predictionsCloseFiveSecondsBeforeTheRoll() {
+    void predictionsCloseTenSecondsBeforeTheRoll() {
         Round round = currentRound();
-        clock.now = Instant.parse("2026-01-01T00:00:55Z");
+        clock.now = Instant.parse("2026-01-01T00:00:50Z");
         assertThrows(IllegalStateException.class,
                 () -> predictionService.placePrediction(DEMO_USER, round.id(), allowedDirection(round), 10L));
         assertEquals(1000, balance());
+
+        clock.now = Instant.parse("2026-01-01T00:00:49.999Z");
+        predictionService.placePrediction(DEMO_USER, round.id(), allowedDirection(round), 10L);
+        assertEquals(990, balance());
+    }
+
+    @Test
+    void stakesBelowTheMinimumAreRejected() {
+        Round round = currentRound();
+        assertThrows(IllegalArgumentException.class,
+                () -> predictionService.placePrediction(DEMO_USER, round.id(), allowedDirection(round), 9L));
+        assertEquals(1000, balance());
+    }
+
+    @Test
+    void stakesAboveTheMaximumAreRejected() {
+        startFrom(50);
+        long roundId = currentRound().id();
+        assertThrows(IllegalArgumentException.class,
+                () -> predictionService.placePrediction(DEMO_USER, roundId, PredictionType.HIGHER, 501L));
+        predictionService.placePrediction(DEMO_USER, roundId, PredictionType.HIGHER, 500L);
+        assertEquals(500, balance());
+    }
+
+    @Test
+    void thePayoutCapLowersTheMaxStakeOnLongShots() {
+        startFrom(99); // HIGHER pays 98x, so the 10,000 cap allows at most 102
+        long roundId = currentRound().id();
+        assertThrows(IllegalArgumentException.class,
+                () -> predictionService.placePrediction(DEMO_USER, roundId, PredictionType.HIGHER, 103L));
+        predictionService.placePrediction(DEMO_USER, roundId, PredictionType.HIGHER, 102L);
+        assertEquals(898, balance());
+    }
+
+    @Test
+    void insufficientPointsAreRejected() {
+        jdbc.update("UPDATE wallets SET balance = 50 WHERE user_id = ?", DEMO_USER);
+        Round round = currentRound();
+        assertThrows(IllegalStateException.class,
+                () -> predictionService.placePrediction(DEMO_USER, round.id(), allowedDirection(round), 100L));
+        assertEquals(50, balance());
+        assertFalse(predictionRepository.existsByRoundIdAndUserId(round.id(), DEMO_USER));
+    }
+
+    @Test
+    void settlementPaysTheStoredMultiplierNotTheCurrentOdds() {
+        Instant start = startFrom(50);
+        Prediction placed = predictionService.placePrediction(DEMO_USER, currentRound().id(), PredictionType.HIGHER, 100L);
+        // Stands in for odds that changed after the prediction was placed
+        jdbc.update("UPDATE predictions SET multiplier_bps = 30000 WHERE id = ?", placed.id());
+
+        plantNextRoll(80);
+        settleRoundStartedAt(start);
+
+        assertEquals(300, predictionRepository.findById(placed.id()).orElseThrow().payout());
     }
 
     @Test

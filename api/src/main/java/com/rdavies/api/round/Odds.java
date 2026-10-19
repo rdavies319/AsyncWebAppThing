@@ -36,4 +36,9 @@ public final class Odds {
     public static long payout(long stake, long multiplierBps) {
         return Math.multiplyExact(stake, multiplierBps) / BPS_PER_UNIT;
     }
+
+    /** Largest stake whose payout stays within maxPayout: min(maxStake, floor(maxPayout * 10000 / bps)). */
+    public static long maxStake(long multiplierBps, long maxStake, long maxPayout) {
+        return Math.min(maxStake, Math.multiplyExact(maxPayout, BPS_PER_UNIT) / multiplierBps);
+    }
 }

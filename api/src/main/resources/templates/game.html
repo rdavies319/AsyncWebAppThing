@@ -52,7 +52,7 @@
             </div>
             <input type="hidden" name="prediction" id="predictionInput" required>
             <div style="margin-bottom: 1rem;">
-                Stake: <input type="number" name="stake" class="stake-input" value="10" min="1">
+                Stake: <input type="number" name="stake" class="stake-input" th:value="${minStake}" th:min="${minStake}">
             </div>
             <button type="submit" class="submit-btn" id="submitBtn">Place Bet</button>
         </form>
