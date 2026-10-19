@@ -11,11 +11,12 @@ import java.lang.annotation.Target;
 
 /**
  * The one test setup: every class using it shares a Spring context, and so one Postgres container.
+ * Drive rounds through the {@link TestGame} bean.
  * Add @Transactional per class (but see RoundEngineLockTests).
  */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
 @SpringBootTest
 @AutoConfigureMockMvc
-@Import({TestcontainersConfiguration.class, MutableClock.Config.class})
+@Import({TestcontainersConfiguration.class, MutableClock.Config.class, TestGame.class})
 public @interface GameTest {}

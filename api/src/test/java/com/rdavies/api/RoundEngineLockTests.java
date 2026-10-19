@@ -14,6 +14,7 @@ import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.time.Instant;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -24,9 +25,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  */
 @GameTest
 class RoundEngineLockTests {
-    @Autowired RoundEngine engine;
+    @Autowired TestGame game;
     @Autowired RoundRepository roundRepository;
-    @Autowired MutableClock clock;
     @Autowired DataSource dataSource;
     @Autowired JdbcTemplate jdbc;
 
@@ -38,14 +38,14 @@ class RoundEngineLockTests {
     @Test
     @Timeout(30)
     void tickSkipsWhileAnotherInstanceHoldsTheEngineLock() throws SQLException {
-        Round round = TestGame.openRound(engine, clock, roundRepository);
-        clock.now = TestGame.ROUND_START.plusSeconds(60);
+        Round round = game.open();
+        Instant rollTime = TestGame.ROUND_START.plusSeconds(60);
 
         // A separate connection stands in for another instance mid-tick
         try (Connection other = dataSource.getConnection()) {
             advisoryLock(other, "pg_advisory_lock");
             try {
-                engine.tick();
+                game.tickAt(rollTime);
                 assertEquals(RoundStatus.OPEN, roundRepository.findById(round.id()).orElseThrow().status());
                 assertEquals(2, roundRepository.count()); // open and scheduled
             } finally {
@@ -53,7 +53,7 @@ class RoundEngineLockTests {
             }
         }
 
-        engine.tick();
+        game.tickAt(rollTime);
         assertEquals(RoundStatus.SETTLED, roundRepository.findById(round.id()).orElseThrow().status());
     }
 

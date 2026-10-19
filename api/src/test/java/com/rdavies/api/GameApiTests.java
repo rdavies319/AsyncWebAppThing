@@ -1,8 +1,6 @@
 package com.rdavies.api;
 
 import com.rdavies.api.round.Round;
-import com.rdavies.api.round.RoundEngine;
-import com.rdavies.api.round.RoundRepository;
 import com.rdavies.api.user.GamePrincipal;
 import com.rdavies.api.user.UserService;
 import org.junit.jupiter.api.BeforeEach;
@@ -30,8 +28,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @GameTest
 @Transactional
 class GameApiTests {
-    @Autowired RoundEngine engine;
-    @Autowired RoundRepository roundRepository;
+    @Autowired TestGame game;
     @Autowired MutableClock clock;
     @Autowired MockMvc mockMvc;
     @Autowired UserService userService;
@@ -52,7 +49,7 @@ class GameApiTests {
     @Test
     void currentRoundShowsTheRollOddsAndCommitment() throws Exception {
         Round round = openRound();
-        Round next = roundRepository.findScheduledRound().orElseThrow();
+        Round next = game.scheduled();
         mockMvc.perform(get("/rounds/current"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.round_id").value(round.id()))
@@ -97,6 +94,20 @@ class GameApiTests {
     }
 
     @Test
+    void theCurrentRoundsOddsFollowItsRoll() throws Exception {
+        Round round = game.startFrom(99); // HIGHER pays 98x, so the 10,000 payout cap limits its stake to 102
+        mockMvc.perform(get("/rounds/current"))
+                .andExpect(jsonPath("$.roll").value(99))
+                .andExpect(jsonPath("$.higher.multiplier_bps").value(980000))
+                .andExpect(jsonPath("$.higher.max_stake").value(102))
+                .andExpect(jsonPath("$.lower.multiplier_bps").value(10000));
+        predict(round.id(), "higher", 103)
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value("Stake must be between 10 and 102 pts on HIGHER"));
+        predict(round.id(), "higher", 102).andExpect(status().isCreated());
+    }
+
+    @Test
     void malformedRequestsAre400() throws Exception {
         Round round = openRound();
         predict(round.id(), "sideways", 10).andExpect(status().isBadRequest());
@@ -134,7 +145,7 @@ class GameApiTests {
     }
 
     private Round openRound() {
-        return TestGame.openRound(engine, clock, roundRepository);
+        return game.open();
     }
 
     private static String allowedDirection(Round round) {

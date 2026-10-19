@@ -13,7 +13,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 
-import static com.rdavies.api.TestGame.assertLedgerMatchesWallet;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
@@ -33,6 +32,7 @@ class WalletTests {
     @Autowired WalletService walletService;
     @Autowired UserService userService;
     @Autowired JdbcTemplate jdbc;
+    @Autowired TestGame game;
     @Autowired MutableClock clock;
     @Autowired MockMvc mockMvc;
 
@@ -54,7 +54,7 @@ class WalletTests {
         assertEquals(1000, wallet.balance());
         assertNull(wallet.lastTopUpDate());
         assertEquals("SIGNUP_BONUS", jdbc.queryForObject("SELECT reason FROM ledger WHERE user_id = ?", String.class, userId));
-        assertLedgerMatchesWallet(jdbc, userId);
+        game.assertLedgerMatchesWallet(userId);
     }
 
     @Test
@@ -66,7 +66,7 @@ class WalletTests {
         assertEquals(1000, balance());
         assertEquals(700, jdbc.queryForObject(
                 "SELECT delta FROM ledger WHERE user_id = ? AND reason = 'TOPUP'", Long.class, playerId));
-        assertLedgerMatchesWallet(jdbc, playerId);
+        game.assertLedgerMatchesWallet(playerId);
     }
 
     @Test
@@ -81,7 +81,7 @@ class WalletTests {
 
         clock.now = Instant.parse("2026-01-02T00:00:00Z");
         assertEquals(500, walletService.claimTopUp(playerId));
-        assertLedgerMatchesWallet(jdbc, playerId);
+        game.assertLedgerMatchesWallet(playerId);
     }
 
     @Test
