@@ -1,5 +1,6 @@
 package com.rdavies.api;
 
+import com.rdavies.api.live.LiveStreams;
 import com.rdavies.api.prediction.Prediction;
 import com.rdavies.api.prediction.PredictionRepository;
 import com.rdavies.api.prediction.PredictionService;
@@ -13,6 +14,7 @@ import com.rdavies.api.round.RoundOpened;
 import com.rdavies.api.round.RoundRepository;
 import com.rdavies.api.round.RoundSettled;
 import com.rdavies.api.round.RoundStatus;
+import com.rdavies.api.round.RoundView;
 import com.rdavies.api.user.GamePrincipal;
 import com.rdavies.api.user.UserService;
 import com.rdavies.api.wallet.WalletRepository;
@@ -24,6 +26,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.event.ApplicationEvents;
 import org.springframework.test.context.event.RecordApplicationEvents;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
@@ -61,6 +64,7 @@ class GameFlowTests {
     @Autowired MutableClock clock;
     @Autowired MockMvc mockMvc;
     @Autowired ApplicationEvents events;
+    @Autowired LiveStreams liveStreams;
 
     @BeforeEach
     void openRound() {
@@ -87,9 +91,8 @@ class GameFlowTests {
     void liveStreamStartsWithAServerTimeAndRoundSnapshot() throws Exception {
         startFrom(99);
         Round round = currentRound();
-        String body = mockMvc.perform(get("/live"))
-                .andExpect(request().asyncStarted())
-                .andReturn().getResponse().getContentAsString();
+        MvcResult result = mockMvc.perform(get("/live")).andExpect(request().asyncStarted()).andReturn();
+        String body = result.getResponse().getContentAsString();
 
         assertTrue(body.startsWith("event:server_time\ndata:{\"server_time\":\"2026-01-01T00:01:00.200Z\"}"), body);
         assertTrue(body.contains("event:round_open\ndata:{\"round_id\":" + round.id() + ",\"roll\":99,"), body);
@@ -98,6 +101,11 @@ class GameFlowTests {
         assertTrue(body.contains("\"higher\":{\"multiplier_bps\":980000,\"max_stake\":102}"), body);
         assertTrue(body.contains("\"lower\":{\"multiplier_bps\":10000,\"max_stake\":500}"), body);
         assertTrue(body.contains("\"next_seed_commit_hash\":\"" + scheduledRound().seedCommitHash() + "\""), body);
+
+        // Later events are sent as JSON serialised once, and reach the stream as is
+        liveStreams.broadcast("round_settled", "{\"round_id\":1}");
+        body = result.getResponse().getContentAsString();
+        assertTrue(body.endsWith("event:round_settled\ndata:{\"round_id\":1}\n\n"), body);
     }
 
     @Test
@@ -115,7 +123,11 @@ class GameFlowTests {
                 events.stream(RoundSettled.class).toList());
         assertEquals(List.of(new PredictionSettled(playerId, placed.id(), placed.roundId(), PredictionStatus.WON, 196, 1096)),
                 events.stream(PredictionSettled.Batch.class).flatMap(b -> b.predictions().stream()).toList());
-        assertEquals(List.of(new RoundOpened(next.id())), events.stream(RoundOpened.class).toList());
+        RoundView opened = events.stream(RoundOpened.class).map(RoundOpened::view).findFirst().orElseThrow();
+        assertEquals(1, events.stream(RoundOpened.class).count());
+        assertEquals(next.id(), opened.roundId());
+        assertEquals(80, opened.roll());
+        assertEquals(scheduledRound().seedCommitHash(), opened.nextSeedCommitHash());
     }
 
     @Test

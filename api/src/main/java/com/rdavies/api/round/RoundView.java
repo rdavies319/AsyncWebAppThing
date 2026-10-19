@@ -19,6 +19,11 @@ public record RoundView(
     /** When this view was built, so clients can count down by the server clock. */
     Instant serverTime
 ) {
+    /** The same view, stamped with the time it is sent. */
+    public RoundView at(Instant now) {
+        return new RoundView(roundId, roll, startsAt, cutoffAt, higher, lower, nextSeedCommitHash, now);
+    }
+
     /** When the next round is rolled. Not a getter, so it stays out of the JSON. */
     public Instant rollAt() {
         return startsAt.plus(Round.LENGTH);

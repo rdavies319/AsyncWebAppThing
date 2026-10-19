@@ -22,9 +22,14 @@ public class RoundService {
 
     /** The open round with its odds and the next roll's commitment, as sent to clients. */
     public Optional<RoundView> currentView() {
-        return roundRepository.findOpenRound().map(round -> new RoundView(round.id(), round.rollValue(),
-                round.startsAt(), predictionDeadline(round), side(round, PredictionType.HIGHER).orElse(null),
-                side(round, PredictionType.LOWER).orElse(null), getNextRollCommit().orElse(null), clock.instant()));
+        return roundRepository.findOpenRound().map(round -> view(round, getNextRollCommit().orElse(null)));
+    }
+
+    /** An open round as clients see it, given the commitment to the seed of the roll being predicted. */
+    public RoundView view(Round open, String nextSeedCommitHash) {
+        return new RoundView(open.id(), open.rollValue(), open.startsAt(), predictionDeadline(open),
+                side(open, PredictionType.HIGHER).orElse(null), side(open, PredictionType.LOWER).orElse(null),
+                nextSeedCommitHash, clock.instant());
     }
 
     /** The odds and stake limit on one side of this round, or empty if that side cannot win. */

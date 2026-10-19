@@ -49,16 +49,18 @@ public class RoundEngine {
     private final SecureRandom random = new SecureRandom();
 
     private final RoundRepository roundRepository;
+    private final RoundService roundService;
     private final PredictionRepository predictionRepository;
     private final WalletService walletService;
     private final JdbcTemplate jdbc;
     private final Clock clock;
     private final ApplicationEventPublisher events;
 
-    public RoundEngine(RoundRepository roundRepository, PredictionRepository predictionRepository,
-                       WalletService walletService,
+    public RoundEngine(RoundRepository roundRepository, RoundService roundService,
+                       PredictionRepository predictionRepository, WalletService walletService,
                        JdbcTemplate jdbc, Clock clock, ApplicationEventPublisher events) {
         this.roundRepository = roundRepository;
+        this.roundService = roundService;
         this.predictionRepository = predictionRepository;
         this.walletService = walletService;
         this.jdbc = jdbc;
@@ -125,24 +127,24 @@ public class RoundEngine {
                     Duration.between(nextSlot, currentSlot).toMinutes(), next.id(), nextSlot, currentSlot);
             nextSlot = currentSlot;
         }
-        open(next, roll, nextSlot);
-        schedule(nextSlot.plus(Round.LENGTH));
+        openWithNextScheduled(next, roll, nextSlot);
     }
 
     /** First ever tick: round 1 opens on the current minute, already rolled, with round 2 scheduled. */
     private void bootstrap(Instant slot) {
         Round first = schedule(slot);
-        open(first, ProvablyFair.roll(first.seed(), first.id()), slot);
-        schedule(slot.plus(Round.LENGTH));
+        openWithNextScheduled(first, ProvablyFair.roll(first.seed(), first.id()), slot);
     }
 
-    private void open(Round round, int roll, Instant slot) {
+    private void openWithNextScheduled(Round round, int roll, Instant slot) {
         if (roundRepository.open(round.id(), roll, slot) != 1) {
             throw new IllegalStateException("Round " + round.id() + " was not scheduled");
         }
         log.info("Round {} opened at {} with roll {}", round.id(), slot, roll);
+        Round opened = new Round(round.id(), slot, roll, round.seedCommitHash(), round.seed(), RoundStatus.OPEN, null);
+        Round next = schedule(slot.plus(Round.LENGTH));
         // Delivered to listeners only once this tick's transaction commits
-        events.publishEvent(new RoundOpened(round.id()));
+        events.publishEvent(new RoundOpened(roundService.view(opened, next.seedCommitHash())));
     }
 
     private Round schedule(Instant slot) {

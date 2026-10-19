@@ -51,6 +51,19 @@ class LiveStreamsTests {
     }
 
     @Test
+    void aDroppedStreamGetsNoMorePersonalEvents() {
+        RecordingEmitter gone = subscribe(1);
+        gone.broken = true;
+        streams.sendToUser(1, "prediction_settled", "won");
+        gone.broken = false;
+
+        streams.sendToUser(1, "prediction_settled", "won");
+
+        assertTrue(gone.sent.isEmpty());
+        assertEquals(0, streams.size());
+    }
+
+    @Test
     void heartbeatIsAComment() {
         RecordingEmitter emitter = subscribe(1);
         streams.heartbeat();
