@@ -10,7 +10,7 @@ It's a single full-stack Spring Boot app (Java 21, PostgreSQL, Thymeleaf + htmx,
 docker compose up --build
 ```
 
-Then open <http://localhost:8080>.
+Then open <http://localhost:8080> and sign up. Anyone can watch, and playing needs an account.
 
 To run the app or tests directly, use the Maven wrapper in `api/` (`./mvnw spring-boot:run`, `./mvnw test`). The app needs a PostgreSQL datasource (`SPRING_DATASOURCE_URL`, `_USERNAME`, `_PASSWORD`), for example the `db` service from `docker compose up db`.
 

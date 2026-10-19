@@ -12,11 +12,12 @@ import java.util.concurrent.CopyOnWriteArrayList;
  */
 @Component
 public class LiveStreams {
-    private record Stream(long userId, SseEmitter emitter) {}
+    /** userId is null for an anonymous viewer, who gets broadcasts only. */
+    private record Stream(Long userId, SseEmitter emitter) {}
 
     private final CopyOnWriteArrayList<Stream> streams = new CopyOnWriteArrayList<>();
 
-    public void add(long userId, SseEmitter emitter) {
+    public void add(Long userId, SseEmitter emitter) {
         Stream stream = new Stream(userId, emitter);
         streams.add(stream);
         emitter.onCompletion(() -> streams.remove(stream));
@@ -32,7 +33,7 @@ public class LiveStreams {
 
     public void sendToUser(long userId, String event, Object data) {
         for (Stream stream : streams) {
-            if (stream.userId() == userId) {
+            if (stream.userId() != null && stream.userId() == userId) {
                 send(stream, SseEmitter.event().name(event).data(data));
             }
         }

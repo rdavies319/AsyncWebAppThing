@@ -14,6 +14,8 @@ import com.rdavies.api.round.RoundRepository;
 import com.rdavies.api.round.RoundService;
 import com.rdavies.api.round.RoundSettled;
 import com.rdavies.api.round.RoundStatus;
+import com.rdavies.api.user.GamePrincipal;
+import com.rdavies.api.user.UserService;
 import com.rdavies.api.wallet.WalletRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -40,6 +42,8 @@ import java.time.ZoneOffset;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -52,11 +56,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Transactional
 @RecordApplicationEvents
 class GameFlowTests {
-    private static final long DEMO_USER = 1L;
+    private GamePrincipal player;
+    private long playerId;
     private static final Instant ROUND_START = Instant.parse("2026-01-01T00:00:00.200Z");
     private static final SecureRandom RANDOM = new SecureRandom();
 
     @Autowired RoundEngine engine;
+    @Autowired UserService userService;
     @Autowired PredictionService predictionService;
     @Autowired RoundService roundService;
     @Autowired RoundRepository roundRepository;
@@ -69,15 +75,17 @@ class GameFlowTests {
 
     @BeforeEach
     void openRound() {
+        player = TestPlayers.signUp(userService, "player");
+        playerId = player.id();
         clock.now = ROUND_START;
         engine.tick();
     }
 
     @Test
-    void migrationsSeedTheDemoWallet() {
+    void newPlayersStartWithTheSignupBonus() {
         assertEquals(1000, balance());
         assertEquals("SIGNUP_BONUS",
-                jdbc.queryForObject("SELECT reason FROM ledger WHERE user_id = ?", String.class, DEMO_USER));
+                jdbc.queryForObject("SELECT reason FROM ledger WHERE user_id = ?", String.class, playerId));
         assertLedgerMatchesWallet();
     }
 
@@ -115,7 +123,7 @@ class GameFlowTests {
     @Test
     void settlingPublishesTheRollAndEachPlayersResult() {
         Instant start = startFrom(50);
-        Prediction placed = predictionService.placePrediction(DEMO_USER, currentRound().id(), PredictionType.HIGHER, 100L);
+        Prediction placed = predictionService.placePrediction(playerId, currentRound().id(), PredictionType.HIGHER, 100L);
         Round next = scheduledRound();
         events.clear();
 
@@ -125,7 +133,7 @@ class GameFlowTests {
         Round rolled = roundRepository.findById(next.id()).orElseThrow();
         assertEquals(List.of(new RoundSettled(placed.roundId(), next.id(), 80, rolled.seed())),
                 events.stream(RoundSettled.class).toList());
-        assertEquals(List.of(new PredictionSettled(DEMO_USER, placed.id(), placed.roundId(), PredictionStatus.WON, 196, 1096)),
+        assertEquals(List.of(new PredictionSettled(playerId, placed.id(), placed.roundId(), PredictionStatus.WON, 196, 1096)),
                 events.stream(PredictionSettled.Batch.class).flatMap(b -> b.predictions().stream()).toList());
         assertEquals(List.of(new RoundOpened(next.id())), events.stream(RoundOpened.class).toList());
     }
@@ -133,7 +141,7 @@ class GameFlowTests {
     @Test
     void gamePageShowsEachSidesOddsAndListensForNewRounds() throws Exception {
         startFrom(50);
-        String page = mockMvc.perform(get("/")).andExpect(status().isOk())
+        String page = mockMvc.perform(get("/").with(user(player))).andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
         assertTrue(page.contains("sse-connect=\"/live\""), page);
         assertTrue(page.contains("hx-trigger=\"sse:round_open\""), page);
@@ -144,7 +152,7 @@ class GameFlowTests {
     @Test
     void anImpossibleSideIsDisabled() throws Exception {
         startFrom(100);
-        String page = mockMvc.perform(get("/")).andReturn().getResponse().getContentAsString();
+        String page = mockMvc.perform(get("/").with(user(player))).andReturn().getResponse().getContentAsString();
         assertTrue(page.contains("value=\"HIGHER\" class=\"side\" disabled=\"disabled\""), page);
         assertFalse(page.contains("value=\"LOWER\" class=\"side\" disabled"), page);
     }
@@ -160,7 +168,7 @@ class GameFlowTests {
     @Test
     void predictingFromThePageReturnsTheBoardWithYourBet() throws Exception {
         startFrom(50);
-        String board = mockMvc.perform(post("/predict")
+        String board = mockMvc.perform(post("/predict").with(user(player)).with(csrf())
                         .param("roundId", currentRound().id().toString())
                         .param("prediction", "LOWER").param("stake", "100"))
                 .andExpect(status().isOk())
@@ -173,7 +181,7 @@ class GameFlowTests {
     @Test
     void aRejectedPredictionShowsTheErrorOnTheBoard() throws Exception {
         startFrom(50);
-        String board = mockMvc.perform(post("/predict")
+        String board = mockMvc.perform(post("/predict").with(user(player)).with(csrf())
                         .param("roundId", currentRound().id().toString())
                         .param("prediction", "HIGHER").param("stake", "5"))
                 .andExpect(status().isOk())
@@ -186,7 +194,7 @@ class GameFlowTests {
     @Test
     void gamePageRendersTheCurrentRound() throws Exception {
         Round round = currentRound();
-        mockMvc.perform(get("/"))
+        mockMvc.perform(get("/").with(user(player)))
                 .andExpect(status().isOk())
                 .andExpect(content().string(org.hamcrest.Matchers.containsString(
                         "value=\"" + round.id() + "\"")))
@@ -197,14 +205,14 @@ class GameFlowTests {
     @Test
     void gamePageShowsTheLastRollAndYourBet() throws Exception {
         Round round = currentRound();
-        predictionService.placePrediction(DEMO_USER, round.id(), allowedDirection(round), 10L);
-        mockMvc.perform(get("/"))
+        predictionService.placePrediction(playerId, round.id(), allowedDirection(round), 10L);
+        mockMvc.perform(get("/").with(user(player)))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("Your bet:")));
 
         clock.now = ROUND_START.plusSeconds(60);
         engine.tick();
 
-        mockMvc.perform(get("/"))
+        mockMvc.perform(get("/").with(user(player)))
                 .andExpect(status().isOk())
                 .andExpect(content().string(org.hamcrest.Matchers.containsString(
                         "<strong>" + currentRound().rollValue() + "</strong>")))
@@ -215,7 +223,7 @@ class GameFlowTests {
     @Test
     void aWinPaysTheMultiplierLockedInWhenPlaced() {
         Instant start = startFrom(50);
-        Prediction placed = predictionService.placePrediction(DEMO_USER, currentRound().id(), PredictionType.HIGHER, 100L);
+        Prediction placed = predictionService.placePrediction(playerId, currentRound().id(), PredictionType.HIGHER, 100L);
         assertEquals(19_600, placed.multiplierBps());
         assertEquals(900, balance());
 
@@ -234,7 +242,7 @@ class GameFlowTests {
     @Test
     void aLossKeepsTheStake() {
         Instant start = startFrom(50);
-        Prediction placed = predictionService.placePrediction(DEMO_USER, currentRound().id(), PredictionType.HIGHER, 100L);
+        Prediction placed = predictionService.placePrediction(playerId, currentRound().id(), PredictionType.HIGHER, 100L);
 
         plantNextRoll(20);
         settleRoundStartedAt(start);
@@ -250,7 +258,7 @@ class GameFlowTests {
     @Test
     void aTieRefundsTheStake() {
         Instant start = startFrom(50);
-        Prediction placed = predictionService.placePrediction(DEMO_USER, currentRound().id(), PredictionType.LOWER, 100L);
+        Prediction placed = predictionService.placePrediction(playerId, currentRound().id(), PredictionType.LOWER, 100L);
 
         plantNextRoll(50);
         settleRoundStartedAt(start);
@@ -268,7 +276,7 @@ class GameFlowTests {
     void impossibleDirectionsAreRejected() {
         startFrom(100);
         assertThrows(IllegalArgumentException.class,
-                () -> predictionService.placePrediction(DEMO_USER, currentRound().id(), PredictionType.HIGHER, 10L));
+                () -> predictionService.placePrediction(playerId, currentRound().id(), PredictionType.HIGHER, 10L));
         assertEquals(1000, balance());
     }
 
@@ -276,9 +284,9 @@ class GameFlowTests {
     void negativeAndZeroStakesAreRejected() {
         Round round = currentRound();
         assertThrows(IllegalArgumentException.class,
-                () -> predictionService.placePrediction(DEMO_USER, round.id(), allowedDirection(round), -1000L));
+                () -> predictionService.placePrediction(playerId, round.id(), allowedDirection(round), -1000L));
         assertThrows(IllegalArgumentException.class,
-                () -> predictionService.placePrediction(DEMO_USER, round.id(), allowedDirection(round), 0L));
+                () -> predictionService.placePrediction(playerId, round.id(), allowedDirection(round), 0L));
         assertEquals(1000, balance());
     }
 
@@ -287,11 +295,11 @@ class GameFlowTests {
         Round round = currentRound();
         clock.now = Instant.parse("2026-01-01T00:00:50Z");
         assertThrows(IllegalStateException.class,
-                () -> predictionService.placePrediction(DEMO_USER, round.id(), allowedDirection(round), 10L));
+                () -> predictionService.placePrediction(playerId, round.id(), allowedDirection(round), 10L));
         assertEquals(1000, balance());
 
         clock.now = Instant.parse("2026-01-01T00:00:49.999Z");
-        predictionService.placePrediction(DEMO_USER, round.id(), allowedDirection(round), 10L);
+        predictionService.placePrediction(playerId, round.id(), allowedDirection(round), 10L);
         assertEquals(990, balance());
     }
 
@@ -299,7 +307,7 @@ class GameFlowTests {
     void stakesBelowTheMinimumAreRejected() {
         Round round = currentRound();
         assertThrows(IllegalArgumentException.class,
-                () -> predictionService.placePrediction(DEMO_USER, round.id(), allowedDirection(round), 9L));
+                () -> predictionService.placePrediction(playerId, round.id(), allowedDirection(round), 9L));
         assertEquals(1000, balance());
     }
 
@@ -308,8 +316,8 @@ class GameFlowTests {
         startFrom(50);
         long roundId = currentRound().id();
         assertThrows(IllegalArgumentException.class,
-                () -> predictionService.placePrediction(DEMO_USER, roundId, PredictionType.HIGHER, 501L));
-        predictionService.placePrediction(DEMO_USER, roundId, PredictionType.HIGHER, 500L);
+                () -> predictionService.placePrediction(playerId, roundId, PredictionType.HIGHER, 501L));
+        predictionService.placePrediction(playerId, roundId, PredictionType.HIGHER, 500L);
         assertEquals(500, balance());
     }
 
@@ -318,25 +326,25 @@ class GameFlowTests {
         startFrom(99); // HIGHER pays 98x, so the 10,000 cap allows at most 102
         long roundId = currentRound().id();
         assertThrows(IllegalArgumentException.class,
-                () -> predictionService.placePrediction(DEMO_USER, roundId, PredictionType.HIGHER, 103L));
-        predictionService.placePrediction(DEMO_USER, roundId, PredictionType.HIGHER, 102L);
+                () -> predictionService.placePrediction(playerId, roundId, PredictionType.HIGHER, 103L));
+        predictionService.placePrediction(playerId, roundId, PredictionType.HIGHER, 102L);
         assertEquals(898, balance());
     }
 
     @Test
     void insufficientPointsAreRejected() {
-        jdbc.update("UPDATE wallets SET balance = 50 WHERE user_id = ?", DEMO_USER);
+        jdbc.update("UPDATE wallets SET balance = 50 WHERE user_id = ?", playerId);
         Round round = currentRound();
         assertThrows(IllegalStateException.class,
-                () -> predictionService.placePrediction(DEMO_USER, round.id(), allowedDirection(round), 100L));
+                () -> predictionService.placePrediction(playerId, round.id(), allowedDirection(round), 100L));
         assertEquals(50, balance());
-        assertFalse(predictionRepository.existsByRoundIdAndUserId(round.id(), DEMO_USER));
+        assertFalse(predictionRepository.existsByRoundIdAndUserId(round.id(), playerId));
     }
 
     @Test
     void settlementPaysTheStoredMultiplierNotTheCurrentOdds() {
         Instant start = startFrom(50);
-        Prediction placed = predictionService.placePrediction(DEMO_USER, currentRound().id(), PredictionType.HIGHER, 100L);
+        Prediction placed = predictionService.placePrediction(playerId, currentRound().id(), PredictionType.HIGHER, 100L);
         // Stands in for odds that changed after the prediction was placed
         jdbc.update("UPDATE predictions SET multiplier_bps = 30000 WHERE id = ?", placed.id());
 
@@ -349,16 +357,16 @@ class GameFlowTests {
     @Test
     void secondPredictionInARoundIsRejected() {
         Round round = currentRound();
-        predictionService.placePrediction(DEMO_USER, round.id(), allowedDirection(round), 10L);
+        predictionService.placePrediction(playerId, round.id(), allowedDirection(round), 10L);
         assertThrows(IllegalStateException.class,
-                () -> predictionService.placePrediction(DEMO_USER, round.id(), allowedDirection(round), 10L));
+                () -> predictionService.placePrediction(playerId, round.id(), allowedDirection(round), 10L));
         assertEquals(990, balance());
     }
 
     @Test
     void repeatTicksNeverRollOrPayTwice() {
         Round round = currentRound();
-        predictionService.placePrediction(DEMO_USER, round.id(), allowedDirection(round), 100L);
+        predictionService.placePrediction(playerId, round.id(), allowedDirection(round), 100L);
 
         clock.now = ROUND_START.plusSeconds(60);
         engine.tick();
@@ -394,7 +402,7 @@ class GameFlowTests {
     void roundMissedDuringDowntimeIsSettledWithItsCommittedSeed() {
         Round stale = currentRound();
         Round committed = scheduledRound();
-        Prediction placed = predictionService.placePrediction(DEMO_USER, stale.id(), allowedDirection(stale), 100L);
+        Prediction placed = predictionService.placePrediction(playerId, stale.id(), allowedDirection(stale), 100L);
 
         clock.now = Instant.parse("2026-01-01T00:10:20Z");
         engine.tick();
@@ -446,7 +454,7 @@ class GameFlowTests {
     @Test
     void ledgerIsAppendOnly() {
         DataAccessException e = assertThrows(DataAccessException.class,
-                () -> jdbc.update("DELETE FROM ledger WHERE user_id = ?", DEMO_USER));
+                () -> jdbc.update("DELETE FROM ledger WHERE user_id = ?", playerId));
         assertTrue(e.getMostSpecificCause().getMessage().contains("append-only"), e.getMessage());
     }
 
@@ -519,7 +527,7 @@ class GameFlowTests {
     }
 
     private int ledgerRows() {
-        return jdbc.queryForObject("SELECT COUNT(*) FROM ledger WHERE user_id = ?", Integer.class, DEMO_USER);
+        return jdbc.queryForObject("SELECT COUNT(*) FROM ledger WHERE user_id = ?", Integer.class, playerId);
     }
 
     private Round currentRound() {
@@ -535,11 +543,11 @@ class GameFlowTests {
     }
 
     private long balance() {
-        return walletRepository.findById(DEMO_USER).orElseThrow().balance();
+        return walletRepository.findById(playerId).orElseThrow().balance();
     }
 
     private void assertLedgerMatchesWallet() {
-        Long ledgerTotal = jdbc.queryForObject("SELECT SUM(delta) FROM ledger WHERE user_id = ?", Long.class, DEMO_USER);
+        Long ledgerTotal = jdbc.queryForObject("SELECT SUM(delta) FROM ledger WHERE user_id = ?", Long.class, playerId);
         assertEquals(balance(), ledgerTotal);
     }
 

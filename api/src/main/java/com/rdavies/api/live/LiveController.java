@@ -5,6 +5,7 @@ import com.rdavies.api.round.RoundOpened;
 import com.rdavies.api.round.RoundService;
 import com.rdavies.api.round.RoundSettled;
 import com.rdavies.api.user.CurrentUser;
+import com.rdavies.api.user.GamePrincipal;
 import org.springframework.http.MediaType;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.transaction.event.TransactionalEventListener;
@@ -45,7 +46,7 @@ public class LiveController {
                 emitter.completeWithError(e);
             }
         });
-        streams.add(currentUser.id(), emitter);
+        streams.add(currentUser.principal().map(GamePrincipal::id).orElse(null), emitter);
         return emitter;
     }
 

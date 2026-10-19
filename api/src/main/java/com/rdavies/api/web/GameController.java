@@ -5,11 +5,14 @@ import com.rdavies.api.prediction.PredictionService;
 import com.rdavies.api.prediction.PredictionType;
 import com.rdavies.api.round.RoundService;
 import com.rdavies.api.user.CurrentUser;
+import com.rdavies.api.user.GamePrincipal;
 import com.rdavies.api.wallet.Wallet;
 import com.rdavies.api.wallet.WalletService;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Optional;
 
 /**
  * The game page. htmx swaps the {@code board} fragment: refetched on every SSE round_open, and
@@ -68,22 +71,28 @@ public class GameController {
         return "game :: board";
     }
 
+    /** Anyone can watch; the bet, last result and wallet are added only for a logged-in player. */
     private void addBoard(Model model) {
-        long userId = currentUser.id();
+        Optional<GamePrincipal> player = currentUser.principal();
         roundService.getCurrentRound().ifPresent(round -> {
             model.addAttribute("round", round);
             // Epoch millis, so the page counts down by the server clock rather than the browser's
             model.addAttribute("rollAt", roundService.rollTime(round).toEpochMilli());
             model.addAttribute("deadline", roundService.predictionDeadline(round).toEpochMilli());
-            predictionService.getPrediction(userId, round.id()).ifPresent(p -> model.addAttribute("myPrediction", p));
+            player.flatMap(p -> predictionService.getPrediction(p.id(), round.id()))
+                    .ifPresent(p -> model.addAttribute("myPrediction", p));
         });
         roundService.currentView().ifPresent(view -> model.addAttribute("view", view));
-        predictionService.getLastResult(userId).ifPresent(result -> model.addAttribute("lastResult", result));
         model.addAttribute("serverNow", roundService.now().toEpochMilli());
         model.addAttribute("minStake", game.minStake());
-        Wallet wallet = walletService.getWallet(userId);
-        model.addAttribute("wallet", wallet);
-        model.addAttribute("canTopUp", walletService.canTopUp(wallet));
-        model.addAttribute("topUpTarget", game.topUpTarget());
+        roundService.getLastSettledRound().ifPresent(last -> model.addAttribute("lastRound", last));
+        player.ifPresent(p -> {
+            model.addAttribute("player", p);
+            predictionService.getLastResult(p.id()).ifPresent(result -> model.addAttribute("lastResult", result));
+            Wallet wallet = walletService.getWallet(p.id());
+            model.addAttribute("wallet", wallet);
+            model.addAttribute("canTopUp", walletService.canTopUp(wallet));
+            model.addAttribute("topUpTarget", game.topUpTarget());
+        });
     }
 }

@@ -3,6 +3,9 @@ package com.rdavies.api;
 import com.rdavies.api.round.Round;
 import com.rdavies.api.round.RoundEngine;
 import com.rdavies.api.round.RoundRepository;
+import com.rdavies.api.user.GamePrincipal;
+import com.rdavies.api.user.UserService;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -16,6 +19,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 
 import static org.hamcrest.Matchers.*;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -33,6 +38,13 @@ class GameApiTests {
     @Autowired RoundRepository roundRepository;
     @Autowired GameFlowTests.MutableClock clock;
     @Autowired MockMvc mockMvc;
+    @Autowired UserService userService;
+    private GamePrincipal player;
+
+    @BeforeEach
+    void signUp() {
+        player = TestPlayers.signUp(userService, "player");
+    }
 
     @Test
     void currentRoundIs404BeforeTheFirstRound() throws Exception {
@@ -89,7 +101,7 @@ class GameApiTests {
     void malformedRequestsAre400() throws Exception {
         Round round = openRound();
         predict(round.id(), "sideways", 10).andExpect(status().isBadRequest());
-        mockMvc.perform(post("/predictions").contentType(MediaType.APPLICATION_JSON).content("{\"stake\": 10}"))
+        mockMvc.perform(post("/predictions").with(user(player)).with(csrf()).contentType(MediaType.APPLICATION_JSON).content("{\"stake\": 10}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.detail").value("Choose a round"));
     }
@@ -120,7 +132,7 @@ class GameApiTests {
     }
 
     private ResultActions predict(long roundId, String direction, long stake) throws Exception {
-        return mockMvc.perform(post("/predictions").contentType(MediaType.APPLICATION_JSON).content(
+        return mockMvc.perform(post("/predictions").with(user(player)).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(
                 "{\"round_id\": %d, \"direction\": \"%s\", \"stake\": %d}".formatted(roundId, direction, stake)));
     }
 }

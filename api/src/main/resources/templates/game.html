@@ -4,6 +4,9 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Higher or Lower</title>
+    <!-- htmx requests carry these as a header (see the script below); plain forms get a hidden field from th:action -->
+    <meta name="csrf-header" th:content="${_csrf.headerName}">
+    <meta name="csrf-token" th:content="${_csrf.token}">
     <script src="https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js"
             integrity="sha384-HGfztofotfshcF7+8n44JQL2oJmowVChPTg48S+jvZoztPfvwD79OC/LTtG6dMp+"
             crossorigin="anonymous"></script>
@@ -26,6 +29,9 @@
         .last-result .outcome { font-weight: bold; margin-top: 0.25rem; }
         .my-bet { padding: 0.75rem; border: 1px dashed #1a73e8; border-radius: 0.5rem; color: #1a73e8; }
         .wallet { margin-top: 1.5rem; font-size: 0.9rem; color: #888; }
+        .account { font-size: 0.85rem; color: #666; margin-top: -0.5rem; }
+        .link { background: none; border: none; padding: 0; color: #1a73e8; cursor: pointer; font: inherit; text-decoration: underline; }
+        .login-prompt { color: #444; }
         .topup { display: block; margin: 0.5rem auto 0; padding: 0.4rem 0.8rem; border: 1px solid #1a73e8; border-radius: 0.5rem; background: white; color: #1a73e8; cursor: pointer; }
         .commit { margin-top: 1rem; font-size: 0.7rem; color: #888; word-break: break-all; }
     </style>
@@ -37,17 +43,20 @@
      the last result and the balance together. -->
 <main class="card" hx-ext="sse" sse-connect="/live">
     <h2>Higher or Lower</h2>
+    <form class="account" th:if="${player}" method="post" th:action="@{/auth/logout}">
+        <span th:text="${player.displayName()}">player</span> · <button type="submit" class="link">Log out</button>
+    </form>
 
     <div id="board" th:fragment="board"
          hx-get="/fragments/board" hx-trigger="sse:round_open" hx-swap="outerHTML"
          th:attr="data-server-now=${serverNow},data-deadline=${deadline},data-roll-at=${rollAt}">
 
-        <div class="last-result" th:if="${lastResult}">
+        <div class="last-result" th:if="${lastRound}">
             <div>
-                Last roll: <span th:text="${lastResult.settled().round().rollValue()}">0</span>
-                &rarr; <strong th:text="${lastResult.settled().nextRoll()}">0</strong>
+                Last roll: <span th:text="${lastRound.round().rollValue()}">0</span>
+                &rarr; <strong th:text="${lastRound.nextRoll()}">0</strong>
             </div>
-            <div class="outcome" th:if="${lastResult.outcome()}" th:text="${lastResult.outcome()}"></div>
+            <div class="outcome" th:if="${lastResult?.outcome()}" th:text="${lastResult.outcome()}"></div>
         </div>
 
         <div th:if="${round}">
@@ -60,7 +69,7 @@
                 at <span th:text="${#numbers.formatDecimal(myPrediction.multiplierBps() / 10000.0, 1, 2)} + 'x'">1.96x</span>
             </div>
 
-            <form id="predictForm" th:unless="${myPrediction}"
+            <form id="predictForm" th:if="${player != null and myPrediction == null}"
                   hx-post="/predict" hx-target="#board" hx-swap="outerHTML">
                 <input type="hidden" name="roundId" th:value="${round.id}">
                 <div class="stake">
@@ -93,7 +102,11 @@
             <p>Waiting for the next round...</p>
         </div>
 
-        <div class="wallet">
+        <p class="login-prompt" th:unless="${player}">
+            <a th:href="@{/auth/login}">Log in</a> or <a th:href="@{/auth/signup}">sign up</a> to play.
+        </p>
+
+        <div class="wallet" th:if="${player}">
             Balance: <span th:text="${wallet.balance}">0</span> pts
             <button class="topup" th:if="${canTopUp}" hx-post="/topup" hx-target="#board" hx-swap="outerHTML"
                     th:text="'Daily top-up to ' + ${topUpTarget}">Daily top-up</button>
@@ -103,6 +116,12 @@
 </main>
 
 <script>
+    // CSRF protection is on, so every htmx POST sends the token as a header
+    document.body.addEventListener('htmx:configRequest', (e) => {
+        const header = document.querySelector('meta[name="csrf-header"]').content;
+        e.detail.headers[header] = document.querySelector('meta[name="csrf-token"]').content;
+    });
+
     // The server clock is the authority: track how far the browser's clock is from it, refreshed
     // whenever a new board arrives (each one carries the server time it was rendered at).
     let clockOffset = 0;

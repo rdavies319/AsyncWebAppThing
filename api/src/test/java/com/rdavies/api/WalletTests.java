@@ -1,5 +1,7 @@
 package com.rdavies.api;
 
+import com.rdavies.api.user.GamePrincipal;
+import com.rdavies.api.user.UserService;
 import com.rdavies.api.wallet.Wallet;
 import com.rdavies.api.wallet.WalletService;
 import org.junit.jupiter.api.BeforeEach;
@@ -15,6 +17,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -26,16 +30,20 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Import({TestcontainersConfiguration.class, GameFlowTests.ClockConfig.class})
 @Transactional
 class WalletTests {
-    private static final long DEMO_USER = 1L;
+    private GamePrincipal player;
+    private long playerId;
     private static final Instant MORNING = Instant.parse("2026-01-01T09:00:00Z");
 
     @Autowired WalletService walletService;
+    @Autowired UserService userService;
     @Autowired JdbcTemplate jdbc;
     @Autowired GameFlowTests.MutableClock clock;
     @Autowired MockMvc mockMvc;
 
     @BeforeEach
-    void setClock() {
+    void setUp() {
+        player = TestPlayers.signUp(userService, "player");
+        playerId = player.id();
         clock.now = MORNING;
     }
 
@@ -57,34 +65,34 @@ class WalletTests {
     void topUpRefillsToTheTarget() {
         spend(700);
 
-        assertEquals(700, walletService.claimTopUp(DEMO_USER));
+        assertEquals(700, walletService.claimTopUp(playerId));
 
         assertEquals(1000, balance());
         assertEquals(700, jdbc.queryForObject(
-                "SELECT delta FROM ledger WHERE user_id = ? AND reason = 'TOPUP'", Long.class, DEMO_USER));
-        assertLedgerMatchesWallet(DEMO_USER);
+                "SELECT delta FROM ledger WHERE user_id = ? AND reason = 'TOPUP'", Long.class, playerId));
+        assertLedgerMatchesWallet(playerId);
     }
 
     @Test
     void topUpIsOncePerUtcDay() {
         spend(500);
-        walletService.claimTopUp(DEMO_USER);
+        walletService.claimTopUp(playerId);
         spend(500);
 
         clock.now = Instant.parse("2026-01-01T23:59:59Z");
-        assertThrows(IllegalStateException.class, () -> walletService.claimTopUp(DEMO_USER));
+        assertThrows(IllegalStateException.class, () -> walletService.claimTopUp(playerId));
         assertEquals(500, balance());
 
         clock.now = Instant.parse("2026-01-02T00:00:00Z");
-        assertEquals(500, walletService.claimTopUp(DEMO_USER));
-        assertLedgerMatchesWallet(DEMO_USER);
+        assertEquals(500, walletService.claimTopUp(playerId));
+        assertLedgerMatchesWallet(playerId);
     }
 
     @Test
     void aRefusedClaimDoesNotUseUpTheDay() {
-        assertThrows(IllegalStateException.class, () -> walletService.claimTopUp(DEMO_USER)); // already at 1000
+        assertThrows(IllegalStateException.class, () -> walletService.claimTopUp(playerId)); // already at 1000
         spend(100);
-        assertEquals(100, walletService.claimTopUp(DEMO_USER));
+        assertEquals(100, walletService.claimTopUp(playerId));
     }
 
     @Test
@@ -92,7 +100,7 @@ class WalletTests {
         assertFalse(walletService.canTopUp(wallet()));
         spend(1);
         assertTrue(walletService.canTopUp(wallet()));
-        walletService.claimTopUp(DEMO_USER);
+        walletService.claimTopUp(playerId);
         spend(1);
         assertFalse(walletService.canTopUp(wallet()));
     }
@@ -100,11 +108,11 @@ class WalletTests {
     @Test
     void topUpOverTheJsonApi() throws Exception {
         spend(250);
-        mockMvc.perform(post("/wallet/topup"))
+        mockMvc.perform(post("/wallet/topup").with(user(player)).with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.credited").value(250))
                 .andExpect(jsonPath("$.balance").value(1000));
-        mockMvc.perform(post("/wallet/topup"))
+        mockMvc.perform(post("/wallet/topup").with(user(player)).with(csrf()))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.detail").value("You have already claimed today's top-up"));
     }
@@ -115,25 +123,25 @@ class WalletTests {
         spend(400);
         assertTrue(board().contains("Daily top-up to 1000"));
 
-        String afterClaim = mockMvc.perform(post("/topup")).andExpect(status().isOk())
+        String afterClaim = mockMvc.perform(post("/topup").with(user(player)).with(csrf())).andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
         assertTrue(afterClaim.contains("<span>1000</span> pts"), afterClaim);
         assertFalse(afterClaim.contains("Daily top-up"), afterClaim);
     }
 
     private String board() throws Exception {
-        return mockMvc.perform(get("/fragments/board")).andReturn().getResponse().getContentAsString();
+        return mockMvc.perform(get("/fragments/board").with(user(player))).andReturn().getResponse().getContentAsString();
     }
 
-    /** Takes points from the demo wallet with a matching ledger row, as a lost stake would. */
+    /** Takes points from the player's wallet with a matching ledger row, as a lost stake would. */
     private void spend(long points) {
-        jdbc.update("UPDATE wallets SET balance = balance - ? WHERE user_id = ?", points, DEMO_USER);
+        jdbc.update("UPDATE wallets SET balance = balance - ? WHERE user_id = ?", points, playerId);
         jdbc.update("INSERT INTO ledger (user_id, delta, reason, created_at) VALUES (?, ?, 'STAKE', now())",
-                DEMO_USER, -points);
+                playerId, -points);
     }
 
     private Wallet wallet() {
-        return walletService.getWallet(DEMO_USER);
+        return walletService.getWallet(playerId);
     }
 
     private long balance() {
