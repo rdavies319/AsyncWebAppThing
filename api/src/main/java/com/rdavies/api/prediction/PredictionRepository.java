@@ -1,6 +1,5 @@
-package com.rdavies.api.repository;
+package com.rdavies.api.prediction;
 
-import com.rdavies.api.domain.Prediction;
 import org.springframework.data.repository.CrudRepository;
 import java.util.List;
 import java.util.Optional;

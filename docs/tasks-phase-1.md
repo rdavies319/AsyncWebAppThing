@@ -4,7 +4,7 @@ These tasks bring the existing `api/` code in line with [spec-higher-or-lower.md
 
 Work through the tasks in order unless a task says otherwise. Each task should leave `./mvnw test` green.
 
-**Status:** T0 done (`777cb7e`) · T1 done (`efb736d`) · T2 done
+**Status:** T0 done (`777cb7e`) · T1 done (`efb736d`) · T2 done (`dd592b5`) · T3 done
 
 ## T0. Commit the current state
 

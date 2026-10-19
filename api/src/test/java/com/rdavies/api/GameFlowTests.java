@@ -1,13 +1,14 @@
 package com.rdavies.api;
 
-import com.rdavies.api.domain.PredictionType;
-import com.rdavies.api.domain.Round;
-import com.rdavies.api.domain.RoundStatus;
-import com.rdavies.api.repository.RoundRepository;
-import com.rdavies.api.repository.WalletRepository;
-import com.rdavies.api.service.GameService;
-import com.rdavies.api.service.ProvablyFair;
-import com.rdavies.api.service.RoundEngine;
+import com.rdavies.api.prediction.PredictionType;
+import com.rdavies.api.round.Round;
+import com.rdavies.api.round.RoundStatus;
+import com.rdavies.api.round.RoundRepository;
+import com.rdavies.api.wallet.WalletRepository;
+import com.rdavies.api.prediction.PredictionService;
+import com.rdavies.api.round.RoundService;
+import com.rdavies.api.round.ProvablyFair;
+import com.rdavies.api.round.RoundEngine;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,7 +41,8 @@ class GameFlowTests {
     private static final Instant ROUND_START = Instant.parse("2026-01-01T00:00:00.200Z");
 
     @Autowired RoundEngine engine;
-    @Autowired GameService gameService;
+    @Autowired PredictionService predictionService;
+    @Autowired RoundService roundService;
     @Autowired RoundRepository roundRepository;
     @Autowired WalletRepository walletRepository;
     @Autowired JdbcTemplate jdbc;
@@ -71,7 +73,7 @@ class GameFlowTests {
     @Test
     void gamePageShowsTheLastRollAndYourBet() throws Exception {
         Round round = currentRound();
-        gameService.placePrediction(DEMO_USER, round.roundId(), allowedDirection(round), 10L);
+        predictionService.placePrediction(DEMO_USER, round.roundId(), allowedDirection(round), 10L);
         mockMvc.perform(get("/"))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("Your bet:")));
 
@@ -90,7 +92,7 @@ class GameFlowTests {
     @Test
     void settlingARoundKeepsTheLedgerBalanced() {
         Round round = currentRound();
-        gameService.placePrediction(DEMO_USER, round.roundId(), allowedDirection(round), 100L);
+        predictionService.placePrediction(DEMO_USER, round.roundId(), allowedDirection(round), 100L);
         assertEquals(900, balance());
 
         clock.now = ROUND_START.plusSeconds(60);
@@ -108,9 +110,9 @@ class GameFlowTests {
     void negativeAndZeroStakesAreRejected() {
         Round round = currentRound();
         assertThrows(IllegalArgumentException.class,
-                () -> gameService.placePrediction(DEMO_USER, round.roundId(), allowedDirection(round), -1000L));
+                () -> predictionService.placePrediction(DEMO_USER, round.roundId(), allowedDirection(round), -1000L));
         assertThrows(IllegalArgumentException.class,
-                () -> gameService.placePrediction(DEMO_USER, round.roundId(), allowedDirection(round), 0L));
+                () -> predictionService.placePrediction(DEMO_USER, round.roundId(), allowedDirection(round), 0L));
         assertEquals(1000, balance());
     }
 
@@ -119,23 +121,23 @@ class GameFlowTests {
         Round round = currentRound();
         clock.now = Instant.parse("2026-01-01T00:00:55Z");
         assertThrows(IllegalStateException.class,
-                () -> gameService.placePrediction(DEMO_USER, round.roundId(), allowedDirection(round), 10L));
+                () -> predictionService.placePrediction(DEMO_USER, round.roundId(), allowedDirection(round), 10L));
         assertEquals(1000, balance());
     }
 
     @Test
     void secondPredictionInARoundIsRejected() {
         Round round = currentRound();
-        gameService.placePrediction(DEMO_USER, round.roundId(), allowedDirection(round), 10L);
+        predictionService.placePrediction(DEMO_USER, round.roundId(), allowedDirection(round), 10L);
         assertThrows(IllegalStateException.class,
-                () -> gameService.placePrediction(DEMO_USER, round.roundId(), allowedDirection(round), 10L));
+                () -> predictionService.placePrediction(DEMO_USER, round.roundId(), allowedDirection(round), 10L));
         assertEquals(990, balance());
     }
 
     @Test
     void repeatTicksNeverRollOrPayTwice() {
         Round round = currentRound();
-        gameService.placePrediction(DEMO_USER, round.roundId(), allowedDirection(round), 100L);
+        predictionService.placePrediction(DEMO_USER, round.roundId(), allowedDirection(round), 100L);
 
         clock.now = ROUND_START.plusSeconds(60);
         engine.tick();
@@ -169,7 +171,7 @@ class GameFlowTests {
     @Test
     void roundMissedDuringDowntimeIsVoidedAndRefunded() {
         Round stale = currentRound();
-        gameService.placePrediction(DEMO_USER, stale.roundId(), allowedDirection(stale), 100L);
+        predictionService.placePrediction(DEMO_USER, stale.roundId(), allowedDirection(stale), 100L);
 
         clock.now = Instant.parse("2026-01-01T00:10:20Z");
         engine.tick();
@@ -213,7 +215,7 @@ class GameFlowTests {
     }
 
     private Round currentRound() {
-        return gameService.getCurrentRound().orElseThrow();
+        return roundService.getCurrentRound().orElseThrow();
     }
 
     private static PredictionType allowedDirection(Round round) {

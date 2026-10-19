@@ -1,6 +1,6 @@
-package com.rdavies.api.controller;
+package com.rdavies.api.live;
 
-import com.rdavies.api.service.RoundOpened;
+import com.rdavies.api.round.RoundOpened;
 import org.springframework.http.MediaType;
 import org.springframework.transaction.event.TransactionalEventListener;
 import org.springframework.web.bind.annotation.GetMapping;

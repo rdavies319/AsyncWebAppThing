@@ -1,52 +1,38 @@
-package com.rdavies.api.service;
+package com.rdavies.api.prediction;
 
-import com.rdavies.api.domain.*;
-import com.rdavies.api.repository.*;
+import com.rdavies.api.round.Odds;
+import com.rdavies.api.round.Round;
+import com.rdavies.api.round.RoundRepository;
+import com.rdavies.api.round.RoundService;
+import com.rdavies.api.round.RoundStatus;
+import com.rdavies.api.wallet.LedgerEntry;
+import com.rdavies.api.wallet.LedgerRepository;
+import com.rdavies.api.wallet.WalletRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
-import java.time.Duration;
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 
 @Service
-public class GameService {
+public class PredictionService {
     private final RoundRepository roundRepository;
+    private final RoundService roundService;
     private final PredictionRepository predictionRepository;
     private final WalletRepository walletRepository;
     private final LedgerRepository ledgerRepository;
     private final Clock clock;
 
-    public GameService(RoundRepository roundRepository, PredictionRepository predictionRepository,
-                       WalletRepository walletRepository, LedgerRepository ledgerRepository, Clock clock) {
+    public PredictionService(RoundRepository roundRepository, RoundService roundService,
+                             PredictionRepository predictionRepository, WalletRepository walletRepository,
+                             LedgerRepository ledgerRepository, Clock clock) {
         this.roundRepository = roundRepository;
+        this.roundService = roundService;
         this.predictionRepository = predictionRepository;
         this.walletRepository = walletRepository;
         this.ledgerRepository = ledgerRepository;
         this.clock = clock;
-    }
-
-    /** Predictions close this long before the roll at the next minute boundary. */
-    static final Duration PREDICTION_CUTOFF = Duration.ofSeconds(5);
-
-    public Optional<Round> getCurrentRound() {
-        return roundRepository.findCurrentOpenRound();
-    }
-
-    public Instant now() {
-        return clock.instant();
-    }
-
-    /** When this round is rolled, by the server clock. */
-    public Instant rollTime(Round round) {
-        return round.startTime().truncatedTo(ChronoUnit.MINUTES).plus(Duration.ofMinutes(1));
-    }
-
-    /** When predictions close for this round, by the server clock. */
-    public Instant predictionDeadline(Round round) {
-        return rollTime(round).minus(PREDICTION_CUTOFF);
     }
 
     public Optional<Prediction> getPrediction(Long userId, Long roundId) {
@@ -55,7 +41,7 @@ public class GameService {
 
     /** The most recently rolled (or voided) round, with this player's prediction on it. */
     public Optional<RoundResult> getLastResult(Long userId) {
-        return roundRepository.findLastFinishedRound()
+        return roundService.getLastFinishedRound()
                 .map(r -> new RoundResult(r, getPrediction(userId, r.roundId()).orElse(null)));
     }
 
@@ -72,7 +58,7 @@ public class GameService {
         Round round = roundRepository.findById(roundId)
                 .filter(r -> r.status() == RoundStatus.OPEN)
                 .orElseThrow(() -> new IllegalStateException("Round is no longer open for predictions"));
-        if (!clock.instant().isBefore(predictionDeadline(round))) {
+        if (!clock.instant().isBefore(roundService.predictionDeadline(round))) {
             throw new IllegalStateException("Predictions for this round have closed");
         }
         if (!Odds.isAllowed(round.previousRoll(), type)) {
@@ -95,10 +81,5 @@ public class GameService {
 
         // 4. Audit ledger
         ledgerRepository.save(new LedgerEntry(null, userId, roundId, -stake, LedgerEntry.LedgerType.STAKE, now));
-    }
-
-    public Wallet getWallet(Long userId) {
-        return walletRepository.findById(userId)
-                .orElseThrow(() -> new IllegalStateException("Wallet not found for user"));
     }
 }

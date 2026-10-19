@@ -1,6 +1,6 @@
-package com.rdavies.api.service;
+package com.rdavies.api.round;
 
-import com.rdavies.api.domain.PredictionType;
+import com.rdavies.api.prediction.PredictionType;
 
 /**
  * Odds for a roll of 1-100 against the previous roll R.

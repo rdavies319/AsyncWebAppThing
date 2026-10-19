@@ -1,4 +1,4 @@
-package com.rdavies.api.domain;
+package com.rdavies.api.round;
 
 public enum RoundStatus {
     OPEN, CLOSED, SETTLED,

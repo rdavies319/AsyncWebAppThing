@@ -1,6 +1,5 @@
-package com.rdavies.api.repository;
+package com.rdavies.api.wallet;
 
-import com.rdavies.api.domain.Wallet;
 import org.springframework.data.jdbc.repository.query.Modifying;
 import org.springframework.data.jdbc.repository.query.Query;
 import org.springframework.data.repository.CrudRepository;

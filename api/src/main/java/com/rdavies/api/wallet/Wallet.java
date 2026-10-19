@@ -1,13 +1,13 @@
-package com.rdavies.api.domain;
+package com.rdavies.api.wallet;
 
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.relational.core.mapping.Table;
 import java.time.Instant;
 
-@Table("users")
-public record User(
+@Table("wallets")
+public record Wallet(
     @Id Long userId,
-    String username,
-    @CreatedDate Instant createdAt
+    Long balance,
+    @CreatedDate Instant lastTopUp
 ) {}

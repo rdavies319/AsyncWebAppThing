@@ -1,9 +1,9 @@
 package com.rdavies.api;
 
-import com.rdavies.api.domain.Round;
-import com.rdavies.api.domain.RoundStatus;
-import com.rdavies.api.repository.RoundRepository;
-import com.rdavies.api.service.RoundEngine;
+import com.rdavies.api.round.Round;
+import com.rdavies.api.round.RoundStatus;
+import com.rdavies.api.round.RoundRepository;
+import com.rdavies.api.round.RoundEngine;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;

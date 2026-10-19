@@ -1,4 +1,4 @@
-package com.rdavies.api.domain;
+package com.rdavies.api.prediction;
 
 public enum PredictionType {
     HIGHER, LOWER

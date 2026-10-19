@@ -1,9 +1,8 @@
-package com.rdavies.api.service;
+package com.rdavies.api.prediction;
 
-import com.rdavies.api.domain.Prediction;
-import com.rdavies.api.domain.PredictionType;
-import com.rdavies.api.domain.Round;
-import com.rdavies.api.domain.RoundStatus;
+import com.rdavies.api.round.Odds;
+import com.rdavies.api.round.Round;
+import com.rdavies.api.round.RoundStatus;
 
 /** A finished round, and the player's prediction on it if they made one. */
 public record RoundResult(Round round, Prediction prediction) {
