@@ -4,7 +4,7 @@ These tasks bring the existing `api/` code in line with [spec-higher-or-lower.md
 
 Work through the tasks in order unless a task says otherwise. Each task should leave `./mvnw test` green.
 
-**Status:** T0 done (`777cb7e`) · T1 done (`efb736d`) · T2 done (`dd592b5`) · T3 done (`c53be01`) · T4–T6 done together (`82dc25f`; the schema change removed the columns the old engine used, so they couldn't land separately) · T7 done · T8 and T9 deferred (2026-10-19): the game keeps playing as the demo user, and T10 continues without auth
+**Status:** T0 done (`777cb7e`) · T1 done (`efb736d`) · T2 done (`dd592b5`) · T3 done (`c53be01`) · T4–T6 done together (`82dc25f`; the schema change removed the columns the old engine used, so they couldn't land separately) · T7 done (`d262ad6`) · T8 and T9 deferred (2026-10-19): the game keeps playing as the demo user, and T10 continues without auth · T10 done (streams are keyed by `CurrentUser`, which returns the demo user until T9)
 
 Carried forward: T6's `RoundSettled` and per-prediction events moved to T10, because nothing consumes them before then. The demo user (id 1) stays in `V2__demo_user.sql` until T9.
 

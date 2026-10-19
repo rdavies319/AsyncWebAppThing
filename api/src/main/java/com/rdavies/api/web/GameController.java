@@ -4,6 +4,7 @@ import com.rdavies.api.GameProperties;
 import com.rdavies.api.prediction.PredictionService;
 import com.rdavies.api.prediction.PredictionType;
 import com.rdavies.api.round.RoundService;
+import com.rdavies.api.user.CurrentUser;
 import com.rdavies.api.wallet.WalletService;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -17,9 +18,11 @@ public class GameController {
     private final PredictionService predictionService;
     private final WalletService walletService;
     private final GameProperties game;
+    private final CurrentUser currentUser;
 
     public GameController(RoundService roundService, PredictionService predictionService,
-                          WalletService walletService, GameProperties game) {
+                          WalletService walletService, GameProperties game, CurrentUser currentUser) {
+        this.currentUser = currentUser;
         this.game = game;
         this.roundService = roundService;
         this.predictionService = predictionService;
@@ -28,19 +31,18 @@ public class GameController {
 
     @GetMapping("/")
     public String gameView(Model model) {
-        // For MVP, we'll use a dummy user ID 1
         roundService.getCurrentRound().ifPresent(round -> {
             model.addAttribute("round", round);
             // Epoch millis, so the page counts down by the server clock rather than the browser's
             model.addAttribute("rollAt", roundService.rollTime(round).toEpochMilli());
             model.addAttribute("deadline", roundService.predictionDeadline(round).toEpochMilli());
-            predictionService.getPrediction(1L, round.id()).ifPresent(p -> model.addAttribute("myPrediction", p));
+            predictionService.getPrediction(currentUser.id(), round.id()).ifPresent(p -> model.addAttribute("myPrediction", p));
         });
         roundService.getNextRollCommit().ifPresent(commit -> model.addAttribute("nextCommit", commit));
-        predictionService.getLastResult(1L).ifPresent(result -> model.addAttribute("lastResult", result));
+        predictionService.getLastResult(currentUser.id()).ifPresent(result -> model.addAttribute("lastResult", result));
         model.addAttribute("serverNow", roundService.now().toEpochMilli());
         model.addAttribute("minStake", game.minStake());
-        model.addAttribute("wallet", walletService.getWallet(1L));
+        model.addAttribute("wallet", walletService.getWallet(currentUser.id()));
         return "game";
     }
 
@@ -50,8 +52,7 @@ public class GameController {
                                       @RequestParam PredictionType prediction,
                                       @RequestParam Long stake) {
         try {
-            // Dummy user ID 1
-            predictionService.placePrediction(1L, roundId, prediction, stake);
+            predictionService.placePrediction(currentUser.id(), roundId, prediction, stake);
             return Map.of("status", "success");
         } catch (IllegalArgumentException | IllegalStateException e) {
             return Map.of("status", "error", "message", e.getMessage());

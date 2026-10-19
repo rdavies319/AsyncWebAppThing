@@ -1,6 +1,7 @@
 package com.rdavies.api.round;
 
 import com.rdavies.api.GameProperties;
+import com.rdavies.api.prediction.PredictionType;
 import org.springframework.stereotype.Service;
 
 import java.time.Clock;
@@ -22,6 +23,21 @@ public class RoundService {
 
     public Optional<Round> getCurrentRound() {
         return roundRepository.findOpenRound();
+    }
+
+    /** The open round with its odds and the next roll's commitment, as sent to clients. */
+    public Optional<RoundView> currentView() {
+        return getCurrentRound().map(round -> new RoundView(round.id(), round.rollValue(), round.startsAt(),
+                predictionDeadline(round), side(round, PredictionType.HIGHER), side(round, PredictionType.LOWER),
+                getNextRollCommit().orElse(null)));
+    }
+
+    private RoundView.Side side(Round round, PredictionType direction) {
+        if (!Odds.isAllowed(round.rollValue(), direction)) {
+            return null;
+        }
+        long bps = Odds.multiplierBps(round.rollValue(), direction);
+        return new RoundView.Side(bps, Odds.maxStake(bps, game.maxStake(), game.maxPayout()));
     }
 
     /** Commitment to the seed of the roll players are currently predicting. */

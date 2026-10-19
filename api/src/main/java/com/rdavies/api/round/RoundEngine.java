@@ -1,6 +1,7 @@
 package com.rdavies.api.round;
 
 import com.rdavies.api.prediction.PredictionRepository;
+import com.rdavies.api.prediction.PredictionSettled;
 import com.rdavies.api.wallet.LedgerRepository;
 import com.rdavies.api.wallet.WalletRepository;
 import org.slf4j.Logger;
@@ -8,6 +9,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
+import org.springframework.jdbc.core.DataClassRowMapper;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -115,6 +117,12 @@ public class RoundEngine {
         walletRepository.creditRoundPayouts(current.id(), now);
         ledgerRepository.recordRoundPayouts(current.id(), now);
         log.info("Round {} settled: {} -> {}, {} predictions", current.id(), current.rollValue(), roll, settled);
+        // Delivered to listeners only once this tick's transaction commits
+        events.publishEvent(new RoundSettled(current.id(), next.id(), roll, next.seed()));
+        events.publishEvent(new PredictionSettled.Batch(jdbc.query("""
+                SELECT p.user_id, p.id AS prediction_id, p.round_id, p.status, p.payout, w.balance
+                FROM predictions p JOIN wallets w ON w.user_id = p.user_id
+                WHERE p.round_id = ?""", DataClassRowMapper.newInstance(PredictionSettled.class), current.id())));
 
         Instant nextSlot = next.startsAt();
         if (currentSlot.isAfter(nextSlot)) {

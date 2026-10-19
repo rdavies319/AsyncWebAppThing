@@ -106,14 +106,12 @@
         }
     });
 
-    // Reload whenever the server opens a new round, i.e. right after each roll
+    // Every connect (and reconnect) starts with a round_open snapshot, so reload only when it
+    // shows a different round from the one this page was rendered for.
+    const pageRoundId = /*[[${round?.id}]]*/ null;
     const live = new EventSource('/live');
-    live.addEventListener('round', () => location.reload());
-    // A reconnect means events may have been missed while the stream was down
-    let connectedBefore = false;
-    live.addEventListener('open', () => {
-        if (connectedBefore) location.reload();
-        connectedBefore = true;
+    live.addEventListener('round_open', (e) => {
+        if (JSON.parse(e.data).round_id !== pageRoundId) location.reload();
     });
     // Safety net if the event never arrives. Only for a round that was still running when the
     // page loaded, so a stalled engine doesn't cause a reload loop.
