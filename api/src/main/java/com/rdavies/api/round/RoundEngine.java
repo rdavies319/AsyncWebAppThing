@@ -17,6 +17,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 
 /**
  * Rolls and settles one round per minute (spec section 6). Round N opens on its minute with its roll
@@ -116,12 +117,8 @@ public class RoundEngine {
             log.warn("Round {} was already settled; skipping", current.id());
             return;
         }
-        PredictionSettled.Batch settled = settlement.settle(current.id(), current.rollValue(), roll, now);
-        log.info("Round {} settled: {} -> {}, {} predictions",
-                current.id(), current.rollValue(), roll, settled.predictions().size());
-        // Delivered to listeners only once this tick's transaction commits
-        events.publishEvent(new RoundSettled(current.id(), next.id(), roll, next.seed()));
-        events.publishEvent(settled);
+        List<PredictionSettled> settled = settlement.settle(current.id(), current.rollValue(), roll, now);
+        log.info("Round {} settled: {} -> {}, {} predictions", current.id(), current.rollValue(), roll, settled.size());
 
         Instant nextSlot = next.startsAt();
         if (currentSlot.isAfter(nextSlot)) {
@@ -129,24 +126,27 @@ public class RoundEngine {
                     Duration.between(nextSlot, currentSlot).toMinutes(), next.id(), nextSlot, currentSlot);
             nextSlot = currentSlot;
         }
-        openWithNextScheduled(next, roll, nextSlot);
+        RoundView opened = openWithNextScheduled(next, roll, nextSlot);
+        // Delivered to listeners only once this tick's transaction commits
+        events.publishEvent(new RoundRolled(new RoundSettled(current.id(), next.id(), roll, next.seed()), settled, opened));
     }
 
     /** First ever tick: round 1 opens on the current minute, already rolled, with round 2 scheduled. */
     private void bootstrap(Instant slot) {
         Round first = schedule(slot);
-        openWithNextScheduled(first, ProvablyFair.roll(first.seed(), first.id()), slot);
+        RoundView opened = openWithNextScheduled(first, ProvablyFair.roll(first.seed(), first.id()), slot);
+        events.publishEvent(RoundRolled.first(opened));
     }
 
-    private void openWithNextScheduled(Round round, int roll, Instant slot) {
+    /** Opens the round with its roll, schedules the one after it, and returns the opened round as clients see it. */
+    private RoundView openWithNextScheduled(Round round, int roll, Instant slot) {
         if (roundRepository.open(round.id(), roll, slot) != 1) {
             throw new IllegalStateException("Round " + round.id() + " was not scheduled");
         }
         log.info("Round {} opened at {} with roll {}", round.id(), slot, roll);
         Round opened = new Round(round.id(), slot, roll, round.seedCommitHash(), round.seed(), RoundStatus.OPEN, null);
         Round next = schedule(slot.plus(Round.LENGTH));
-        // Delivered to listeners only once this tick's transaction commits
-        events.publishEvent(new RoundOpened(roundService.view(opened, next.seedCommitHash())));
+        return roundService.view(opened, next.seedCommitHash());
     }
 
     private Round schedule(Instant slot) {

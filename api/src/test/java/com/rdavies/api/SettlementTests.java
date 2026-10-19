@@ -40,13 +40,13 @@ class SettlementTests {
         Prediction alice = place("alice", round, PredictionType.HIGHER, 100);
         Prediction bob = place("bob", round, PredictionType.LOWER, 100);
 
-        PredictionSettled.Batch batch = settle(round, 80);
+        List<PredictionSettled> settled = settle(round, 80);
 
         assertEquals(List.of(
                 new PredictionSettled(alice.userId(), alice.id(), round.id(), PredictionStatus.WON, 196, 1096),
                 new PredictionSettled(bob.userId(), bob.id(), round.id(), PredictionStatus.LOST, 0, 900)),
-                batch.predictions());
-        assertEquals(Odds.payout(100, 19_600), batch.predictions().get(0).payout());
+                settled);
+        assertEquals(Odds.payout(100, 19_600), settled.get(0).payout());
         assertLedger(alice, bob);
     }
 
@@ -104,11 +104,11 @@ class SettlementTests {
     }
 
     @Test
-    void aRoundWithNoPredictionsSettlesToAnEmptyBatch() {
+    void aRoundWithNoPredictionsSettlesNothing() {
         Round round = game.startFrom(50);
         int ledgerRows = ledgerRows();
 
-        assertEquals(List.of(), settle(round, 80).predictions());
+        assertEquals(List.of(), settle(round, 80));
         assertEquals(ledgerRows, ledgerRows());
     }
 
@@ -119,7 +119,7 @@ class SettlementTests {
         settle(round, 80);
         int ledgerRows = ledgerRows();
 
-        assertEquals(List.of(), settle(round, 80).predictions());
+        assertEquals(List.of(), settle(round, 80));
 
         assertSettled(alice, PredictionStatus.WON, 196, 1096);
         assertEquals(ledgerRows, ledgerRows());
@@ -144,7 +144,7 @@ class SettlementTests {
         return predictionService.placePrediction(userId, round.id(), direction, stake);
     }
 
-    private PredictionSettled.Batch settle(Round round, int nextRoll) {
+    private List<PredictionSettled> settle(Round round, int nextRoll) {
         Instant rollTime = round.rollTime();
         return settlement.settle(round.id(), round.rollValue(), nextRoll, rollTime);
     }

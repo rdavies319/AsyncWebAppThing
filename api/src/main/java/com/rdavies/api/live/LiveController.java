@@ -1,9 +1,8 @@
 package com.rdavies.api.live;
 
 import com.rdavies.api.prediction.PredictionSettled;
-import com.rdavies.api.round.RoundOpened;
+import com.rdavies.api.round.RoundRolled;
 import com.rdavies.api.round.RoundService;
-import com.rdavies.api.round.RoundSettled;
 import com.rdavies.api.round.RoundView;
 import com.rdavies.api.user.CurrentUser;
 import com.rdavies.api.user.GamePrincipal;
@@ -62,31 +61,27 @@ public class LiveController {
         return emitter;
     }
 
-    // After commit, so a client that refetches on these events sees the new state.
-    // The engine publishes RoundSettled, then the prediction batch, then RoundOpened.
-
+    /** After commit, so a client that refetches on these messages sees the new state. */
     @TransactionalEventListener
-    public void onRoundSettled(RoundSettled event) {
-        sender.execute(() -> streams.broadcast("round_settled", json.writeValueAsString(event)));
+    public void onRoundRolled(RoundRolled event) {
+        sender.execute(() -> send(event));
     }
 
-    @TransactionalEventListener
-    public void onPredictionsSettled(PredictionSettled.Batch batch) {
-        sender.execute(() -> {
-            for (PredictionSettled settled : batch.predictions()) {
-                streams.sendToUser(settled.userId(), "prediction_settled", json.writeValueAsString(settled));
-            }
-        });
-    }
-
-    /** The event carries the round as the engine opened it, so this runs no queries. */
-    @TransactionalEventListener
-    public void onRoundOpened(RoundOpened event) {
-        sender.execute(() -> {
-            Instant now = roundService.now();
-            streams.broadcast("server_time", json.writeValueAsString(serverTime(now)));
-            streams.broadcast("round_open", json.writeValueAsString(event.view().at(now)));
-        });
+    /**
+     * Sends a roll to the streams: round_settled, each player's prediction_settled, then server_time
+     * and round_open last, so a board refetched on round_open shows the settled balances. The event
+     * carries the state, so this runs no queries; round_open is stamped with the time it is sent.
+     */
+    void send(RoundRolled event) {
+        if (event.settled() != null) {
+            streams.broadcast("round_settled", json.writeValueAsString(event.settled()));
+        }
+        for (PredictionSettled settled : event.predictions()) {
+            streams.sendToUser(settled.userId(), "prediction_settled", json.writeValueAsString(settled));
+        }
+        Instant now = roundService.now();
+        streams.broadcast("server_time", json.writeValueAsString(serverTime(now)));
+        streams.broadcast("round_open", json.writeValueAsString(event.opened().at(now)));
     }
 
     @Scheduled(fixedRate = 15_000)

@@ -1,12 +1,8 @@
 package com.rdavies.api.live;
 
 import org.junit.jupiter.api.Test;
-import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
-import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -74,19 +70,5 @@ class LiveStreamsTests {
         RecordingEmitter emitter = new RecordingEmitter();
         streams.add(userId, emitter);
         return emitter;
-    }
-
-    /** Captures each event as SSE wire text instead of writing to a response. */
-    static class RecordingEmitter extends SseEmitter {
-        final List<String> sent = new ArrayList<>();
-        boolean broken;
-
-        @Override
-        public void send(SseEventBuilder builder) throws IOException {
-            if (broken) {
-                throw new IOException("client gone");
-            }
-            sent.add(builder.build().stream().map(part -> String.valueOf(part.getData())).collect(Collectors.joining()));
-        }
     }
 }

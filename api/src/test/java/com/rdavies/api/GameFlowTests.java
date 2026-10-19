@@ -9,7 +9,7 @@ import com.rdavies.api.prediction.PredictionStatus;
 import com.rdavies.api.prediction.PredictionType;
 import com.rdavies.api.round.ProvablyFair;
 import com.rdavies.api.round.Round;
-import com.rdavies.api.round.RoundOpened;
+import com.rdavies.api.round.RoundRolled;
 import com.rdavies.api.round.RoundRepository;
 import com.rdavies.api.round.RoundSettled;
 import com.rdavies.api.round.RoundStatus;
@@ -114,12 +114,13 @@ class GameFlowTests {
         game.rollNext();
 
         Round rolled = roundRepository.findById(next.id()).orElseThrow();
-        assertEquals(List.of(new RoundSettled(placed.roundId(), next.id(), 80, rolled.seed())),
-                events.stream(RoundSettled.class).toList());
+        List<RoundRolled> published = events.stream(RoundRolled.class).toList();
+        assertEquals(1, published.size()); // one event per roll
+        RoundRolled roll = published.get(0);
+        assertEquals(new RoundSettled(placed.roundId(), next.id(), 80, rolled.seed()), roll.settled());
         assertEquals(List.of(new PredictionSettled(playerId, placed.id(), placed.roundId(), PredictionStatus.WON, 196, 1096)),
-                events.stream(PredictionSettled.Batch.class).flatMap(b -> b.predictions().stream()).toList());
-        RoundView opened = events.stream(RoundOpened.class).map(RoundOpened::view).findFirst().orElseThrow();
-        assertEquals(1, events.stream(RoundOpened.class).count());
+                roll.predictions());
+        RoundView opened = roll.opened();
         assertEquals(next.id(), opened.roundId());
         assertEquals(80, opened.roll());
         assertEquals(game.scheduled().seedCommitHash(), opened.nextSeedCommitHash());

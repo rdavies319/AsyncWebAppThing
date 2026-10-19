@@ -34,22 +34,22 @@ public class Settlement {
      *
      * <p>Runs in the caller's transaction (the engine's tick), so events built from the result are
      * sent only once it commits. Settling a round that has nothing pending does nothing and returns an
-     * empty batch, so a repeat call never pays twice.
+     * empty list, so a repeat call never pays twice.
      */
     @Transactional(propagation = Propagation.MANDATORY)
-    public PredictionSettled.Batch settle(long roundId, int previousRoll, int roll, Instant now) {
+    public List<PredictionSettled> settle(long roundId, int previousRoll, int roll, Instant now) {
         int settled = predictionRepository.settleRound(roundId,
                 outcome(PredictionType.HIGHER, previousRoll, roll).name(),
                 outcome(PredictionType.LOWER, previousRoll, roll).name(), now);
         if (settled == 0) {
-            return new PredictionSettled.Batch(List.of());
+            return List.of();
         }
         walletService.creditRoundPayouts(roundId, now);
-        return new PredictionSettled.Batch(jdbc.query("""
+        return jdbc.query("""
                 SELECT p.user_id, p.id AS prediction_id, p.round_id, p.status, p.payout, w.balance
                 FROM predictions p JOIN wallets w ON w.user_id = p.user_id
                 WHERE p.round_id = ?
-                ORDER BY p.id""", DataClassRowMapper.newInstance(PredictionSettled.class), roundId));
+                ORDER BY p.id""", DataClassRowMapper.newInstance(PredictionSettled.class), roundId);
     }
 
     /** The one win rule: a prediction on {@code direction} against {@code previousRoll}, once {@code roll} is known. */
