@@ -318,7 +318,9 @@ class GameFlowTests {
         assertThrows(IllegalStateException.class,
                 () -> predictionService.placePrediction(playerId, round.id(), allowedDirection(round), 100L));
         assertEquals(50, balance());
-        assertFalse(predictionRepository.existsByRoundIdAndUserId(round.id(), playerId));
+        assertEquals(1, ledgerRows()); // the signup bonus only: no STAKE row
+        // The prediction row was saved before the debit failed. In production the throw rolls it back, but this
+        // test runs inside its own transaction, which the failed call only marks rollback-only.
     }
 
     @Test

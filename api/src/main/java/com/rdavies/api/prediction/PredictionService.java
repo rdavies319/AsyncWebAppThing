@@ -6,9 +6,7 @@ import com.rdavies.api.round.RoundRepository;
 import com.rdavies.api.round.RoundService;
 import com.rdavies.api.round.RoundStatus;
 import com.rdavies.api.round.RoundView;
-import com.rdavies.api.wallet.LedgerEntry;
-import com.rdavies.api.wallet.LedgerRepository;
-import com.rdavies.api.wallet.WalletRepository;
+import com.rdavies.api.wallet.WalletService;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,19 +23,16 @@ public class PredictionService {
     private final RoundRepository roundRepository;
     private final RoundService roundService;
     private final PredictionRepository predictionRepository;
-    private final WalletRepository walletRepository;
-    private final LedgerRepository ledgerRepository;
+    private final WalletService walletService;
     private final Clock clock;
 
     public PredictionService(GameProperties game, RoundRepository roundRepository, RoundService roundService,
-                             PredictionRepository predictionRepository, WalletRepository walletRepository,
-                             LedgerRepository ledgerRepository, Clock clock) {
+                             PredictionRepository predictionRepository, WalletService walletService, Clock clock) {
         this.game = game;
         this.roundRepository = roundRepository;
         this.roundService = roundService;
         this.predictionRepository = predictionRepository;
-        this.walletRepository = walletRepository;
-        this.ledgerRepository = ledgerRepository;
+        this.walletService = walletService;
         this.clock = clock;
     }
 
@@ -77,14 +72,8 @@ public class PredictionService {
             throw new IllegalStateException(ALREADY_PREDICTED);
         }
 
-        // 2. Atomic stake deduction
-        int affected = walletRepository.deductStake(userId, stake, now);
-        if (affected == 0) {
-            throw new IllegalStateException("Insufficient funds in wallet");
-        }
-
-        // 3. Record prediction, locking in the multiplier. The unique (user_id, round_id) constraint
-        //    catches a concurrent duplicate that slipped past the check above; rethrowing rolls back the debit.
+        // 2. Record prediction, locking in the multiplier. The unique (user_id, round_id) constraint
+        //    catches a concurrent duplicate that slipped past the check above.
         Prediction saved;
         try {
             saved = predictionRepository.save(new Prediction(null, userId, roundId, type, stake,
@@ -93,8 +82,8 @@ public class PredictionService {
             throw new IllegalStateException(ALREADY_PREDICTED, e);
         }
 
-        // 4. Audit ledger
-        ledgerRepository.save(new LedgerEntry(null, userId, -stake, LedgerEntry.Reason.STAKE, saved.id(), now));
+        // 3. Atomic stake deduction and its ledger row; if the balance is too low, the throw rolls back the prediction
+        walletService.debitStake(userId, stake, saved.id(), now);
         return saved;
     }
 }

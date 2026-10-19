@@ -32,12 +32,22 @@ public interface WalletRepository extends CrudRepository<Wallet, Long> {
     void topUp(@Param("userId") Long userId, @Param("balance") long balance,
                @Param("today") LocalDate today, @Param("now") Instant now);
 
-    /** Credits every settled prediction on the round that paid out (wins and pushes). */
+    /**
+     * Credits every settled prediction on the round that paid out (wins and pushes), with one PAYOUT
+     * or REFUND ledger row each. One statement, so the credits and the ledger rows can't disagree.
+     * A player has at most one prediction per round, so each wallet is credited at most once.
+     */
     @Modifying
     @Query("""
-            UPDATE wallets w SET balance = w.balance + p.payout, updated_at = :now
-            FROM predictions p
-            WHERE p.round_id = :roundId AND p.user_id = w.user_id AND p.payout > 0
+            WITH paid AS (
+                INSERT INTO ledger (user_id, delta, reason, ref_id, created_at)
+                SELECT user_id, payout, CASE status WHEN 'WON' THEN 'PAYOUT' ELSE 'REFUND' END, id, :now
+                FROM predictions
+                WHERE round_id = :roundId AND payout > 0
+                RETURNING user_id, delta)
+            UPDATE wallets w SET balance = w.balance + paid.delta, updated_at = :now
+            FROM paid
+            WHERE paid.user_id = w.user_id
             """)
     int creditRoundPayouts(@Param("roundId") Long roundId, @Param("now") Instant now);
 }

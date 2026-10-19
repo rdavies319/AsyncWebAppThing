@@ -2,8 +2,7 @@ package com.rdavies.api.round;
 
 import com.rdavies.api.prediction.PredictionRepository;
 import com.rdavies.api.prediction.PredictionSettled;
-import com.rdavies.api.wallet.LedgerRepository;
-import com.rdavies.api.wallet.WalletRepository;
+import com.rdavies.api.wallet.WalletService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
@@ -51,19 +50,17 @@ public class RoundEngine {
 
     private final RoundRepository roundRepository;
     private final PredictionRepository predictionRepository;
-    private final WalletRepository walletRepository;
-    private final LedgerRepository ledgerRepository;
+    private final WalletService walletService;
     private final JdbcTemplate jdbc;
     private final Clock clock;
     private final ApplicationEventPublisher events;
 
     public RoundEngine(RoundRepository roundRepository, PredictionRepository predictionRepository,
-                       WalletRepository walletRepository, LedgerRepository ledgerRepository,
+                       WalletService walletService,
                        JdbcTemplate jdbc, Clock clock, ApplicationEventPublisher events) {
         this.roundRepository = roundRepository;
         this.predictionRepository = predictionRepository;
-        this.walletRepository = walletRepository;
-        this.ledgerRepository = ledgerRepository;
+        this.walletService = walletService;
         this.jdbc = jdbc;
         this.clock = clock;
         this.events = events;
@@ -113,8 +110,7 @@ public class RoundEngine {
             return;
         }
         int settled = predictionRepository.settleRound(current.id(), current.rollValue(), roll, now);
-        walletRepository.creditRoundPayouts(current.id(), now);
-        ledgerRepository.recordRoundPayouts(current.id(), now);
+        walletService.creditRoundPayouts(current.id(), now);
         log.info("Round {} settled: {} -> {}, {} predictions", current.id(), current.rollValue(), roll, settled);
         // Delivered to listeners only once this tick's transaction commits
         events.publishEvent(new RoundSettled(current.id(), next.id(), roll, next.seed()));

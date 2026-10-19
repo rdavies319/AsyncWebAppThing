@@ -39,6 +39,24 @@ public class WalletService {
         return getWallet(userId);
     }
 
+    /**
+     * Takes a prediction's stake, with its ledger row. Joins the caller's transaction, so if this
+     * fails the prediction it pays for is rolled back too.
+     */
+    @Transactional
+    public void debitStake(long userId, long stake, long predictionId, Instant now) {
+        if (walletRepository.deductStake(userId, stake, now) == 0) {
+            throw new IllegalStateException("Insufficient funds in wallet");
+        }
+        ledgerRepository.save(new LedgerEntry(null, userId, -stake, LedgerEntry.Reason.STAKE, predictionId, now));
+    }
+
+    /** Pays out a settled round: wins and pushes, each with its ledger row. */
+    @Transactional
+    public void creditRoundPayouts(long roundId, Instant now) {
+        walletRepository.creditRoundPayouts(roundId, now);
+    }
+
     /** Whether the daily top-up can be claimed now: balance below the target, not yet claimed today (UTC). */
     public boolean canTopUp(Wallet wallet) {
         return wallet.balance() < game.topUpTarget() && !today().equals(wallet.lastTopUpDate());
