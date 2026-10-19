@@ -33,6 +33,8 @@ import java.util.List;
 
 import static com.rdavies.api.TestGame.ROUND_START;
 import static com.rdavies.api.TestGame.allowedDirection;
+import static com.rdavies.api.TestHtml.isChecked;
+import static com.rdavies.api.TestHtml.isDisabled;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
@@ -136,17 +138,17 @@ class GameFlowTests {
         assertTrue(page.contains("1.96x · max 500"), page);
         assertTrue(page.contains("2.00x · max 500"), page);
         // Stake buttons, the smallest picked to start with
-        assertTrue(page.contains("name=\"stake\" required value=\"10\" checked=\"checked\""), page);
-        assertTrue(page.contains("name=\"stake\" required value=\"100\">"), page);
-        assertTrue(page.contains("name=\"stake\" required value=\"500\">"), page);
+        assertTrue(isChecked(page, "stake", "10"), page);
+        assertFalse(isChecked(page, "stake", "100"), page);
+        assertFalse(isChecked(page, "stake", "500"), page);
     }
 
     @Test
     void anImpossibleSideIsDisabled() throws Exception {
         game.startFrom(100);
         String page = mockMvc.perform(get("/").with(user(player))).andReturn().getResponse().getContentAsString();
-        assertTrue(page.contains("value=\"HIGHER\" required disabled=\"disabled\""), page);
-        assertFalse(page.contains("value=\"LOWER\" required disabled"), page);
+        assertTrue(isDisabled(page, "prediction", "HIGHER"), page);
+        assertFalse(isDisabled(page, "prediction", "LOWER"), page);
     }
 
     @Test
@@ -181,8 +183,8 @@ class GameFlowTests {
                 .andReturn().getResponse().getContentAsString();
         assertTrue(board.contains("Stake must be between 10 and 102 pts on HIGHER"), board);
         // Keeps the stake and side the player picked
-        assertTrue(board.contains("name=\"stake\" required value=\"500\" checked=\"checked\""), board);
-        assertTrue(board.contains("value=\"HIGHER\" required data-max-stake=\"102\" checked=\"checked\""), board);
+        assertTrue(isChecked(board, "stake", "500"), board);
+        assertTrue(isChecked(board, "prediction", "HIGHER"), board);
         assertEquals(1000, balance());
     }
 

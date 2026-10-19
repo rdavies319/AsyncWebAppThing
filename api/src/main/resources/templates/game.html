@@ -69,87 +69,89 @@
      the last result and the balance together. -->
 <main class="card" hx-ext="sse" sse-connect="/live">
     <h2>Higher or Lower</h2>
-    <form class="account" th:if="${player}" method="post" th:action="@{/auth/logout}">
-        <span th:text="${player.displayName()}">player</span> · <button type="submit" class="link">Log out</button>
+    <form class="account" th:if="${board.player()}" method="post" th:action="@{/auth/logout}">
+        <span th:text="${board.player().name()}">player</span> · <button type="submit" class="link">Log out</button>
     </form>
-    <nav class="auth-links" th:unless="${player}">
+    <nav class="auth-links" th:unless="${board.player()}">
         <a th:href="@{/auth/login}">Log in</a>
         <a class="primary" th:href="@{/auth/signup}">Sign up</a>
     </nav>
 
+    <!-- Renders a board.Board (built by BoardService) and the last request's BoardFeedback -->
     <div id="board" th:fragment="board"
+         th:with="round=${board.round()},me=${board.player()}"
          hx-get="/fragments/board" hx-trigger="sse:round_open" hx-swap="outerHTML"
-         th:attr="data-server-now=${view?.serverTime()?.toEpochMilli()},data-starts-at=${view?.startsAt()?.toEpochMilli()},data-deadline=${view?.cutoffAt()?.toEpochMilli()},data-roll-at=${view?.rollAt()?.toEpochMilli()}">
+         th:attr="data-server-now=${round?.serverTime()?.toEpochMilli()},data-starts-at=${round?.startsAt()?.toEpochMilli()},data-deadline=${round?.cutoffAt()?.toEpochMilli()},data-roll-at=${round?.rollAt()?.toEpochMilli()}">
 
-        <div class="last-result" th:if="${lastRound}">
+        <div class="last-result" th:if="${board.lastRoll()}">
             <div>
-                Last roll: <span th:text="${lastRound.round().rollValue()}">0</span>
-                &rarr; <strong th:text="${lastRound.nextRoll()}">0</strong>
+                Last roll: <span th:text="${board.lastRoll().roll()}">0</span>
+                &rarr; <strong th:text="${board.lastRoll().nextRoll()}">0</strong>
             </div>
-            <div class="outcome" th:if="${lastResult?.outcome()}" th:text="${lastResult.outcome()}"></div>
+            <div class="outcome" th:if="${board.lastRoll().outcome()}" th:text="${board.lastRoll().outcome()}"></div>
         </div>
 
-        <div th:if="${view}">
-            <div class="roll-display" th:text="${view.roll()}">0</div>
+        <div th:if="${round}">
+            <div class="roll-display" th:text="${round.roll()}">0</div>
             <div class="countdown-label">Next roll in</div>
             <div class="countdown" id="countdown">&nbsp;</div>
             <div class="progress" id="progress"><div></div></div>
             <div class="timer" id="timer">&nbsp;</div>
 
-            <div class="my-bet" th:if="${myPrediction}">
-                <div class="placed" th:if="${placed}" role="status">&#10003; Bet placed. Good luck!</div>
-                Your bet: <strong th:text="${myPrediction.stake()}">0</strong> pts on
-                <strong th:text="${myPrediction.direction()}">HIGHER</strong>
-                at <span th:text="${myPrediction.multiplier()}">1.96x</span>
+            <div class="my-bet" th:if="${me?.bet()}">
+                <div class="placed" th:if="${feedback.placed()}" role="status">&#10003; Bet placed. Good luck!</div>
+                Your bet: <strong th:text="${me.bet().stake()}">0</strong> pts on
+                <strong th:text="${me.bet().direction()}">HIGHER</strong>
+                at <span th:text="${me.bet().multiplier()}">1.96x</span>
             </div>
 
-            <form id="predictForm" th:if="${player != null and myPrediction == null}"
+            <form id="predictForm" th:if="${board.canPredict()}"
                   hx-post="/predict" hx-target="#board" hx-swap="outerHTML" hx-disabled-elt="find .place">
-                <input type="hidden" name="roundId" th:value="${view.roundId()}">
+                <input type="hidden" name="roundId" th:value="${round.roundId()}">
                 <div class="stake-label">Stake</div>
-                <div class="stakes" th:attr="data-balance=${wallet.balance}">
-                    <label class="stake-option" th:each="amount, it : ${stakeOptions}">
-                        <input type="radio" name="stake" required th:value="${amount}" th:checked="${stake != null ? stake == amount : it.first}" th:disabled="${amount > wallet.balance}">
+                <div class="stakes" th:attr="data-balance=${me.balance()}">
+                    <label class="stake-option" th:each="amount : ${board.stakeOptions()}">
+                        <input type="radio" name="stake" required th:value="${amount}" th:checked="${amount == feedback.selectedStake(board)}" th:disabled="${amount > me.balance()}">
                         <span th:text="${amount}">10</span>
                     </label>
                 </div>
                 <div class="controls">
                     <label class="side">
-                        <input type="radio" name="prediction" value="HIGHER" required th:checked="${chosen?.name() == 'HIGHER'}" th:disabled="${view.higher() == null}" th:attr="data-max-stake=${view.higher()?.maxStake()}">
+                        <input type="radio" name="prediction" value="HIGHER" required th:checked="${feedback.side()?.name() == 'HIGHER'}" th:disabled="${round.higher() == null}" th:attr="data-max-stake=${round.higher()?.maxStake()}">
                         Higher
-                        <small th:if="${view.higher()}"
-                               th:text="${view.higher().multiplier()} + ' · max ' + ${view.higher().maxStake()}">1.96x</small>
+                        <small th:if="${round.higher()}"
+                               th:text="${round.higher().multiplier()} + ' · max ' + ${round.higher().maxStake()}">1.96x</small>
                     </label>
                     <label class="side">
-                        <input type="radio" name="prediction" value="LOWER" required th:checked="${chosen?.name() == 'LOWER'}" th:disabled="${view.lower() == null}" th:attr="data-max-stake=${view.lower()?.maxStake()}">
+                        <input type="radio" name="prediction" value="LOWER" required th:checked="${feedback.side()?.name() == 'LOWER'}" th:disabled="${round.lower() == null}" th:attr="data-max-stake=${round.lower()?.maxStake()}">
                         Lower
-                        <small th:if="${view.lower()}"
-                               th:text="${view.lower().multiplier()} + ' · max ' + ${view.lower().maxStake()}">2.00x</small>
+                        <small th:if="${round.lower()}"
+                               th:text="${round.lower().multiplier()} + ' · max ' + ${round.lower().maxStake()}">2.00x</small>
                     </label>
                 </div>
                 <button type="submit" class="place" disabled>Place bet</button>
                 <p class="placing" role="status">Placing your bet...</p>
-                <p class="error" th:if="${error}" th:text="${error}" role="alert"></p>
+                <p class="error" th:if="${feedback.error()}" th:text="${feedback.error()}" role="alert"></p>
             </form>
 
-            <p class="commit" th:if="${view.nextSeedCommitHash()}">
-                Next roll's seed commit (SHA-256): <code th:text="${view.nextSeedCommitHash()}"></code>
+            <p class="commit" th:if="${round.nextSeedCommitHash()}">
+                Next roll's seed commit (SHA-256): <code th:text="${round.nextSeedCommitHash()}"></code>
             </p>
         </div>
 
-        <div th:unless="${view}">
+        <div th:unless="${round}">
             <p>Waiting for the next round...</p>
         </div>
 
-        <p class="login-prompt" th:unless="${player}">
+        <p class="login-prompt" th:unless="${me}">
             <a th:href="@{/auth/login}">Log in</a> or <a th:href="@{/auth/signup}">sign up</a> to play.
         </p>
 
-        <div class="wallet" th:if="${player}">
-            Balance: <span th:text="${wallet.balance}">0</span> pts
-            <button class="topup" th:if="${canTopUp}" hx-post="/topup" hx-target="#board" hx-swap="outerHTML"
-                    th:text="'Daily top-up to ' + ${topUpTarget}">Daily top-up</button>
-            <p class="error" th:if="${topUpError}" th:text="${topUpError}" role="alert"></p>
+        <div class="wallet" th:if="${me}">
+            Balance: <span th:text="${me.balance()}">0</span> pts
+            <button class="topup" th:if="${me.topUpTarget()}" hx-post="/topup" hx-target="#board" hx-swap="outerHTML"
+                    th:text="'Daily top-up to ' + ${me.topUpTarget()}">Daily top-up</button>
+            <p class="error" th:if="${feedback.topUpError()}" th:text="${feedback.topUpError()}" role="alert"></p>
         </div>
     </div>
 </main>
