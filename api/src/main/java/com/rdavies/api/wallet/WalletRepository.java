@@ -9,7 +9,8 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Optional;
 
-public interface WalletRepository extends CrudRepository<Wallet, Long> {
+/** Package-private: balances change only through WalletService, which writes each change's ledger row with it. */
+interface WalletRepository extends CrudRepository<Wallet, Long> {
 
     /** save() would treat a wallet with its user id already set as an update, so inserts go through here. */
     @Modifying
@@ -26,7 +27,7 @@ public interface WalletRepository extends CrudRepository<Wallet, Long> {
             + "WHERE user_id = :userId AND balance >= :amount")
     int deductStake(@Param("userId") Long userId, @Param("amount") Long amount, @Param("now") Instant now);
 
-    /** Call only while holding {@link #lockById}: sets the balance and records today's top-up. */
+    /** Sets the balance and records today's top-up. WalletService.claimTopUp calls it holding {@link #lockById}. */
     @Modifying
     @Query("UPDATE wallets SET balance = :balance, last_top_up_date = :today, updated_at = :now WHERE user_id = :userId")
     void topUp(@Param("userId") Long userId, @Param("balance") long balance,

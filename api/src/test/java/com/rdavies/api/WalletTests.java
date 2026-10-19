@@ -2,9 +2,11 @@ package com.rdavies.api;
 
 import com.rdavies.api.user.GamePrincipal;
 import com.rdavies.api.user.UserService;
+import com.rdavies.api.wallet.TestWallets;
 import com.rdavies.api.wallet.Wallet;
 import com.rdavies.api.wallet.WalletService;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -35,6 +37,12 @@ class WalletTests {
     @Autowired TestGame game;
     @Autowired MutableClock clock;
     @Autowired MockMvc mockMvc;
+    @Autowired TestWallets wallets;
+
+    @AfterEach
+    void everyWalletMatchesItsLedger() {
+        wallets.assertEveryWalletMatchesItsLedger();
+    }
 
     @BeforeEach
     void setUp() {
@@ -131,9 +139,7 @@ class WalletTests {
 
     /** Takes points from the player's wallet with a matching ledger row, as a lost stake would. */
     private void spend(long points) {
-        jdbc.update("UPDATE wallets SET balance = balance - ? WHERE user_id = ?", points, playerId);
-        jdbc.update("INSERT INTO ledger (user_id, delta, reason, created_at) VALUES (?, ?, 'STAKE', now())",
-                playerId, -points);
+        wallets.spend(playerId, points);
     }
 
     private Wallet wallet() {

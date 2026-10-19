@@ -9,15 +9,17 @@ import com.rdavies.api.prediction.PredictionStatus;
 import com.rdavies.api.prediction.PredictionType;
 import com.rdavies.api.round.ProvablyFair;
 import com.rdavies.api.round.Round;
-import com.rdavies.api.round.RoundRolled;
 import com.rdavies.api.round.RoundRepository;
+import com.rdavies.api.round.RoundRolled;
 import com.rdavies.api.round.RoundSettled;
 import com.rdavies.api.round.RoundStatus;
 import com.rdavies.api.round.RoundView;
 import com.rdavies.api.user.GamePrincipal;
 import com.rdavies.api.user.UserService;
-import com.rdavies.api.wallet.WalletRepository;
+import com.rdavies.api.wallet.TestWallets;
+import com.rdavies.api.wallet.WalletService;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataAccessException;
@@ -26,7 +28,10 @@ import org.springframework.test.context.event.ApplicationEvents;
 import org.springframework.test.context.event.RecordApplicationEvents;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Instant;
 import java.util.List;
@@ -56,12 +61,19 @@ class GameFlowTests {
     @Autowired PredictionService predictionService;
     @Autowired RoundRepository roundRepository;
     @Autowired PredictionRepository predictionRepository;
-    @Autowired WalletRepository walletRepository;
+    @Autowired WalletService walletService;
+    @Autowired TestWallets wallets;
+    @Autowired PlatformTransactionManager transactionManager;
     @Autowired JdbcTemplate jdbc;
     @Autowired MutableClock clock;
     @Autowired MockMvc mockMvc;
     @Autowired ApplicationEvents events;
     @Autowired LiveStreams liveStreams;
+
+    @AfterEach
+    void everyWalletMatchesItsLedger() {
+        wallets.assertEveryWalletMatchesItsLedger();
+    }
 
     @BeforeEach
     void openRound() {
@@ -338,12 +350,12 @@ class GameFlowTests {
 
     @Test
     void insufficientPointsAreRejected() {
-        jdbc.update("UPDATE wallets SET balance = 50 WHERE user_id = ?", playerId);
+        wallets.spend(playerId, 950);
         Round round = game.current();
         assertThrows(GameRuleException.class,
                 () -> predictionService.placePrediction(playerId, round.id(), allowedDirection(round), 100L));
         assertEquals(50, balance());
-        assertEquals(1, ledgerRows()); // the signup bonus only: no STAKE row
+        assertEquals(2, ledgerRows()); // the signup bonus and the spend: no STAKE row for the refused bet
         // The prediction row was saved before the debit failed. In production the throw rolls it back, but this
         // test runs inside its own transaction, which the failed call only marks rollback-only.
     }
@@ -470,15 +482,13 @@ class GameFlowTests {
     void rollsCannotBeRewritten() {
         Round round = game.current();
         int otherRoll = round.rollValue() == 1 ? 2 : 1;
-        DataAccessException e = assertThrows(DataAccessException.class,
-                () -> jdbc.update("UPDATE rounds SET roll_value = ? WHERE id = ?", otherRoll, round.id()));
+        DataAccessException e = refusedByDatabase("UPDATE rounds SET roll_value = ? WHERE id = ?", otherRoll, round.id());
         assertTrue(e.getMostSpecificCause().getMessage().contains("immutable"), e.getMessage());
     }
 
     @Test
     void ledgerIsAppendOnly() {
-        DataAccessException e = assertThrows(DataAccessException.class,
-                () -> jdbc.update("DELETE FROM ledger WHERE user_id = ?", playerId));
+        DataAccessException e = refusedByDatabase("DELETE FROM ledger WHERE user_id = ?", playerId);
         assertTrue(e.getMostSpecificCause().getMessage().contains("append-only"), e.getMessage());
     }
 
@@ -490,17 +500,12 @@ class GameFlowTests {
         jdbc.update("""
                 INSERT INTO users (email, display_name, password_hash)
                 SELECT 'load' || g || '@example.invalid', 'load' || g, '!' FROM generate_series(1, 1000) g""");
-        jdbc.update("INSERT INTO wallets (user_id, balance) SELECT id, 900 FROM users WHERE email LIKE 'load%'");
-        jdbc.update("""
-                INSERT INTO ledger (user_id, delta, reason, created_at)
-                SELECT id, 1000, 'SIGNUP_BONUS', now() FROM users WHERE email LIKE 'load%'""");
+        wallets.openWalletsForUsers("load%", 1000);
         jdbc.update("""
                 INSERT INTO predictions (user_id, round_id, direction, stake, multiplier_bps, status, created_at)
                 SELECT id, ?, CASE WHEN id % 2 = 0 THEN 'HIGHER' ELSE 'LOWER' END, 100, 19600, 'PENDING', now()
                 FROM users WHERE email LIKE 'load%'""", roundId);
-        jdbc.update("""
-                INSERT INTO ledger (user_id, delta, reason, ref_id, created_at)
-                SELECT user_id, -100, 'STAKE', id, now() FROM predictions WHERE round_id = ?""", roundId);
+        wallets.debitPendingStakes(roundId);
 
         game.plantNextRoll(70);
         long began = System.nanoTime();
@@ -512,10 +517,18 @@ class GameFlowTests {
                 "SELECT COUNT(*) FROM predictions WHERE round_id = ? AND status = 'WON'", Integer.class, roundId));
         assertEquals(500, jdbc.queryForObject(
                 "SELECT COUNT(*) FROM predictions WHERE round_id = ? AND status = 'LOST'", Integer.class, roundId));
-        assertEquals(0, jdbc.queryForObject("""
-                SELECT COUNT(*) FROM wallets w
-                WHERE w.balance <> (SELECT COALESCE(SUM(delta), 0) FROM ledger l WHERE l.user_id = w.user_id)""",
-                Integer.class));
+        wallets.assertEveryWalletMatchesItsLedger();
+    }
+
+    /**
+     * Runs a statement the database must refuse, inside a savepoint: a failed statement aborts a
+     * Postgres transaction, and this keeps the test transaction usable afterwards.
+     */
+    private DataAccessException refusedByDatabase(String sql, Object... args) {
+        TransactionTemplate savepoint = new TransactionTemplate(transactionManager);
+        savepoint.setPropagationBehavior(TransactionDefinition.PROPAGATION_NESTED);
+        return assertThrows(DataAccessException.class,
+                () -> savepoint.executeWithoutResult(status -> jdbc.update(sql, args)));
     }
 
     private int ledgerRows() {
@@ -523,6 +536,6 @@ class GameFlowTests {
     }
 
     private long balance() {
-        return walletRepository.findById(playerId).orElseThrow().balance();
+        return walletService.getWallet(playerId).balance();
     }
 }

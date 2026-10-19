@@ -3,7 +3,9 @@ package com.rdavies.api;
 import com.rdavies.api.round.Round;
 import com.rdavies.api.user.GamePrincipal;
 import com.rdavies.api.user.UserService;
+import com.rdavies.api.wallet.TestWallets;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
@@ -32,7 +34,13 @@ class GameApiTests {
     @Autowired MutableClock clock;
     @Autowired MockMvc mockMvc;
     @Autowired UserService userService;
+    @Autowired TestWallets wallets;
     private GamePrincipal player;
+
+    @AfterEach
+    void everyWalletMatchesItsLedger() {
+        wallets.assertEveryWalletMatchesItsLedger();
+    }
 
     @BeforeEach
     void signUp() {

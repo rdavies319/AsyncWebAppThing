@@ -3,7 +3,9 @@ package com.rdavies.api;
 import com.rdavies.api.user.GamePrincipal;
 import com.rdavies.api.user.UserRepository;
 import com.rdavies.api.user.UserService;
+import com.rdavies.api.wallet.TestWallets;
 import com.rdavies.api.wallet.WalletService;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
@@ -30,6 +32,12 @@ class AuthTests {
     @Autowired UserService userService;
     @Autowired UserRepository userRepository;
     @Autowired WalletService walletService;
+    @Autowired TestWallets wallets;
+
+    @AfterEach
+    void everyWalletMatchesItsLedger() {
+        wallets.assertEveryWalletMatchesItsLedger();
+    }
 
     @Test
     void signupCreatesThePlayerWithTheSignupBonus() throws Exception {

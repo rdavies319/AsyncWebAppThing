@@ -9,7 +9,9 @@ import com.rdavies.api.prediction.Settlement;
 import com.rdavies.api.round.Odds;
 import com.rdavies.api.round.Round;
 import com.rdavies.api.user.UserService;
+import com.rdavies.api.wallet.TestWallets;
 import com.rdavies.api.wallet.WalletService;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -33,6 +35,12 @@ class SettlementTests {
     @Autowired PredictionService predictionService;
     @Autowired WalletService walletService;
     @Autowired JdbcTemplate jdbc;
+    @Autowired TestWallets wallets;
+
+    @AfterEach
+    void everyWalletMatchesItsLedger() {
+        wallets.assertEveryWalletMatchesItsLedger();
+    }
 
     @Test
     void winnersArePaidAtTheirLockedMultiplierAndLosersGetNothing() {
