@@ -46,6 +46,15 @@ public class RoundEngine {
     /** Arbitrary app-wide key for pg_try_advisory_xact_lock. */
     public static final long ENGINE_LOCK_KEY = 0x486967684C6F77L; // "HighLow"
 
+    /**
+     * The scheduler can fire a few ms before the minute (its delays run on System.nanoTime, which
+     * drifts from the wall clock, notably under Docker on WSL2). A tick this close to a boundary
+     * counts as on it; otherwise it would find nothing due and the roll would wait a whole minute,
+     * or open the next round in the minute just ending, already past its cutoff. Betting closes
+     * well before the roll, so treating it as on time cannot affect a prediction.
+     */
+    static final Duration EARLY_TICK_GRACE = Duration.ofSeconds(1);
+
     private final SecureRandom random = new SecureRandom();
 
     private final RoundRepository roundRepository;
@@ -88,7 +97,8 @@ public class RoundEngine {
         }
 
         Instant now = clock.instant();
-        Instant currentSlot = now.truncatedTo(ChronoUnit.MINUTES);
+        Instant tickTime = now.plus(EARLY_TICK_GRACE);
+        Instant currentSlot = tickTime.truncatedTo(ChronoUnit.MINUTES);
         var openRound = roundRepository.lockOpenRound();
         if (openRound.isEmpty()) {
             bootstrap(currentSlot);
@@ -97,7 +107,7 @@ public class RoundEngine {
 
         Round current = openRound.get();
         Instant settleAt = current.rollTime();
-        if (now.isBefore(settleAt)) {
+        if (tickTime.isBefore(settleAt)) {
             log.debug("Round {} settles at {}; nothing due", current.id(), settleAt);
             return;
         }

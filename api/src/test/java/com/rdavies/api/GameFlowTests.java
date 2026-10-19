@@ -399,6 +399,30 @@ class GameFlowTests {
         Prediction placed = predictionService.placePrediction(playerId, stale.id(), allowedDirection(stale), 100L);
 
         clock.now = Instant.parse("2026-01-01T00:10:20Z");
+    @Test
+    void aTickFiringJustBeforeTheMinuteCountsAsOnIt() {
+        Round first = currentRound();
+
+        // Well before the minute, nothing is due
+        clock.now = Instant.parse("2026-01-01T00:00:58Z");
+        engine.tick();
+        assertEquals(first.id(), currentRound().id());
+
+        // The scheduler fires a few ms early: the roll still happens, and the next round takes the
+        // coming minute rather than the one ending, so it gets its full betting window
+        clock.now = Instant.parse("2026-01-01T00:00:59.995Z");
+        engine.tick();
+        assertEquals(RoundStatus.SETTLED, roundRepository.findById(first.id()).orElseThrow().status());
+        assertEquals(Instant.parse("2026-01-01T00:01:00Z"), currentRound().startsAt());
+
+        // And the next early tick, a minute on, rolls that one
+        Round second = currentRound();
+        clock.now = Instant.parse("2026-01-01T00:01:59.995Z");
+        engine.tick();
+        assertEquals(RoundStatus.SETTLED, roundRepository.findById(second.id()).orElseThrow().status());
+        assertEquals(Instant.parse("2026-01-01T00:02:00Z"), currentRound().startsAt());
+    }
+
         engine.tick();
 
         assertEquals(RoundStatus.SETTLED, roundRepository.findById(stale.id()).orElseThrow().status());
