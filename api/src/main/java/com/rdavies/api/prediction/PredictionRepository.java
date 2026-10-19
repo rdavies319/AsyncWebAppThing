@@ -14,26 +14,22 @@ public interface PredictionRepository extends CrudRepository<Prediction, Long> {
     Optional<Prediction> findByRoundIdAndUserId(Long roundId, Long userId);
 
     /**
-     * Settles every pending prediction on a round in one statement. {@code previous} is the round's
-     * roll and {@code roll} the next round's. A win pays floor(stake * multiplier_bps / 10000), stake
-     * included; a push refunds the stake; a loss pays 0 (the stake was debited when placed).
+     * Settles every pending prediction on a round in one statement, given each direction's outcome
+     * (decided by Settlement). A win pays floor(stake * multiplier_bps / 10000), stake included; a
+     * push refunds the stake; a loss pays 0 (the stake was debited when placed). Use Settlement.settle.
      */
     @Modifying
     @Query("""
-            UPDATE predictions SET
-                status = CASE
-                    WHEN :roll = :previous THEN 'PUSH'
-                    WHEN (direction = 'HIGHER' AND :roll > :previous)
-                      OR (direction = 'LOWER' AND :roll < :previous) THEN 'WON'
-                    ELSE 'LOST' END,
-                payout = CASE
-                    WHEN :roll = :previous THEN stake
-                    WHEN (direction = 'HIGHER' AND :roll > :previous)
-                      OR (direction = 'LOWER' AND :roll < :previous) THEN stake * multiplier_bps / 10000
+            UPDATE predictions p SET
+                status = o.status,
+                payout = CASE o.status
+                    WHEN 'WON' THEN p.stake * p.multiplier_bps / 10000
+                    WHEN 'PUSH' THEN p.stake
                     ELSE 0 END,
                 settled_at = :now
-            WHERE round_id = :roundId AND status = 'PENDING'
+            FROM (VALUES ('HIGHER', :higher), ('LOWER', :lower)) AS o (direction, status)
+            WHERE p.round_id = :roundId AND p.status = 'PENDING' AND p.direction = o.direction
             """)
-    int settleRound(@Param("roundId") Long roundId, @Param("previous") int previous,
-                    @Param("roll") int roll, @Param("now") Instant now);
+    int settleRound(@Param("roundId") Long roundId, @Param("higher") String higherOutcome,
+                    @Param("lower") String lowerOutcome, @Param("now") Instant now);
 }

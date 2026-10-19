@@ -1,14 +1,12 @@
 package com.rdavies.api.round;
 
-import com.rdavies.api.prediction.PredictionRepository;
 import com.rdavies.api.prediction.PredictionSettled;
-import com.rdavies.api.wallet.WalletService;
+import com.rdavies.api.prediction.Settlement;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
-import org.springframework.jdbc.core.DataClassRowMapper;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -59,19 +57,16 @@ public class RoundEngine {
 
     private final RoundRepository roundRepository;
     private final RoundService roundService;
-    private final PredictionRepository predictionRepository;
-    private final WalletService walletService;
+    private final Settlement settlement;
     private final JdbcTemplate jdbc;
     private final Clock clock;
     private final ApplicationEventPublisher events;
 
-    public RoundEngine(RoundRepository roundRepository, RoundService roundService,
-                       PredictionRepository predictionRepository, WalletService walletService,
+    public RoundEngine(RoundRepository roundRepository, RoundService roundService, Settlement settlement,
                        JdbcTemplate jdbc, Clock clock, ApplicationEventPublisher events) {
         this.roundRepository = roundRepository;
         this.roundService = roundService;
-        this.predictionRepository = predictionRepository;
-        this.walletService = walletService;
+        this.settlement = settlement;
         this.jdbc = jdbc;
         this.clock = clock;
         this.events = events;
@@ -121,15 +116,12 @@ public class RoundEngine {
             log.warn("Round {} was already settled; skipping", current.id());
             return;
         }
-        int settled = predictionRepository.settleRound(current.id(), current.rollValue(), roll, now);
-        walletService.creditRoundPayouts(current.id(), now);
-        log.info("Round {} settled: {} -> {}, {} predictions", current.id(), current.rollValue(), roll, settled);
+        PredictionSettled.Batch settled = settlement.settle(current.id(), current.rollValue(), roll, now);
+        log.info("Round {} settled: {} -> {}, {} predictions",
+                current.id(), current.rollValue(), roll, settled.predictions().size());
         // Delivered to listeners only once this tick's transaction commits
         events.publishEvent(new RoundSettled(current.id(), next.id(), roll, next.seed()));
-        events.publishEvent(new PredictionSettled.Batch(jdbc.query("""
-                SELECT p.user_id, p.id AS prediction_id, p.round_id, p.status, p.payout, w.balance
-                FROM predictions p JOIN wallets w ON w.user_id = p.user_id
-                WHERE p.round_id = ?""", DataClassRowMapper.newInstance(PredictionSettled.class), current.id())));
+        events.publishEvent(settled);
 
         Instant nextSlot = next.startsAt();
         if (currentSlot.isAfter(nextSlot)) {

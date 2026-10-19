@@ -10,7 +10,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 
-/** Wallet changes outside settlement (spec section 3): the signup bonus and the daily top-up. */
+/** Every wallet change, each with its ledger row (spec section 7): signup bonus, stakes, payouts and the daily top-up. */
 @Service
 public class WalletService {
     private final WalletRepository walletRepository;
@@ -52,7 +52,7 @@ public class WalletService {
         ledgerRepository.save(new LedgerEntry(null, userId, -stake, LedgerEntry.Reason.STAKE, predictionId, now));
     }
 
-    /** Pays out a settled round: wins and pushes, each with its ledger row. */
+    /** Pays out a round Settlement has just settled: wins and pushes, each with its ledger row. */
     @Transactional
     public void creditRoundPayouts(long roundId, Instant now) {
         walletRepository.creditRoundPayouts(roundId, now);

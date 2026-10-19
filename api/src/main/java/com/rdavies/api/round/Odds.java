@@ -35,7 +35,7 @@ public final class Odds {
         return EDGE_ADJUSTED_BPS / outcomes;
     }
 
-    /** Total credited to a winner, stake included. Must match PredictionRepository.settleRound. */
+    /** Total credited to a winner, stake included. SettlementTests check the settlement SQL pays exactly this. */
     public static long payout(long stake, long multiplierBps) {
         return Math.multiplyExact(stake, multiplierBps) / BPS_PER_UNIT;
     }
