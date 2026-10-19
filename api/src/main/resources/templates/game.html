@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Higher or Lower</title>
+    <style>
+        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #f0f2f5; }
+        .card { background: white; padding: 2rem; border-radius: 1rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center; width: 300px; }
+        .roll-display { font-size: 4rem; font-weight: bold; color: #1a73e8; margin: 1rem 0; }
+        .timer { font-size: 1.2rem; color: #666; margin-bottom: 2rem; }
+        .controls { display: flex; gap: 1rem; justify-content: center; margin-bottom: 1rem; }
+        .btn { padding: 0.5rem 1rem; cursor: pointer; border: 1px solid #ddd; border-radius: 0.5rem; background: white; transition: 0.2s; }
+        .btn:hover { background: #eee; }
+        .btn.selected { background: #1a73e8; color: white; border-color: #1a73e8; }
+        .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .stake-input { width: 60px; padding: 0.5rem; text-align: center; }
+        .submit-btn { width: 100%; padding: 0.75rem; background: #1a73e8; color: white; border: none; border-radius: 0.5rem; font-weight: bold; cursor: pointer; }
+        .submit-btn:disabled { background: #9bb8e8; cursor: not-allowed; }
+        .last-result { background: #f5f7fa; border-radius: 0.5rem; padding: 0.75rem; margin-bottom: 1rem; font-size: 0.9rem; color: #444; }
+        .last-result .outcome { font-weight: bold; margin-top: 0.25rem; }
+        .my-bet { padding: 0.75rem; border: 1px dashed #1a73e8; border-radius: 0.5rem; color: #1a73e8; }
+        .wallet { margin-top: 2rem; font-size: 0.9rem; color: #888; }
+        .commit { margin-top: 1rem; font-size: 0.7rem; color: #888; word-break: break-all; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>Higher or Lower</h2>
+
+    <div class="last-result" th:if="${lastResult}">
+        <div th:if="${lastResult.voided()}">Last round was voided</div>
+        <div th:unless="${lastResult.voided()}">
+            Last roll: <span th:text="${lastResult.round().previousRoll()}">0</span>
+            &rarr; <strong th:text="${lastResult.round().currentRoll()}">0</strong>
+        </div>
+        <div class="outcome" th:if="${lastResult.outcome()}" th:text="${lastResult.outcome()}"></div>
+    </div>
+
+    <div th:if="${round}">
+        <div class="roll-display" th:text="${round.previousRoll}">0</div>
+        <div class="timer" id="timer">&nbsp;</div>
+
+        <div class="my-bet" th:if="${myPrediction}">
+            Your bet: <strong th:text="${myPrediction.stake()}">0</strong> pts on
+            <strong th:text="${myPrediction.prediction()}">HIGHER</strong>
+        </div>
+
+        <form id="predictForm" th:unless="${myPrediction}">
+            <input type="hidden" name="roundId" th:value="${round.roundId}">
+            <div class="controls">
+                <button type="button" class="btn" th:disabled="${round.previousRoll == 100}" onclick="setPrediction('HIGHER', this)">Higher</button>
+                <button type="button" class="btn" th:disabled="${round.previousRoll == 1}" onclick="setPrediction('LOWER', this)">Lower</button>
+            </div>
+            <input type="hidden" name="prediction" id="predictionInput" required>
+            <div style="margin-bottom: 1rem;">
+                Stake: <input type="number" name="stake" class="stake-input" value="10" min="1">
+            </div>
+            <button type="submit" class="submit-btn" id="submitBtn">Place Bet</button>
+        </form>
+        <p class="commit" th:if="${round.seedCommitHash}">
+            Seed commit (SHA-256): <code th:text="${round.seedCommitHash}"></code>
+        </p>
+    </div>
+
+    <div th:unless="${round}">
+        <p>Waiting for the next round...</p>
+    </div>
+
+    <div class="wallet">
+        Balance: <span th:text="${wallet.balance}">0</span> pts
+    </div>
+</div>
+
+<script th:inline="javascript">
+    const rollAt = /*[[${rollAt}]]*/ null;
+    const deadline = /*[[${deadline}]]*/ null;
+    // How far the browser clock is from the server's; the server clock is the authority
+    const loadedAt = /*[[${serverNow}]]*/ Date.now();
+    const clockOffset = loadedAt - Date.now();
+    const serverNow = () => Date.now() + clockOffset;
+
+    let selectedPrediction = null;
+
+    function setPrediction(val, btn) {
+        selectedPrediction = val;
+        document.getElementById('predictionInput').value = val;
+        document.querySelectorAll('.btn').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+    }
+
+    document.getElementById('predictForm')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (!selectedPrediction) {
+            alert('Please select Higher or Lower');
+            return;
+        }
+        const formData = new FormData(e.target);
+        const response = await fetch('/predict', {
+            method: 'POST',
+            body: formData
+        });
+        const result = await response.json();
+        if (result.status === 'success') {
+            location.reload();
+        } else {
+            alert('Error: ' + result.message);
+        }
+    });
+
+    // Reload whenever the server opens a new round, i.e. right after each roll
+    const live = new EventSource('/live');
+    live.addEventListener('round', () => location.reload());
+    // A reconnect means events may have been missed while the stream was down
+    let connectedBefore = false;
+    live.addEventListener('open', () => {
+        if (connectedBefore) location.reload();
+        connectedBefore = true;
+    });
+    // Safety net if the event never arrives. Only for a round that was still running when the
+    // page loaded, so a stalled engine doesn't cause a reload loop.
+    if (rollAt !== null && rollAt > loadedAt) {
+        setTimeout(() => location.reload(), rollAt - serverNow() + 5000);
+    }
+
+    function updateTimer() {
+        const timer = document.getElementById('timer');
+        if (!timer || rollAt === null) return;
+        const now = serverNow();
+        const submit = document.getElementById('submitBtn');
+        if (now < deadline) {
+            timer.innerText = `Predictions close in ${Math.ceil((deadline - now) / 1000)}s`;
+        } else if (now < rollAt) {
+            timer.innerText = `Closed. Rolling in ${Math.ceil((rollAt - now) / 1000)}s`;
+            if (submit) submit.disabled = true;
+        } else {
+            timer.innerText = 'Rolling...';
+            if (submit) submit.disabled = true;
+        }
+    }
+    setInterval(updateTimer, 250);
+    updateTimer();
+</script>
+
+</body>
+</html>
