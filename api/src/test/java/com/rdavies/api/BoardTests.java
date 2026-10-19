@@ -13,6 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -59,8 +60,66 @@ class BoardTests {
 
         Board board = boardService.board(Optional.of(alice));
 
-        assertEquals(new Board.PlayerBoard("alice", 1000, null, null), board.player()); // at the top-up target already
+        assertEquals("alice", board.player().name());
+        assertEquals(1000, board.player().balance());
+        assertNull(board.player().bet());
+        assertNull(board.player().topUpTarget()); // at the top-up target already
         assertTrue(board.canPredict());
+    }
+
+    @Test
+    void everyStakeFitsBothSidesOnAnEvenRound() {
+        game.startFrom(50); // max stake 500 on both sides
+        Board board = boardService.board(Optional.of(TestPlayers.signUp(userService, "alice")));
+
+        assertEquals(Map.of(PredictionType.HIGHER, List.of(10L, 100L, 500L), PredictionType.LOWER, List.of(10L, 100L, 500L)),
+                board.player().stakesBySide());
+        assertEquals(List.of(PredictionType.HIGHER, PredictionType.LOWER), board.sidesAllowing(500));
+        assertTrue(board.stakeAllowed(500, null));
+    }
+
+    @Test
+    void thePayoutCapRulesOutBigStakesOnALongShot() {
+        game.startFrom(99); // HIGHER pays 98x, so its max stake is 102; LOWER keeps 500
+        Board board = boardService.board(Optional.of(TestPlayers.signUp(userService, "alice")));
+
+        assertEquals(List.of(10L, 100L), board.player().stakesBySide().get(PredictionType.HIGHER));
+        assertEquals(List.of(PredictionType.LOWER), board.sidesAllowing(500));
+        assertFalse(board.stakeAllowed(500, PredictionType.HIGHER));
+        assertTrue(board.stakeAllowed(500, PredictionType.LOWER));
+        assertTrue(board.stakeAllowed(500, null)); // allowed until a side rules it out
+    }
+
+    @Test
+    void anImpossibleSideAllowsNoStake() {
+        game.startFrom(100); // nothing is higher than 100
+        Board board = boardService.board(Optional.of(TestPlayers.signUp(userService, "alice")));
+
+        assertFalse(board.player().stakesBySide().containsKey(PredictionType.HIGHER));
+        assertEquals(List.of(PredictionType.LOWER), board.sidesAllowing(10));
+    }
+
+    @Test
+    void stakesAboveTheBalanceAreRuledOut() {
+        GamePrincipal alice = TestPlayers.signUp(userService, "alice");
+        loseStake(alice, 50, 500, 20); // 1000 → 500
+        loseStake(alice, 20, 100, 10); // 500 → 400
+
+        Board board = boardService.board(Optional.of(alice));
+
+        assertEquals(400, board.player().balance());
+        assertEquals(List.of(), board.sidesAllowing(500));
+        assertFalse(board.stakeAllowed(500, null));
+        assertTrue(board.stakeAllowed(100, null));
+    }
+
+    @Test
+    void anAnonymousViewerCanPlaceNoStake() {
+        game.startFrom(50);
+        Board board = boardService.board(Optional.empty());
+
+        assertEquals(List.of(), board.sidesAllowing(10));
+        assertFalse(board.stakeAllowed(10, null));
     }
 
     @Test
@@ -113,5 +172,13 @@ class BoardTests {
         game.rollNext();
 
         assertEquals("Tie: your 100 pts were refunded", boardService.board(Optional.of(alice)).lastRoll().outcome());
+    }
+
+    /** Opens a round on {@code roll}, bets {@code stake} on HIGHER and rolls {@code nextRoll} (below it), so the stake is lost. */
+    private void loseStake(GamePrincipal player, int roll, long stake, int nextRoll) {
+        Round round = game.startFrom(roll);
+        predictionService.placePrediction(player.id(), round.id(), PredictionType.HIGHER, stake);
+        game.plantNextRoll(nextRoll);
+        game.rollNext();
     }
 }

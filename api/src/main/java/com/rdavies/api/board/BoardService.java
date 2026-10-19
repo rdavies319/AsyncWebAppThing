@@ -3,6 +3,7 @@ package com.rdavies.api.board;
 import com.rdavies.api.GameProperties;
 import com.rdavies.api.prediction.Prediction;
 import com.rdavies.api.prediction.PredictionService;
+import com.rdavies.api.prediction.PredictionType;
 import com.rdavies.api.round.RoundService;
 import com.rdavies.api.round.RoundView;
 import com.rdavies.api.user.GamePrincipal;
@@ -10,6 +11,9 @@ import com.rdavies.api.wallet.Wallet;
 import com.rdavies.api.wallet.WalletService;
 import org.springframework.stereotype.Service;
 
+import java.util.EnumMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /** Builds the game page's board (spec section 8): anyone can watch, and a logged-in player also sees their own part. */
@@ -47,7 +51,26 @@ public class BoardService {
                 .map(p -> new Board.Bet(p.stake(), p.direction(), p.multiplier()))
                 .orElse(null);
         Long topUpTarget = walletService.canTopUp(wallet) ? game.topUpTarget() : null;
-        return new Board.PlayerBoard(viewer.displayName(), wallet.balance(), bet, topUpTarget);
+        return new Board.PlayerBoard(viewer.displayName(), wallet.balance(), bet, topUpTarget,
+                stakesBySide(round, wallet.balance()));
+    }
+
+    /** The stake options the player can afford on each side that can win; the server still checks every bet. */
+    private Map<PredictionType, List<Long>> stakesBySide(RoundView round, long balance) {
+        Map<PredictionType, List<Long>> stakes = new EnumMap<>(PredictionType.class);
+        if (round == null) {
+            return stakes;
+        }
+        addSide(stakes, PredictionType.HIGHER, round.higher(), balance);
+        addSide(stakes, PredictionType.LOWER, round.lower(), balance);
+        return stakes;
+    }
+
+    private void addSide(Map<PredictionType, List<Long>> stakes, PredictionType direction, RoundView.Side side, long balance) {
+        if (side != null) {
+            stakes.put(direction, game.stakeOptions().stream()
+                    .filter(stake -> stake <= balance && stake <= side.maxStake()).toList());
+        }
     }
 
     /** What happened to a settled prediction's stake. */

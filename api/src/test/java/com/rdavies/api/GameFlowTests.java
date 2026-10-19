@@ -152,6 +152,15 @@ class GameFlowTests {
     }
 
     @Test
+    void eachStakeButtonListsTheSidesItFits() throws Exception {
+        game.startFrom(99); // the payout cap limits HIGHER to 102
+        String page = mockMvc.perform(get("/").with(user(player))).andReturn().getResponse().getContentAsString();
+        assertTrue(TestHtml.input(page, "stake", "100").contains("data-sides=\"HIGHER LOWER\""), page);
+        assertTrue(TestHtml.input(page, "stake", "500").contains("data-sides=\"LOWER\""), page);
+        assertFalse(isDisabled(page, "stake", "500"), page); // still fine on LOWER until a side is picked
+    }
+
+    @Test
     void boardFragmentIsJustTheBoard() throws Exception {
         String board = mockMvc.perform(get("/fragments/board")).andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();

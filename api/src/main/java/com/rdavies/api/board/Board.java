@@ -4,6 +4,7 @@ import com.rdavies.api.prediction.PredictionType;
 import com.rdavies.api.round.RoundView;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * What a viewer sees on the game page: the open round, the last roll, and for a logged-in player
@@ -29,11 +30,29 @@ public record Board(RoundView round, LastRoll lastRoll, PlayerBoard player, List
      */
     public record LastRoll(int roll, int nextRoll, String outcome) {}
 
+    /** The sides this stake option can be placed on now, e.g. [HIGHER, LOWER]; empty for an anonymous viewer. */
+    public List<PredictionType> sidesAllowing(long stake) {
+        if (player == null) {
+            return List.of();
+        }
+        return player.stakesBySide().entrySet().stream()
+                .filter(side -> side.getValue().contains(stake)).map(Map.Entry::getKey).toList();
+    }
+
+    /** Whether this stake option can be placed on {@code side}, or on either side when {@code side} is null. */
+    public boolean stakeAllowed(long stake, PredictionType side) {
+        List<PredictionType> sides = sidesAllowing(stake);
+        return side == null ? !sides.isEmpty() : sides.contains(side);
+    }
+
     /**
-     * @param bet         the player's bet on the open round; null if they haven't placed one
-     * @param topUpTarget the balance the daily top-up would refill to; null if it can't be claimed now
+     * @param bet          the player's bet on the open round; null if they haven't placed one
+     * @param topUpTarget  the balance the daily top-up would refill to; null if it can't be claimed now
+     * @param stakesBySide for each side that can win, the stake options the player may place on it:
+     *                     within their balance and that side's max stake (lowered by the payout cap)
      */
-    public record PlayerBoard(String name, long balance, Bet bet, Long topUpTarget) {}
+    public record PlayerBoard(String name, long balance, Bet bet, Long topUpTarget,
+                              Map<PredictionType, List<Long>> stakesBySide) {}
 
     /** @param multiplier the multiplier locked in when placed, for display, e.g. "1.96x" */
     public record Bet(long stake, PredictionType direction, String multiplier) {}

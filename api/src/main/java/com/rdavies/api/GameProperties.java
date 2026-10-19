@@ -26,4 +26,18 @@ public record GameProperties(
     @DefaultValue("1000") long signupBonus,
     @DefaultValue("1000") long topUpTarget,
     @DefaultValue({"10", "100", "500"}) List<Long> stakeOptions
-) {}
+) {
+    /** Checked at startup, so a stake button the server would always refuse can't ship. */
+    public GameProperties {
+        if (stakeOptions.isEmpty()) {
+            throw new IllegalArgumentException("game.stake-options must list at least one stake");
+        }
+        for (long stake : stakeOptions) {
+            if (stake < minStake || stake > maxStake) {
+                throw new IllegalArgumentException("game.stake-options: " + stake
+                        + " is outside game.min-stake..game.max-stake (" + minStake + ".." + maxStake + ")");
+            }
+        }
+        stakeOptions = List.copyOf(stakeOptions);
+    }
+}

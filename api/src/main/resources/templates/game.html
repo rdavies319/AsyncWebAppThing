@@ -109,21 +109,21 @@
                   hx-post="/predict" hx-target="#board" hx-swap="outerHTML" hx-disabled-elt="find .place">
                 <input type="hidden" name="roundId" th:value="${round.roundId()}">
                 <div class="stake-label">Stake</div>
-                <div class="stakes" th:attr="data-balance=${me.balance()}">
+                <div class="stakes">
                     <label class="stake-option" th:each="amount : ${board.stakeOptions()}">
-                        <input type="radio" name="stake" required th:value="${amount}" th:checked="${amount == feedback.selectedStake(board)}" th:disabled="${amount > me.balance()}">
+                        <input type="radio" name="stake" required th:value="${amount}" th:checked="${amount == feedback.selectedStake(board)}" th:disabled="${!board.stakeAllowed(amount, feedback.side())}" th:attr="data-sides=${#strings.listJoin(board.sidesAllowing(amount), ' ')}">
                         <span th:text="${amount}">10</span>
                     </label>
                 </div>
                 <div class="controls">
                     <label class="side">
-                        <input type="radio" name="prediction" value="HIGHER" required th:checked="${feedback.side()?.name() == 'HIGHER'}" th:disabled="${round.higher() == null}" th:attr="data-max-stake=${round.higher()?.maxStake()}">
+                        <input type="radio" name="prediction" value="HIGHER" required th:checked="${feedback.side()?.name() == 'HIGHER'}" th:disabled="${round.higher() == null}">
                         Higher
                         <small th:if="${round.higher()}"
                                th:text="${round.higher().multiplier()} + ' · max ' + ${round.higher().maxStake()}">1.96x</small>
                     </label>
                     <label class="side">
-                        <input type="radio" name="prediction" value="LOWER" required th:checked="${feedback.side()?.name() == 'LOWER'}" th:disabled="${round.lower() == null}" th:attr="data-max-stake=${round.lower()?.maxStake()}">
+                        <input type="radio" name="prediction" value="LOWER" required th:checked="${feedback.side()?.name() == 'LOWER'}" th:disabled="${round.lower() == null}">
                         Lower
                         <small th:if="${round.lower()}"
                                th:text="${round.lower().multiplier()} + ' · max ' + ${round.lower().maxStake()}">2.00x</small>
@@ -195,12 +195,11 @@
         const form = document.getElementById('predictForm');
         if (!form || form.classList.contains('htmx-request')) return;
         if (!open) form.querySelectorAll('input[name="prediction"]').forEach(i => i.disabled = true);
-        // A stake is offered if the player can afford it and it fits the chosen side's max (the payout cap lowers it)
+        // The server lists the sides each stake can go on (data-sides); offer it if it fits the chosen side, or any side
         const side = form.querySelector('input[name="prediction"]:checked');
-        const balance = Number(form.querySelector('.stakes').dataset.balance);
-        const sideMax = side ? Number(side.dataset.maxStake) : Infinity;
         form.querySelectorAll('input[name="stake"]').forEach(i => {
-            i.disabled = !open || Number(i.value) > balance || Number(i.value) > sideMax;
+            const sides = (i.dataset.sides || '').split(' ').filter(Boolean);
+            i.disabled = !open || (side ? !sides.includes(side.value) : sides.length === 0);
             if (i.disabled) i.checked = false;
         });
         form.querySelector('.place').disabled = !open || !side || !form.querySelector('input[name="stake"]:checked');
