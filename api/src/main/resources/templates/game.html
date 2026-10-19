@@ -17,13 +17,37 @@
     <style>
         .card { text-align: center; }
         .roll-display { font-size: 4rem; font-weight: bold; color: #1a73e8; margin: 1rem 0 0.25rem; }
-        .timer { font-size: 1.1rem; color: #666; margin-bottom: 1.5rem; min-height: 1.4em; }
-        .stake { margin-bottom: 1rem; }
-        .stake-input { width: 80px; padding: 0.5rem; text-align: center; }
+        .countdown { font-size: 1.6rem; font-weight: bold; color: #333; font-variant-numeric: tabular-nums; }
+        .countdown-label { font-size: 0.8rem; color: #888; text-transform: uppercase; letter-spacing: 0.05em; }
+        .progress { height: 6px; background: #e3e8ef; border-radius: 3px; overflow: hidden; margin: 0.5rem 0 0.4rem; }
+        .progress > div { height: 100%; width: 0; background: #1a73e8; transition: width 0.25s linear; }
+        .progress.closed > div { background: #f29900; }
+        .timer { font-size: 0.95rem; color: #666; margin-bottom: 1.5rem; min-height: 1.4em; }
+        .stake-label { font-size: 0.8rem; color: #888; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.4rem; }
+        .stakes { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+        .stake-option { flex: 1; padding: 0.5rem; border: 2px solid #5f6368; border-radius: 0.5rem; color: #5f6368; font-weight: bold; cursor: pointer; transition: background 0.15s, color 0.15s; }
+        .stake-option input { position: absolute; opacity: 0; pointer-events: none; }
+        .stake-option span::after { content: " pts"; font-weight: normal; font-size: 0.8em; }
+        .stake-option:hover { background: #f1f3f4; }
+        .stake-option:has(input:checked) { background: #5f6368; color: white; }
+        .stake-option:has(input:focus-visible) { outline: 2px solid #174ea6; outline-offset: 2px; }
+        .stake-option:has(input:disabled) { border-color: #dadce0; background: #f8f9fa; color: #bdc1c6; cursor: not-allowed; }
         .controls { display: flex; gap: 0.75rem; }
-        .side { flex: 1; padding: 0.75rem 0.5rem; border: none; border-radius: 0.5rem; background: #1a73e8; color: white; font-weight: bold; cursor: pointer; }
+        /* Higher/Lower are radio buttons drawn as toggles, so the chosen side stays highlighted */
+        .side { flex: 1; padding: 0.75rem 0.5rem; border: 2px solid #1a73e8; border-radius: 0.5rem; background: white; color: #1a73e8; font-weight: bold; cursor: pointer; transition: background 0.15s, color 0.15s, box-shadow 0.15s; }
+        .side input { position: absolute; opacity: 0; pointer-events: none; }
         .side small { display: block; font-weight: normal; opacity: 0.85; margin-top: 0.2rem; }
-        .side:disabled { background: #9bb8e8; cursor: not-allowed; }
+        .side:hover { background: #e8f0fe; }
+        .side:has(input:checked) { background: #1a73e8; color: white; box-shadow: 0 0 0 3px #aecbfa; }
+        .side:has(input:checked)::before { content: "\2713  "; }
+        .side:has(input:focus-visible) { outline: 2px solid #174ea6; outline-offset: 2px; }
+        .side:has(input:disabled) { border-color: #c6d4ea; background: #f1f4f9; color: #9bb8e8; box-shadow: none; cursor: not-allowed; }
+        .place { width: 100%; margin-top: 0.75rem; padding: 0.75rem; border: none; border-radius: 0.5rem; background: #188038; color: white; font-weight: bold; font-size: 1rem; cursor: pointer; }
+        .place:disabled { background: #a8c7b2; cursor: not-allowed; }
+        .placing { display: none; margin-top: 0.5rem; color: #666; font-size: 0.9rem; }
+        #predictForm.htmx-request .placing { display: block; }
+        .placed { margin-bottom: 0.5rem; padding: 0.5rem; border-radius: 0.5rem; background: #e6f4ea; color: #188038; font-weight: bold; animation: pop 0.4s ease-out; }
+        @keyframes pop { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
         .last-result { background: #f5f7fa; border-radius: 0.5rem; padding: 0.75rem; margin-bottom: 1rem; font-size: 0.9rem; color: #444; }
         .last-result .outcome { font-weight: bold; margin-top: 0.25rem; }
         .my-bet { padding: 0.75rem; border: 1px dashed #1a73e8; border-radius: 0.5rem; color: #1a73e8; }
@@ -31,6 +55,9 @@
         .account { font-size: 0.85rem; color: #666; margin-top: -0.5rem; }
         .link { background: none; border: none; padding: 0; color: #1a73e8; cursor: pointer; font: inherit; text-decoration: underline; }
         .login-prompt { color: #444; }
+        .auth-links { display: flex; gap: 0.5rem; justify-content: center; margin: -0.25rem 0 1rem; }
+        .auth-links a { padding: 0.4rem 1rem; border: 2px solid #1a73e8; border-radius: 0.5rem; color: #1a73e8; font-weight: bold; text-decoration: none; }
+        .auth-links a.primary { background: #1a73e8; color: white; }
         .topup { display: block; margin: 0.5rem auto 0; padding: 0.4rem 0.8rem; border: 1px solid #1a73e8; border-radius: 0.5rem; background: white; color: #1a73e8; cursor: pointer; }
         .commit { margin-top: 1rem; font-size: 0.7rem; color: #888; word-break: break-all; }
     </style>
@@ -45,10 +72,14 @@
     <form class="account" th:if="${player}" method="post" th:action="@{/auth/logout}">
         <span th:text="${player.displayName()}">player</span> · <button type="submit" class="link">Log out</button>
     </form>
+    <nav class="auth-links" th:unless="${player}">
+        <a th:href="@{/auth/login}">Log in</a>
+        <a class="primary" th:href="@{/auth/signup}">Sign up</a>
+    </nav>
 
     <div id="board" th:fragment="board"
          hx-get="/fragments/board" hx-trigger="sse:round_open" hx-swap="outerHTML"
-         th:attr="data-server-now=${view?.serverTime()?.toEpochMilli()},data-deadline=${view?.cutoffAt()?.toEpochMilli()},data-roll-at=${view?.rollAt()?.toEpochMilli()}">
+         th:attr="data-server-now=${view?.serverTime()?.toEpochMilli()},data-starts-at=${view?.startsAt()?.toEpochMilli()},data-deadline=${view?.cutoffAt()?.toEpochMilli()},data-roll-at=${view?.rollAt()?.toEpochMilli()}">
 
         <div class="last-result" th:if="${lastRound}">
             <div>
@@ -60,35 +91,44 @@
 
         <div th:if="${view}">
             <div class="roll-display" th:text="${view.roll()}">0</div>
+            <div class="countdown-label">Next roll in</div>
+            <div class="countdown" id="countdown">&nbsp;</div>
+            <div class="progress" id="progress"><div></div></div>
             <div class="timer" id="timer">&nbsp;</div>
 
             <div class="my-bet" th:if="${myPrediction}">
+                <div class="placed" th:if="${placed}" role="status">&#10003; Bet placed. Good luck!</div>
                 Your bet: <strong th:text="${myPrediction.stake()}">0</strong> pts on
                 <strong th:text="${myPrediction.direction()}">HIGHER</strong>
                 at <span th:text="${myPrediction.multiplier()}">1.96x</span>
             </div>
 
             <form id="predictForm" th:if="${player != null and myPrediction == null}"
-                  hx-post="/predict" hx-target="#board" hx-swap="outerHTML">
+                  hx-post="/predict" hx-target="#board" hx-swap="outerHTML" hx-disabled-elt="find .place">
                 <input type="hidden" name="roundId" th:value="${view.roundId()}">
-                <div class="stake">
-                    Stake: <input type="number" name="stake" class="stake-input" required
-                                  th:value="${stake} ?: ${minStake}" th:min="${minStake}"> pts
+                <div class="stake-label">Stake</div>
+                <div class="stakes" th:attr="data-balance=${wallet.balance}">
+                    <label class="stake-option" th:each="amount, it : ${stakeOptions}">
+                        <input type="radio" name="stake" required th:value="${amount}" th:checked="${stake != null ? stake == amount : it.first}" th:disabled="${amount > wallet.balance}">
+                        <span th:text="${amount}">10</span>
+                    </label>
                 </div>
                 <div class="controls">
-                    <button type="submit" name="prediction" value="HIGHER" class="side"
-                            th:disabled="${view.higher() == null}">
+                    <label class="side">
+                        <input type="radio" name="prediction" value="HIGHER" required th:checked="${chosen?.name() == 'HIGHER'}" th:disabled="${view.higher() == null}" th:attr="data-max-stake=${view.higher()?.maxStake()}">
                         Higher
                         <small th:if="${view.higher()}"
                                th:text="${view.higher().multiplier()} + ' · max ' + ${view.higher().maxStake()}">1.96x</small>
-                    </button>
-                    <button type="submit" name="prediction" value="LOWER" class="side"
-                            th:disabled="${view.lower() == null}">
+                    </label>
+                    <label class="side">
+                        <input type="radio" name="prediction" value="LOWER" required th:checked="${chosen?.name() == 'LOWER'}" th:disabled="${view.lower() == null}" th:attr="data-max-stake=${view.lower()?.maxStake()}">
                         Lower
                         <small th:if="${view.lower()}"
                                th:text="${view.lower().multiplier()} + ' · max ' + ${view.lower().maxStake()}">2.00x</small>
-                    </button>
+                    </label>
                 </div>
+                <button type="submit" class="place" disabled>Place bet</button>
+                <p class="placing" role="status">Placing your bet...</p>
                 <p class="error" th:if="${error}" th:text="${error}" role="alert"></p>
             </form>
 
@@ -136,15 +176,36 @@
         const timer = document.getElementById('timer');
         if (!board || !timer || !board.dataset.deadline) return;
         const now = Date.now() + clockOffset;
+        const startsAt = Number(board.dataset.startsAt);
         const deadline = Number(board.dataset.deadline);
         const rollAt = Number(board.dataset.rollAt);
-        if (now < deadline) {
-            timer.innerText = `Predictions close in ${Math.ceil((deadline - now) / 1000)}s`;
-            return;
-        }
-        timer.innerText = now < rollAt ? `Closed. Rolling in ${Math.ceil((rollAt - now) / 1000)}s` : 'Rolling...';
-        document.querySelectorAll('#predictForm button').forEach(b => b.disabled = true);
+        const open = now < deadline;
+
+        const toRoll = Math.max(0, Math.ceil((rollAt - now) / 1000));
+        document.getElementById('countdown').innerText = toRoll > 0 ? `0:${String(toRoll).padStart(2, '0')}` : 'Rolling...';
+        const progress = document.getElementById('progress');
+        progress.classList.toggle('closed', !open);
+        progress.firstElementChild.style.width = `${Math.min(100, Math.max(0, (now - startsAt) / (rollAt - startsAt) * 100))}%`;
+
+        timer.innerText = open ? `Predictions close in ${Math.ceil((deadline - now) / 1000)}s` : 'Predictions closed';
+
+        // Place bet needs a side and stake picked and betting still open; leave it alone while a request is in flight
+        const form = document.getElementById('predictForm');
+        if (!form || form.classList.contains('htmx-request')) return;
+        if (!open) form.querySelectorAll('input[name="prediction"]').forEach(i => i.disabled = true);
+        // A stake is offered if the player can afford it and it fits the chosen side's max (the payout cap lowers it)
+        const side = form.querySelector('input[name="prediction"]:checked');
+        const balance = Number(form.querySelector('.stakes').dataset.balance);
+        const sideMax = side ? Number(side.dataset.maxStake) : Infinity;
+        form.querySelectorAll('input[name="stake"]').forEach(i => {
+            i.disabled = !open || Number(i.value) > balance || Number(i.value) > sideMax;
+            if (i.disabled) i.checked = false;
+        });
+        form.querySelector('.place').disabled = !open || !side || !form.querySelector('input[name="stake"]:checked');
     }
+    document.body.addEventListener('change', (e) => {
+        if (e.target.name === 'prediction' || e.target.name === 'stake') updateTimer();
+    });
     setInterval(updateTimer, 250);
     updateTimer();
 </script>

@@ -139,14 +139,18 @@ class GameFlowTests {
         assertTrue(page.contains("hx-trigger=\"sse:round_open\""), page);
         assertTrue(page.contains("1.96x · max 500"), page);
         assertTrue(page.contains("2.00x · max 500"), page);
+        // Stake buttons, the smallest picked to start with
+        assertTrue(page.contains("name=\"stake\" required value=\"10\" checked=\"checked\""), page);
+        assertTrue(page.contains("name=\"stake\" required value=\"100\">"), page);
+        assertTrue(page.contains("name=\"stake\" required value=\"500\">"), page);
     }
 
     @Test
     void anImpossibleSideIsDisabled() throws Exception {
         startFrom(100);
         String page = mockMvc.perform(get("/").with(user(player))).andReturn().getResponse().getContentAsString();
-        assertTrue(page.contains("value=\"HIGHER\" class=\"side\" disabled=\"disabled\""), page);
-        assertFalse(page.contains("value=\"LOWER\" class=\"side\" disabled"), page);
+        assertTrue(page.contains("value=\"HIGHER\" required disabled=\"disabled\""), page);
+        assertFalse(page.contains("value=\"LOWER\" required disabled"), page);
     }
 
     @Test
@@ -166,20 +170,23 @@ class GameFlowTests {
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
         assertTrue(board.contains("Your bet:"), board);
+        assertTrue(board.contains("Bet placed"), board);
         assertTrue(board.contains("at <span>2.00x</span>"), board);
         assertTrue(board.contains("<span>900</span> pts"), board);
     }
 
     @Test
     void aRejectedPredictionShowsTheErrorOnTheBoard() throws Exception {
-        startFrom(50);
+        startFrom(99); // HIGHER pays 98x, so the payout cap limits its stake to 102
         String board = mockMvc.perform(post("/predict").with(user(player)).with(csrf())
                         .param("roundId", currentRound().id().toString())
-                        .param("prediction", "HIGHER").param("stake", "5"))
+                        .param("prediction", "HIGHER").param("stake", "500"))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
-        assertTrue(board.contains("Stake must be between 10 and 500 pts on HIGHER"), board);
-        assertTrue(board.contains("value=\"5\""), board); // keeps what the player typed
+        assertTrue(board.contains("Stake must be between 10 and 102 pts on HIGHER"), board);
+        // Keeps the stake and side the player picked
+        assertTrue(board.contains("name=\"stake\" required value=\"500\" checked=\"checked\""), board);
+        assertTrue(board.contains("value=\"HIGHER\" required data-max-stake=\"102\" checked=\"checked\""), board);
         assertEquals(1000, balance());
     }
 
@@ -393,13 +400,6 @@ class GameFlowTests {
     }
 
     @Test
-    void roundMissedDuringDowntimeIsSettledWithItsCommittedSeed() {
-        Round stale = currentRound();
-        Round committed = scheduledRound();
-        Prediction placed = predictionService.placePrediction(playerId, stale.id(), allowedDirection(stale), 100L);
-
-        clock.now = Instant.parse("2026-01-01T00:10:20Z");
-    @Test
     void aTickFiringJustBeforeTheMinuteCountsAsOnIt() {
         Round first = currentRound();
 
@@ -423,6 +423,13 @@ class GameFlowTests {
         assertEquals(Instant.parse("2026-01-01T00:02:00Z"), currentRound().startsAt());
     }
 
+    @Test
+    void roundMissedDuringDowntimeIsSettledWithItsCommittedSeed() {
+        Round stale = currentRound();
+        Round committed = scheduledRound();
+        Prediction placed = predictionService.placePrediction(playerId, stale.id(), allowedDirection(stale), 100L);
+
+        clock.now = Instant.parse("2026-01-01T00:10:20Z");
         engine.tick();
 
         assertEquals(RoundStatus.SETTLED, roundRepository.findById(stale.id()).orElseThrow().status());

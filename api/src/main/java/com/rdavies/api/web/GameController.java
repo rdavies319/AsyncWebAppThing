@@ -54,9 +54,12 @@ public class GameController {
                           @RequestParam(required = false) Long stake, Model model) {
         try {
             predictionService.placePrediction(currentUser.id(), roundId, prediction, stake);
+            model.addAttribute("placed", true);
         } catch (GameRuleException e) {
+            // Keep what the player entered so they can fix it and retry
             model.addAttribute("error", e.getMessage());
             model.addAttribute("stake", stake);
+            model.addAttribute("chosen", prediction);
         }
         addBoard(model);
         return "game :: board";
@@ -82,7 +85,7 @@ public class GameController {
             player.flatMap(p -> predictionService.getPrediction(p.id(), view.roundId()))
                     .ifPresent(p -> model.addAttribute("myPrediction", p));
         });
-        model.addAttribute("minStake", game.minStake());
+        model.addAttribute("stakeOptions", game.stakeOptions());
         roundService.getLastSettledRound().ifPresent(last -> {
             model.addAttribute("lastRound", last);
             player.flatMap(p -> predictionService.getPrediction(p.id(), last.round().id()))

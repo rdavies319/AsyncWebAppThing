@@ -4,6 +4,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 
 import java.time.Duration;
+import java.util.List;
 
 /**
  * Game settings from spec section 3, overridable as game.* properties.
@@ -14,6 +15,7 @@ import java.time.Duration;
  * @param maxPayout    most one prediction can pay out, stake included
  * @param signupBonus  points credited to a new wallet
  * @param topUpTarget  the daily top-up refills a wallet to this balance
+ * @param stakeOptions the stakes the game page offers as buttons, each within minStake..maxStake
  */
 @ConfigurationProperties("game")
 public record GameProperties(
@@ -22,5 +24,6 @@ public record GameProperties(
     @DefaultValue("500") long maxStake,
     @DefaultValue("10000") long maxPayout,
     @DefaultValue("1000") long signupBonus,
-    @DefaultValue("1000") long topUpTarget
+    @DefaultValue("1000") long topUpTarget,
+    @DefaultValue({"10", "100", "500"}) List<Long> stakeOptions
 ) {}
