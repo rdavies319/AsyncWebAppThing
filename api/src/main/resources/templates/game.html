@@ -1,138 +1,127 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
 <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Higher or Lower</title>
+    <script src="https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js"
+            integrity="sha384-HGfztofotfshcF7+8n44JQL2oJmowVChPTg48S+jvZoztPfvwD79OC/LTtG6dMp+"
+            crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/htmx-ext-sse@2.2.2/sse.js"
+            integrity="sha384-fw+eTlCc7suMV/1w/7fr2/PmwElUIt5i82bi+qTiLXvjRXZ2/FkiTNA/w0MhXnGI"
+            crossorigin="anonymous"></script>
     <style>
-        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #f0f2f5; }
-        .card { background: white; padding: 2rem; border-radius: 1rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center; width: 300px; }
-        .roll-display { font-size: 4rem; font-weight: bold; color: #1a73e8; margin: 1rem 0; }
-        .timer { font-size: 1.2rem; color: #666; margin-bottom: 2rem; }
-        .controls { display: flex; gap: 1rem; justify-content: center; margin-bottom: 1rem; }
-        .btn { padding: 0.5rem 1rem; cursor: pointer; border: 1px solid #ddd; border-radius: 0.5rem; background: white; transition: 0.2s; }
-        .btn:hover { background: #eee; }
-        .btn.selected { background: #1a73e8; color: white; border-color: #1a73e8; }
-        .btn:disabled { opacity: 0.4; cursor: not-allowed; }
-        .stake-input { width: 60px; padding: 0.5rem; text-align: center; }
-        .submit-btn { width: 100%; padding: 0.75rem; background: #1a73e8; color: white; border: none; border-radius: 0.5rem; font-weight: bold; cursor: pointer; }
-        .submit-btn:disabled { background: #9bb8e8; cursor: not-allowed; }
+        body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; background: #f0f2f5; }
+        .card { background: white; padding: 2rem; border-radius: 1rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center; width: min(320px, calc(100vw - 2rem)); box-sizing: border-box; }
+        .roll-display { font-size: 4rem; font-weight: bold; color: #1a73e8; margin: 1rem 0 0.25rem; }
+        .timer { font-size: 1.1rem; color: #666; margin-bottom: 1.5rem; min-height: 1.4em; }
+        .stake { margin-bottom: 1rem; }
+        .stake-input { width: 80px; padding: 0.5rem; text-align: center; }
+        .controls { display: flex; gap: 0.75rem; }
+        .side { flex: 1; padding: 0.75rem 0.5rem; border: none; border-radius: 0.5rem; background: #1a73e8; color: white; font-weight: bold; cursor: pointer; }
+        .side small { display: block; font-weight: normal; opacity: 0.85; margin-top: 0.2rem; }
+        .side:disabled { background: #9bb8e8; cursor: not-allowed; }
+        .error { color: #c5221f; font-size: 0.9rem; }
         .last-result { background: #f5f7fa; border-radius: 0.5rem; padding: 0.75rem; margin-bottom: 1rem; font-size: 0.9rem; color: #444; }
         .last-result .outcome { font-weight: bold; margin-top: 0.25rem; }
         .my-bet { padding: 0.75rem; border: 1px dashed #1a73e8; border-radius: 0.5rem; color: #1a73e8; }
-        .wallet { margin-top: 2rem; font-size: 0.9rem; color: #888; }
+        .wallet { margin-top: 1.5rem; font-size: 0.9rem; color: #888; }
         .commit { margin-top: 1rem; font-size: 0.7rem; color: #888; word-break: break-all; }
     </style>
 </head>
 <body>
 
-<div class="card">
+<!-- One SSE connection for the page. Every connect starts with a round_open snapshot, and each
+     round_open comes after the settlement commit, so refetching the board then shows the new roll,
+     the last result and the balance together. -->
+<main class="card" hx-ext="sse" sse-connect="/live">
     <h2>Higher or Lower</h2>
 
-    <div class="last-result" th:if="${lastResult}">
-        <div>
-            Last roll: <span th:text="${lastResult.settled().round().rollValue()}">0</span>
-            &rarr; <strong th:text="${lastResult.settled().nextRoll()}">0</strong>
-        </div>
-        <div class="outcome" th:if="${lastResult.outcome()}" th:text="${lastResult.outcome()}"></div>
-    </div>
+    <div id="board" th:fragment="board"
+         hx-get="/fragments/board" hx-trigger="sse:round_open" hx-swap="outerHTML"
+         th:attr="data-server-now=${serverNow},data-deadline=${deadline},data-roll-at=${rollAt}">
 
-    <div th:if="${round}">
-        <div class="roll-display" th:text="${round.rollValue}">0</div>
-        <div class="timer" id="timer">&nbsp;</div>
-
-        <div class="my-bet" th:if="${myPrediction}">
-            Your bet: <strong th:text="${myPrediction.stake()}">0</strong> pts on
-            <strong th:text="${myPrediction.direction()}">HIGHER</strong>
+        <div class="last-result" th:if="${lastResult}">
+            <div>
+                Last roll: <span th:text="${lastResult.settled().round().rollValue()}">0</span>
+                &rarr; <strong th:text="${lastResult.settled().nextRoll()}">0</strong>
+            </div>
+            <div class="outcome" th:if="${lastResult.outcome()}" th:text="${lastResult.outcome()}"></div>
         </div>
 
-        <form id="predictForm" th:unless="${myPrediction}">
-            <input type="hidden" name="roundId" th:value="${round.id}">
-            <div class="controls">
-                <button type="button" class="btn" th:disabled="${round.rollValue == 100}" onclick="setPrediction('HIGHER', this)">Higher</button>
-                <button type="button" class="btn" th:disabled="${round.rollValue == 1}" onclick="setPrediction('LOWER', this)">Lower</button>
+        <div th:if="${round}">
+            <div class="roll-display" th:text="${round.rollValue}">0</div>
+            <div class="timer" id="timer">&nbsp;</div>
+
+            <div class="my-bet" th:if="${myPrediction}">
+                Your bet: <strong th:text="${myPrediction.stake()}">0</strong> pts on
+                <strong th:text="${myPrediction.direction()}">HIGHER</strong>
+                at <span th:text="${#numbers.formatDecimal(myPrediction.multiplierBps() / 10000.0, 1, 2)} + 'x'">1.96x</span>
             </div>
-            <input type="hidden" name="prediction" id="predictionInput" required>
-            <div style="margin-bottom: 1rem;">
-                Stake: <input type="number" name="stake" class="stake-input" th:value="${minStake}" th:min="${minStake}">
-            </div>
-            <button type="submit" class="submit-btn" id="submitBtn">Place Bet</button>
-        </form>
-        <p class="commit" th:if="${nextCommit}">
-            Next roll's seed commit (SHA-256): <code th:text="${nextCommit}"></code>
-        </p>
+
+            <form id="predictForm" th:unless="${myPrediction}"
+                  hx-post="/predict" hx-target="#board" hx-swap="outerHTML">
+                <input type="hidden" name="roundId" th:value="${round.id}">
+                <div class="stake">
+                    Stake: <input type="number" name="stake" class="stake-input" required
+                                  th:value="${stake} ?: ${minStake}" th:min="${minStake}"> pts
+                </div>
+                <div class="controls">
+                    <button type="submit" name="prediction" value="HIGHER" class="side"
+                            th:disabled="${view.higher() == null}">
+                        Higher
+                        <small th:if="${view.higher()}"
+                               th:text="${#numbers.formatDecimal(view.higher().multiplierBps() / 10000.0, 1, 2)} + 'x · max ' + ${view.higher().maxStake()}">1.96x</small>
+                    </button>
+                    <button type="submit" name="prediction" value="LOWER" class="side"
+                            th:disabled="${view.lower() == null}">
+                        Lower
+                        <small th:if="${view.lower()}"
+                               th:text="${#numbers.formatDecimal(view.lower().multiplierBps() / 10000.0, 1, 2)} + 'x · max ' + ${view.lower().maxStake()}">2.00x</small>
+                    </button>
+                </div>
+                <p class="error" th:if="${error}" th:text="${error}" role="alert"></p>
+            </form>
+
+            <p class="commit" th:if="${view.nextSeedCommitHash()}">
+                Next roll's seed commit (SHA-256): <code th:text="${view.nextSeedCommitHash()}"></code>
+            </p>
+        </div>
+
+        <div th:unless="${round}">
+            <p>Waiting for the next round...</p>
+        </div>
+
+        <div class="wallet">
+            Balance: <span th:text="${wallet.balance}">0</span> pts
+        </div>
     </div>
+</main>
 
-    <div th:unless="${round}">
-        <p>Waiting for the next round...</p>
-    </div>
-
-    <div class="wallet">
-        Balance: <span th:text="${wallet.balance}">0</span> pts
-    </div>
-</div>
-
-<script th:inline="javascript">
-    const rollAt = /*[[${rollAt}]]*/ null;
-    const deadline = /*[[${deadline}]]*/ null;
-    // How far the browser clock is from the server's; the server clock is the authority
-    const loadedAt = /*[[${serverNow}]]*/ Date.now();
-    const clockOffset = loadedAt - Date.now();
-    const serverNow = () => Date.now() + clockOffset;
-
-    let selectedPrediction = null;
-
-    function setPrediction(val, btn) {
-        selectedPrediction = val;
-        document.getElementById('predictionInput').value = val;
-        document.querySelectorAll('.btn').forEach(b => b.classList.remove('selected'));
-        btn.classList.add('selected');
+<script>
+    // The server clock is the authority: track how far the browser's clock is from it, refreshed
+    // whenever a new board arrives (each one carries the server time it was rendered at).
+    let clockOffset = 0;
+    function syncClock() {
+        const board = document.getElementById('board');
+        if (board && board.dataset.serverNow) clockOffset = Number(board.dataset.serverNow) - Date.now();
     }
-
-    document.getElementById('predictForm')?.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        if (!selectedPrediction) {
-            alert('Please select Higher or Lower');
-            return;
-        }
-        const formData = new FormData(e.target);
-        const response = await fetch('/predict', {
-            method: 'POST',
-            body: formData
-        });
-        const result = await response.json();
-        if (result.status === 'success') {
-            location.reload();
-        } else {
-            alert('Error: ' + result.message);
-        }
-    });
-
-    // Every connect (and reconnect) starts with a round_open snapshot, so reload only when it
-    // shows a different round from the one this page was rendered for.
-    const pageRoundId = /*[[${round?.id}]]*/ null;
-    const live = new EventSource('/live');
-    live.addEventListener('round_open', (e) => {
-        if (JSON.parse(e.data).round_id !== pageRoundId) location.reload();
-    });
-    // Safety net if the event never arrives. Only for a round that was still running when the
-    // page loaded, so a stalled engine doesn't cause a reload loop.
-    if (rollAt !== null && rollAt > loadedAt) {
-        setTimeout(() => location.reload(), rollAt - serverNow() + 5000);
-    }
+    document.body.addEventListener('htmx:afterSwap', syncClock);
+    syncClock();
 
     function updateTimer() {
+        const board = document.getElementById('board');
         const timer = document.getElementById('timer');
-        if (!timer || rollAt === null) return;
-        const now = serverNow();
-        const submit = document.getElementById('submitBtn');
+        if (!board || !timer || !board.dataset.deadline) return;
+        const now = Date.now() + clockOffset;
+        const deadline = Number(board.dataset.deadline);
+        const rollAt = Number(board.dataset.rollAt);
         if (now < deadline) {
             timer.innerText = `Predictions close in ${Math.ceil((deadline - now) / 1000)}s`;
-        } else if (now < rollAt) {
-            timer.innerText = `Closed. Rolling in ${Math.ceil((rollAt - now) / 1000)}s`;
-            if (submit) submit.disabled = true;
-        } else {
-            timer.innerText = 'Rolling...';
-            if (submit) submit.disabled = true;
+            return;
         }
+        timer.innerText = now < rollAt ? `Closed. Rolling in ${Math.ceil((rollAt - now) / 1000)}s` : 'Rolling...';
+        document.querySelectorAll('#predictForm button').forEach(b => b.disabled = true);
     }
     setInterval(updateTimer, 250);
     updateTimer();

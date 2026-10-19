@@ -10,8 +10,10 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Map;
-
+/**
+ * The game page. htmx swaps the {@code board} fragment: refetched on every SSE round_open, and
+ * returned by the prediction form so errors show inline. The JSON API is GameApiController.
+ */
 @Controller
 public class GameController {
     private final RoundService roundService;
@@ -22,40 +24,51 @@ public class GameController {
 
     public GameController(RoundService roundService, PredictionService predictionService,
                           WalletService walletService, GameProperties game, CurrentUser currentUser) {
-        this.currentUser = currentUser;
-        this.game = game;
         this.roundService = roundService;
         this.predictionService = predictionService;
         this.walletService = walletService;
+        this.game = game;
+        this.currentUser = currentUser;
     }
 
     @GetMapping("/")
     public String gameView(Model model) {
+        addBoard(model);
+        return "game";
+    }
+
+    @GetMapping("/fragments/board")
+    public String board(Model model) {
+        addBoard(model);
+        return "game :: board";
+    }
+
+    @PostMapping("/predict")
+    public String predict(@RequestParam Long roundId, @RequestParam PredictionType prediction,
+                          @RequestParam(required = false) Long stake, Model model) {
+        try {
+            predictionService.placePrediction(currentUser.id(), roundId, prediction, stake);
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            model.addAttribute("error", e.getMessage());
+            model.addAttribute("stake", stake);
+        }
+        addBoard(model);
+        return "game :: board";
+    }
+
+    private void addBoard(Model model) {
+        long userId = currentUser.id();
         roundService.getCurrentRound().ifPresent(round -> {
             model.addAttribute("round", round);
             // Epoch millis, so the page counts down by the server clock rather than the browser's
             model.addAttribute("rollAt", roundService.rollTime(round).toEpochMilli());
             model.addAttribute("deadline", roundService.predictionDeadline(round).toEpochMilli());
-            predictionService.getPrediction(currentUser.id(), round.id()).ifPresent(p -> model.addAttribute("myPrediction", p));
+            predictionService.getPrediction(userId, round.id()).ifPresent(p -> model.addAttribute("myPrediction", p));
         });
-        roundService.getNextRollCommit().ifPresent(commit -> model.addAttribute("nextCommit", commit));
-        predictionService.getLastResult(currentUser.id()).ifPresent(result -> model.addAttribute("lastResult", result));
+        roundService.currentView().ifPresent(view -> model.addAttribute("view", view));
+        predictionService.getLastResult(userId).ifPresent(result -> model.addAttribute("lastResult", result));
         model.addAttribute("serverNow", roundService.now().toEpochMilli());
         model.addAttribute("minStake", game.minStake());
-        model.addAttribute("wallet", walletService.getWallet(currentUser.id()));
-        return "game";
-    }
-
-    @PostMapping("/predict")
-    @ResponseBody
-    public Map<String, String> predict(@RequestParam Long roundId,
-                                      @RequestParam PredictionType prediction,
-                                      @RequestParam Long stake) {
-        try {
-            predictionService.placePrediction(currentUser.id(), roundId, prediction, stake);
-            return Map.of("status", "success");
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            return Map.of("status", "error", "message", e.getMessage());
-        }
+        model.addAttribute("wallet", walletService.getWallet(userId));
     }
 }

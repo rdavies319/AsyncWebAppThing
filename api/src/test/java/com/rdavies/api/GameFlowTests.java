@@ -41,6 +41,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -127,6 +128,59 @@ class GameFlowTests {
         assertEquals(List.of(new PredictionSettled(DEMO_USER, placed.id(), placed.roundId(), PredictionStatus.WON, 196, 1096)),
                 events.stream(PredictionSettled.Batch.class).flatMap(b -> b.predictions().stream()).toList());
         assertEquals(List.of(new RoundOpened(next.id())), events.stream(RoundOpened.class).toList());
+    }
+
+    @Test
+    void gamePageShowsEachSidesOddsAndListensForNewRounds() throws Exception {
+        startFrom(50);
+        String page = mockMvc.perform(get("/")).andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        assertTrue(page.contains("sse-connect=\"/live\""), page);
+        assertTrue(page.contains("hx-trigger=\"sse:round_open\""), page);
+        assertTrue(page.contains("1.96x · max 500"), page);
+        assertTrue(page.contains("2.00x · max 500"), page);
+    }
+
+    @Test
+    void anImpossibleSideIsDisabled() throws Exception {
+        startFrom(100);
+        String page = mockMvc.perform(get("/")).andReturn().getResponse().getContentAsString();
+        assertTrue(page.contains("value=\"HIGHER\" class=\"side\" disabled=\"disabled\""), page);
+        assertFalse(page.contains("value=\"LOWER\" class=\"side\" disabled"), page);
+    }
+
+    @Test
+    void boardFragmentIsJustTheBoard() throws Exception {
+        String board = mockMvc.perform(get("/fragments/board")).andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        assertTrue(board.strip().startsWith("<div id=\"board\""), board);
+        assertFalse(board.contains("<html"), board);
+    }
+
+    @Test
+    void predictingFromThePageReturnsTheBoardWithYourBet() throws Exception {
+        startFrom(50);
+        String board = mockMvc.perform(post("/predict")
+                        .param("roundId", currentRound().id().toString())
+                        .param("prediction", "LOWER").param("stake", "100"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        assertTrue(board.contains("Your bet:"), board);
+        assertTrue(board.contains("at <span>2.00x</span>"), board);
+        assertTrue(board.contains("<span>900</span> pts"), board);
+    }
+
+    @Test
+    void aRejectedPredictionShowsTheErrorOnTheBoard() throws Exception {
+        startFrom(50);
+        String board = mockMvc.perform(post("/predict")
+                        .param("roundId", currentRound().id().toString())
+                        .param("prediction", "HIGHER").param("stake", "5"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        assertTrue(board.contains("Stake must be between 10 and 500 pts on HIGHER"), board);
+        assertTrue(board.contains("value=\"5\""), board); // keeps what the player typed
+        assertEquals(1000, balance());
     }
 
     @Test
