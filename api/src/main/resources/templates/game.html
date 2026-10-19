@@ -13,9 +13,9 @@
     <script src="https://unpkg.com/htmx-ext-sse@2.2.2/sse.js"
             integrity="sha384-fw+eTlCc7suMV/1w/7fr2/PmwElUIt5i82bi+qTiLXvjRXZ2/FkiTNA/w0MhXnGI"
             crossorigin="anonymous"></script>
+    <link rel="stylesheet" th:href="@{/app.css}">
     <style>
-        body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; background: #f0f2f5; }
-        .card { background: white; padding: 2rem; border-radius: 1rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center; width: min(320px, calc(100vw - 2rem)); box-sizing: border-box; }
+        .card { text-align: center; }
         .roll-display { font-size: 4rem; font-weight: bold; color: #1a73e8; margin: 1rem 0 0.25rem; }
         .timer { font-size: 1.1rem; color: #666; margin-bottom: 1.5rem; min-height: 1.4em; }
         .stake { margin-bottom: 1rem; }
@@ -24,7 +24,6 @@
         .side { flex: 1; padding: 0.75rem 0.5rem; border: none; border-radius: 0.5rem; background: #1a73e8; color: white; font-weight: bold; cursor: pointer; }
         .side small { display: block; font-weight: normal; opacity: 0.85; margin-top: 0.2rem; }
         .side:disabled { background: #9bb8e8; cursor: not-allowed; }
-        .error { color: #c5221f; font-size: 0.9rem; }
         .last-result { background: #f5f7fa; border-radius: 0.5rem; padding: 0.75rem; margin-bottom: 1rem; font-size: 0.9rem; color: #444; }
         .last-result .outcome { font-weight: bold; margin-top: 0.25rem; }
         .my-bet { padding: 0.75rem; border: 1px dashed #1a73e8; border-radius: 0.5rem; color: #1a73e8; }
@@ -49,7 +48,7 @@
 
     <div id="board" th:fragment="board"
          hx-get="/fragments/board" hx-trigger="sse:round_open" hx-swap="outerHTML"
-         th:attr="data-server-now=${serverNow},data-deadline=${deadline},data-roll-at=${rollAt}">
+         th:attr="data-server-now=${view?.serverTime()?.toEpochMilli()},data-deadline=${view?.cutoffAt()?.toEpochMilli()},data-roll-at=${view?.rollAt()?.toEpochMilli()}">
 
         <div class="last-result" th:if="${lastRound}">
             <div>
@@ -59,19 +58,19 @@
             <div class="outcome" th:if="${lastResult?.outcome()}" th:text="${lastResult.outcome()}"></div>
         </div>
 
-        <div th:if="${round}">
-            <div class="roll-display" th:text="${round.rollValue}">0</div>
+        <div th:if="${view}">
+            <div class="roll-display" th:text="${view.roll()}">0</div>
             <div class="timer" id="timer">&nbsp;</div>
 
             <div class="my-bet" th:if="${myPrediction}">
                 Your bet: <strong th:text="${myPrediction.stake()}">0</strong> pts on
                 <strong th:text="${myPrediction.direction()}">HIGHER</strong>
-                at <span th:text="${#numbers.formatDecimal(myPrediction.multiplierBps() / 10000.0, 1, 2)} + 'x'">1.96x</span>
+                at <span th:text="${myPrediction.multiplier()}">1.96x</span>
             </div>
 
             <form id="predictForm" th:if="${player != null and myPrediction == null}"
                   hx-post="/predict" hx-target="#board" hx-swap="outerHTML">
-                <input type="hidden" name="roundId" th:value="${round.id}">
+                <input type="hidden" name="roundId" th:value="${view.roundId()}">
                 <div class="stake">
                     Stake: <input type="number" name="stake" class="stake-input" required
                                   th:value="${stake} ?: ${minStake}" th:min="${minStake}"> pts
@@ -81,13 +80,13 @@
                             th:disabled="${view.higher() == null}">
                         Higher
                         <small th:if="${view.higher()}"
-                               th:text="${#numbers.formatDecimal(view.higher().multiplierBps() / 10000.0, 1, 2)} + 'x · max ' + ${view.higher().maxStake()}">1.96x</small>
+                               th:text="${view.higher().multiplier()} + ' · max ' + ${view.higher().maxStake()}">1.96x</small>
                     </button>
                     <button type="submit" name="prediction" value="LOWER" class="side"
                             th:disabled="${view.lower() == null}">
                         Lower
                         <small th:if="${view.lower()}"
-                               th:text="${#numbers.formatDecimal(view.lower().multiplierBps() / 10000.0, 1, 2)} + 'x · max ' + ${view.lower().maxStake()}">2.00x</small>
+                               th:text="${view.lower().multiplier()} + ' · max ' + ${view.lower().maxStake()}">2.00x</small>
                     </button>
                 </div>
                 <p class="error" th:if="${error}" th:text="${error}" role="alert"></p>
@@ -98,7 +97,7 @@
             </p>
         </div>
 
-        <div th:unless="${round}">
+        <div th:unless="${view}">
             <p>Waiting for the next round...</p>
         </div>
 

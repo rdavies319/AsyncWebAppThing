@@ -4,12 +4,13 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Sign up · Higher or Lower</title>
+    <link rel="stylesheet" th:href="@{/app.css}">
     <link rel="stylesheet" th:href="@{/auth.css}">
 </head>
 <body>
 <main class="card">
     <h2>Create an account</h2>
-    <p class="notice">You start with 1,000 points. Points are virtual and can never be bought or cashed out.</p>
+    <p class="notice">You start with <span th:text="${#numbers.formatInteger(signupBonus, 1, 'COMMA')}">1,000</span> points. Points are virtual and can never be bought or cashed out.</p>
     <p class="error" th:if="${error}" th:text="${error}" role="alert"></p>
     <!-- th:action adds the CSRF token -->
     <form method="post" th:action="@{/auth/signup}">

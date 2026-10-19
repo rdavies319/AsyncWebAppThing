@@ -8,15 +8,12 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
-import java.time.Instant;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -25,14 +22,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * otherwise the test transaction itself holds the lock and the "other instance" blocks forever.
  * Rows are committed, so they are deleted after each test.
  */
-@SpringBootTest
-@Import({TestcontainersConfiguration.class, GameFlowTests.ClockConfig.class})
+@GameTest
 class RoundEngineLockTests {
-    private static final Instant ROUND_START = Instant.parse("2026-01-01T00:00:00.200Z");
-
     @Autowired RoundEngine engine;
     @Autowired RoundRepository roundRepository;
-    @Autowired GameFlowTests.MutableClock clock;
+    @Autowired MutableClock clock;
     @Autowired DataSource dataSource;
     @Autowired JdbcTemplate jdbc;
 
@@ -44,10 +38,8 @@ class RoundEngineLockTests {
     @Test
     @Timeout(30)
     void tickSkipsWhileAnotherInstanceHoldsTheEngineLock() throws SQLException {
-        clock.now = ROUND_START;
-        engine.tick();
-        Round round = roundRepository.findOpenRound().orElseThrow();
-        clock.now = ROUND_START.plusSeconds(60);
+        Round round = TestGame.openRound(engine, clock, roundRepository);
+        clock.now = TestGame.ROUND_START.plusSeconds(60);
 
         // A separate connection stands in for another instance mid-tick
         try (Connection other = dataSource.getConnection()) {

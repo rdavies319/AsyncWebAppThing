@@ -7,15 +7,13 @@ import com.rdavies.api.wallet.WalletService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 
+import static com.rdavies.api.TestGame.assertLedgerMatchesWallet;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
@@ -24,10 +22,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/** Signup bonus and daily top-up (spec section 3). Same context as GameApiTests, so they share a container. */
-@SpringBootTest
-@AutoConfigureMockMvc
-@Import({TestcontainersConfiguration.class, GameFlowTests.ClockConfig.class})
+/** Signup bonus and daily top-up (spec section 3). */
+@GameTest
 @Transactional
 class WalletTests {
     private GamePrincipal player;
@@ -37,7 +33,7 @@ class WalletTests {
     @Autowired WalletService walletService;
     @Autowired UserService userService;
     @Autowired JdbcTemplate jdbc;
-    @Autowired GameFlowTests.MutableClock clock;
+    @Autowired MutableClock clock;
     @Autowired MockMvc mockMvc;
 
     @BeforeEach
@@ -58,7 +54,7 @@ class WalletTests {
         assertEquals(1000, wallet.balance());
         assertNull(wallet.lastTopUpDate());
         assertEquals("SIGNUP_BONUS", jdbc.queryForObject("SELECT reason FROM ledger WHERE user_id = ?", String.class, userId));
-        assertLedgerMatchesWallet(userId);
+        assertLedgerMatchesWallet(jdbc, userId);
     }
 
     @Test
@@ -70,7 +66,7 @@ class WalletTests {
         assertEquals(1000, balance());
         assertEquals(700, jdbc.queryForObject(
                 "SELECT delta FROM ledger WHERE user_id = ? AND reason = 'TOPUP'", Long.class, playerId));
-        assertLedgerMatchesWallet(playerId);
+        assertLedgerMatchesWallet(jdbc, playerId);
     }
 
     @Test
@@ -85,7 +81,7 @@ class WalletTests {
 
         clock.now = Instant.parse("2026-01-02T00:00:00Z");
         assertEquals(500, walletService.claimTopUp(playerId));
-        assertLedgerMatchesWallet(playerId);
+        assertLedgerMatchesWallet(jdbc, playerId);
     }
 
     @Test
@@ -146,10 +142,5 @@ class WalletTests {
 
     private long balance() {
         return wallet().balance();
-    }
-
-    private void assertLedgerMatchesWallet(long userId) {
-        assertEquals(walletService.getWallet(userId).balance(),
-                jdbc.queryForObject("SELECT SUM(delta) FROM ledger WHERE user_id = ?", Long.class, userId));
     }
 }

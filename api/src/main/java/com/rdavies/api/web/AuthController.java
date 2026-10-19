@@ -1,9 +1,11 @@
 package com.rdavies.api.web;
 
+import com.rdavies.api.GameProperties;
 import com.rdavies.api.user.UserService;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
@@ -11,9 +13,17 @@ import org.springframework.web.bind.annotation.RequestParam;
 @Controller
 public class AuthController {
     private final UserService userService;
+    private final GameProperties game;
 
-    public AuthController(UserService userService) {
+    public AuthController(UserService userService, GameProperties game) {
         this.userService = userService;
+        this.game = game;
+    }
+
+    /** Shown on the signup page, including when it is re-rendered with an error. */
+    @ModelAttribute("signupBonus")
+    public long signupBonus() {
+        return game.signupBonus();
     }
 
     @GetMapping("/auth/login")

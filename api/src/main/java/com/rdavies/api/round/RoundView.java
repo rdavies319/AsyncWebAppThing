@@ -19,5 +19,14 @@ public record RoundView(
     /** When this view was built, so clients can count down by the server clock. */
     Instant serverTime
 ) {
-    public record Side(long multiplierBps, long maxStake) {}
+    /** When the next round is rolled. Not a getter, so it stays out of the JSON. */
+    public Instant rollAt() {
+        return startsAt.plus(Round.LENGTH);
+    }
+
+    public record Side(long multiplierBps, long maxStake) {
+        public String multiplier() {
+            return Odds.format(multiplierBps);
+        }
+    }
 }

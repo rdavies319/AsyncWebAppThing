@@ -38,7 +38,7 @@ public class UserService implements UserDetailsService {
     /** Creates the player and their wallet (with the signup bonus) together. */
     @Transactional
     public GamePrincipal signup(String email, String displayName, String password) {
-        String normalisedEmail = email == null ? "" : email.strip().toLowerCase(Locale.ROOT);
+        String normalisedEmail = email == null ? "" : normaliseEmail(email);
         String name = displayName == null ? "" : displayName.strip();
         if (!EMAIL.matcher(normalisedEmail).matches() || normalisedEmail.length() > 254) {
             throw new IllegalArgumentException("Enter a valid email address");
@@ -70,8 +70,13 @@ public class UserService implements UserDetailsService {
 
     @Override
     public GamePrincipal loadUserByUsername(String email) {
-        return userRepository.findByEmail(email.strip().toLowerCase(Locale.ROOT))
+        return userRepository.findByEmail(normaliseEmail(email))
                 .map(GamePrincipal::of)
                 .orElseThrow(() -> new UsernameNotFoundException("No account for " + email));
+    }
+
+    /** Signup and login must agree on this, or players can't log in with the email they signed up with. */
+    private static String normaliseEmail(String email) {
+        return email.strip().toLowerCase(Locale.ROOT);
     }
 }

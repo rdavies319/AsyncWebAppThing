@@ -8,9 +8,6 @@ import com.rdavies.api.user.UserService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
@@ -27,16 +24,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /** The JSON API from spec section 8, through HTTP. Game rules themselves are covered by GameFlowTests. */
-@SpringBootTest
-@AutoConfigureMockMvc
-@Import({TestcontainersConfiguration.class, GameFlowTests.ClockConfig.class})
+@GameTest
 @Transactional
 class GameApiTests {
-    private static final Instant ROUND_START = Instant.parse("2026-01-01T00:00:00.200Z");
-
     @Autowired RoundEngine engine;
     @Autowired RoundRepository roundRepository;
-    @Autowired GameFlowTests.MutableClock clock;
+    @Autowired MutableClock clock;
     @Autowired MockMvc mockMvc;
     @Autowired UserService userService;
     private GamePrincipal player;
@@ -65,13 +58,15 @@ class GameApiTests {
                 .andExpect(jsonPath("$.cutoff_at").value("2026-01-01T00:00:50Z"))
                 .andExpect(jsonPath("$.server_time").value("2026-01-01T00:00:00.200Z"))
                 .andExpect(jsonPath("$.next_seed_commit_hash").value(next.seedCommitHash()))
-                .andExpect(jsonPath("$.higher.multiplier_bps").exists());
+                .andExpect(jsonPath("$.higher.multiplier_bps").exists())
+                .andExpect(jsonPath("$.higher.multiplier").doesNotExist()) // display helpers stay out of the API
+                .andExpect(jsonPath("$.roll_at").doesNotExist());
     }
 
     @Test
     void placingAPredictionReturnsItWithTheLockedInMultiplier() throws Exception {
         Round round = openRound();
-        String direction = round.rollValue() < 100 ? "higher" : "lower";
+        String direction = allowedDirection(round);
         predict(round.id(), direction, 100)
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").isNumber())
@@ -80,7 +75,8 @@ class GameApiTests {
                 .andExpect(jsonPath("$.stake").value(100))
                 .andExpect(jsonPath("$.multiplier_bps").isNumber())
                 .andExpect(jsonPath("$.status").value("pending"))
-                .andExpect(jsonPath("$.payout").value(nullValue()));
+                .andExpect(jsonPath("$.payout").value(nullValue()))
+                .andExpect(jsonPath("$.multiplier").doesNotExist());
     }
 
     @Test
@@ -92,7 +88,7 @@ class GameApiTests {
     @Test
     void ruleViolationsAre400() throws Exception {
         Round round = openRound();
-        predict(round.id(), round.rollValue() < 100 ? "higher" : "lower", 5)
+        predict(round.id(), allowedDirection(round), 5)
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.detail").value(containsString("Stake must be between 10 and")));
     }
@@ -109,7 +105,7 @@ class GameApiTests {
     @Test
     void aSecondPredictionIs409() throws Exception {
         Round round = openRound();
-        String direction = round.rollValue() < 100 ? "higher" : "lower";
+        String direction = allowedDirection(round);
         predict(round.id(), direction, 10).andExpect(status().isCreated());
         predict(round.id(), direction, 10)
                 .andExpect(status().isConflict())
@@ -120,15 +116,17 @@ class GameApiTests {
     void predictingAfterTheCutoffIs409() throws Exception {
         Round round = openRound();
         clock.now = Instant.parse("2026-01-01T00:00:50Z");
-        predict(round.id(), round.rollValue() < 100 ? "higher" : "lower", 10)
+        predict(round.id(), allowedDirection(round), 10)
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.detail").value("Predictions for this round have closed"));
     }
 
     private Round openRound() {
-        clock.now = ROUND_START;
-        engine.tick();
-        return roundRepository.findOpenRound().orElseThrow();
+        return TestGame.openRound(engine, clock, roundRepository);
+    }
+
+    private static String allowedDirection(Round round) {
+        return TestGame.allowedDirection(round).name().toLowerCase();
     }
 
     private ResultActions predict(long roundId, String direction, long stake) throws Exception {

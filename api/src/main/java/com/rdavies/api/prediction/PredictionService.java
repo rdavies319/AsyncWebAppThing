@@ -1,11 +1,11 @@
 package com.rdavies.api.prediction;
 
 import com.rdavies.api.GameProperties;
-import com.rdavies.api.round.Odds;
 import com.rdavies.api.round.Round;
 import com.rdavies.api.round.RoundRepository;
 import com.rdavies.api.round.RoundService;
 import com.rdavies.api.round.RoundStatus;
+import com.rdavies.api.round.RoundView;
 import com.rdavies.api.wallet.LedgerEntry;
 import com.rdavies.api.wallet.LedgerRepository;
 import com.rdavies.api.wallet.WalletRepository;
@@ -45,12 +45,6 @@ public class PredictionService {
         return predictionRepository.findByRoundIdAndUserId(roundId, userId);
     }
 
-    /** The most recently settled round, with this player's prediction on it. */
-    public Optional<RoundResult> getLastResult(Long userId) {
-        return roundService.getLastSettledRound()
-                .map(s -> new RoundResult(s, getPrediction(userId, s.round().id()).orElse(null)));
-    }
-
     @Transactional
     public Prediction placePrediction(Long userId, Long roundId, PredictionType type, Long stake) {
         if (roundId == null) {
@@ -72,14 +66,12 @@ public class PredictionService {
         if (!now.isBefore(roundService.predictionDeadline(round))) {
             throw new IllegalStateException("Predictions for this round have closed");
         }
-        if (!Odds.isAllowed(round.rollValue(), type)) {
-            throw new IllegalArgumentException(type + " cannot win against " + round.rollValue());
-        }
-        long multiplierBps = Odds.multiplierBps(round.rollValue(), type);
-        long maxStake = Odds.maxStake(multiplierBps, game.maxStake(), game.maxPayout());
-        if (stake < game.minStake() || stake > maxStake) {
+        // The same odds and stake limit the page shows
+        RoundView.Side side = roundService.side(round, type).orElseThrow(
+                () -> new IllegalArgumentException(type + " cannot win against " + round.rollValue()));
+        if (stake < game.minStake() || stake > side.maxStake()) {
             throw new IllegalArgumentException(
-                    "Stake must be between " + game.minStake() + " and " + maxStake + " pts on " + type);
+                    "Stake must be between " + game.minStake() + " and " + side.maxStake() + " pts on " + type);
         }
         if (predictionRepository.existsByRoundIdAndUserId(roundId, userId)) {
             throw new IllegalStateException(ALREADY_PREDICTED);
@@ -96,7 +88,7 @@ public class PredictionService {
         Prediction saved;
         try {
             saved = predictionRepository.save(new Prediction(null, userId, roundId, type, stake,
-                    multiplierBps, PredictionStatus.PENDING, null, now, null));
+                    side.multiplierBps(), PredictionStatus.PENDING, null, now, null));
         } catch (DuplicateKeyException e) {
             throw new IllegalStateException(ALREADY_PREDICTED, e);
         }

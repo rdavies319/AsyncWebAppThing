@@ -11,7 +11,6 @@ import com.rdavies.api.round.Round;
 import com.rdavies.api.round.RoundEngine;
 import com.rdavies.api.round.RoundOpened;
 import com.rdavies.api.round.RoundRepository;
-import com.rdavies.api.round.RoundService;
 import com.rdavies.api.round.RoundSettled;
 import com.rdavies.api.round.RoundStatus;
 import com.rdavies.api.user.GamePrincipal;
@@ -20,12 +19,6 @@ import com.rdavies.api.wallet.WalletRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Import;
-import org.springframework.context.annotation.Primary;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.event.ApplicationEvents;
@@ -35,12 +28,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
 import java.sql.Timestamp;
-import java.time.Clock;
 import java.time.Instant;
-import java.time.ZoneId;
-import java.time.ZoneOffset;
 import java.util.List;
 
+import static com.rdavies.api.TestGame.ROUND_START;
+import static com.rdavies.api.TestGame.allowedDirection;
+import static com.rdavies.api.TestGame.assertLedgerMatchesWallet;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
@@ -50,21 +43,17 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest
-@AutoConfigureMockMvc
-@Import(TestcontainersConfiguration.class)
+@GameTest
 @Transactional
 @RecordApplicationEvents
 class GameFlowTests {
     private GamePrincipal player;
     private long playerId;
-    private static final Instant ROUND_START = Instant.parse("2026-01-01T00:00:00.200Z");
     private static final SecureRandom RANDOM = new SecureRandom();
 
     @Autowired RoundEngine engine;
     @Autowired UserService userService;
     @Autowired PredictionService predictionService;
-    @Autowired RoundService roundService;
     @Autowired RoundRepository roundRepository;
     @Autowired PredictionRepository predictionRepository;
     @Autowired WalletRepository walletRepository;
@@ -77,16 +66,7 @@ class GameFlowTests {
     void openRound() {
         player = TestPlayers.signUp(userService, "player");
         playerId = player.id();
-        clock.now = ROUND_START;
-        engine.tick();
-    }
-
-    @Test
-    void newPlayersStartWithTheSignupBonus() {
-        assertEquals(1000, balance());
-        assertEquals("SIGNUP_BONUS",
-                jdbc.queryForObject("SELECT reason FROM ledger WHERE user_id = ?", String.class, playerId));
-        assertLedgerMatchesWallet();
+        TestGame.openRound(engine, clock, roundRepository);
     }
 
     @Test
@@ -236,7 +216,7 @@ class GameFlowTests {
         assertEquals(1096, balance());
         assertEquals(196, jdbc.queryForObject(
                 "SELECT delta FROM ledger WHERE reason = 'PAYOUT' AND ref_id = ?", Long.class, placed.id()));
-        assertLedgerMatchesWallet();
+        assertLedgerMatchesWallet(jdbc, playerId);
     }
 
     @Test
@@ -252,7 +232,7 @@ class GameFlowTests {
         assertEquals(0, settled.payout());
         assertEquals(900, balance());
         assertEquals(2, ledgerRows()); // signup bonus and stake only
-        assertLedgerMatchesWallet();
+        assertLedgerMatchesWallet(jdbc, playerId);
     }
 
     @Test
@@ -269,7 +249,7 @@ class GameFlowTests {
         assertEquals(1000, balance());
         assertEquals(100, jdbc.queryForObject(
                 "SELECT delta FROM ledger WHERE reason = 'REFUND' AND ref_id = ?", Long.class, placed.id()));
-        assertLedgerMatchesWallet();
+        assertLedgerMatchesWallet(jdbc, playerId);
     }
 
     @Test
@@ -382,7 +362,7 @@ class GameFlowTests {
         assertEquals(ledgerRowsAfterSettle, ledgerRows());
         assertEquals(next.id(), currentRound().id());
         assertEquals(3, roundRepository.count()); // settled, open, scheduled
-        assertLedgerMatchesWallet();
+        assertLedgerMatchesWallet(jdbc, playerId);
     }
 
     @Test
@@ -409,7 +389,7 @@ class GameFlowTests {
 
         assertEquals(RoundStatus.SETTLED, roundRepository.findById(stale.id()).orElseThrow().status());
         assertNotEquals(PredictionStatus.PENDING, predictionRepository.findById(placed.id()).orElseThrow().status());
-        assertLedgerMatchesWallet();
+        assertLedgerMatchesWallet(jdbc, playerId);
 
         // The committed round opens on the current minute with the roll its seed always implied
         Round reopened = currentRound();
@@ -531,40 +511,14 @@ class GameFlowTests {
     }
 
     private Round currentRound() {
-        return roundService.getCurrentRound().orElseThrow();
+        return roundRepository.findOpenRound().orElseThrow();
     }
 
     private Round scheduledRound() {
         return roundRepository.findScheduledRound().orElseThrow();
     }
 
-    private static PredictionType allowedDirection(Round round) {
-        return round.rollValue() < 100 ? PredictionType.HIGHER : PredictionType.LOWER;
-    }
-
     private long balance() {
         return walletRepository.findById(playerId).orElseThrow().balance();
-    }
-
-    private void assertLedgerMatchesWallet() {
-        Long ledgerTotal = jdbc.queryForObject("SELECT SUM(delta) FROM ledger WHERE user_id = ?", Long.class, playerId);
-        assertEquals(balance(), ledgerTotal);
-    }
-
-    static class MutableClock extends Clock {
-        Instant now = Instant.EPOCH;
-
-        @Override public ZoneId getZone() { return ZoneOffset.UTC; }
-        @Override public Clock withZone(ZoneId zone) { return this; }
-        @Override public Instant instant() { return now; }
-    }
-
-    @TestConfiguration
-    static class ClockConfig {
-        @Bean
-        @Primary
-        MutableClock testClock() {
-            return new MutableClock();
-        }
     }
 }

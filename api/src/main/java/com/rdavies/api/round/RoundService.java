@@ -5,7 +5,6 @@ import com.rdavies.api.prediction.PredictionType;
 import org.springframework.stereotype.Service;
 
 import java.time.Clock;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
 
@@ -21,27 +20,24 @@ public class RoundService {
         this.clock = clock;
     }
 
-    public Optional<Round> getCurrentRound() {
-        return roundRepository.findOpenRound();
-    }
-
     /** The open round with its odds and the next roll's commitment, as sent to clients. */
     public Optional<RoundView> currentView() {
-        return getCurrentRound().map(round -> new RoundView(round.id(), round.rollValue(), round.startsAt(),
-                predictionDeadline(round), side(round, PredictionType.HIGHER), side(round, PredictionType.LOWER),
-                getNextRollCommit().orElse(null), clock.instant()));
+        return roundRepository.findOpenRound().map(round -> new RoundView(round.id(), round.rollValue(),
+                round.startsAt(), predictionDeadline(round), side(round, PredictionType.HIGHER).orElse(null),
+                side(round, PredictionType.LOWER).orElse(null), getNextRollCommit().orElse(null), clock.instant()));
     }
 
-    private RoundView.Side side(Round round, PredictionType direction) {
+    /** The odds and stake limit on one side of this round, or empty if that side cannot win. */
+    public Optional<RoundView.Side> side(Round round, PredictionType direction) {
         if (!Odds.isAllowed(round.rollValue(), direction)) {
-            return null;
+            return Optional.empty();
         }
         long bps = Odds.multiplierBps(round.rollValue(), direction);
-        return new RoundView.Side(bps, Odds.maxStake(bps, game.maxStake(), game.maxPayout()));
+        return Optional.of(new RoundView.Side(bps, Odds.maxStake(bps, game.maxStake(), game.maxPayout())));
     }
 
     /** Commitment to the seed of the roll players are currently predicting. */
-    public Optional<String> getNextRollCommit() {
+    private Optional<String> getNextRollCommit() {
         return roundRepository.findScheduledRound().map(Round::seedCommitHash);
     }
 
@@ -55,14 +51,9 @@ public class RoundService {
         return clock.instant();
     }
 
-    /** When the next round is rolled and this one settled, by the server clock. */
-    public Instant rollTime(Round round) {
-        return round.startsAt().plus(Duration.ofMinutes(1));
-    }
-
     /** When predictions close for this round, by the server clock: game.cutoff before the next roll. */
     public Instant predictionDeadline(Round round) {
-        return rollTime(round).minus(game.cutoff());
+        return round.rollTime().minus(game.cutoff());
     }
 
     /** A settled round and the next round's roll, which its predictions were settled against. */

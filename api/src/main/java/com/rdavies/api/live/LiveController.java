@@ -4,6 +4,7 @@ import com.rdavies.api.prediction.PredictionSettled;
 import com.rdavies.api.round.RoundOpened;
 import com.rdavies.api.round.RoundService;
 import com.rdavies.api.round.RoundSettled;
+import com.rdavies.api.round.RoundView;
 import com.rdavies.api.user.CurrentUser;
 import com.rdavies.api.user.GamePrincipal;
 import org.springframework.http.MediaType;
@@ -16,6 +17,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Pushes round changes to game pages over Server-Sent Events (spec section 8). Events carry state,
@@ -39,13 +41,10 @@ public class LiveController {
         SseEmitter emitter = new SseEmitter(0L); // no timeout; the browser reconnects if it drops
         // Sent before the handler returns, these are buffered and flushed first
         emitter.send(SseEmitter.event().name("server_time").data(serverTime()));
-        roundService.currentView().ifPresent(view -> {
-            try {
-                emitter.send(SseEmitter.event().name("round_open").data(view));
-            } catch (IOException e) {
-                emitter.completeWithError(e);
-            }
-        });
+        Optional<RoundView> view = roundService.currentView();
+        if (view.isPresent()) {
+            emitter.send(SseEmitter.event().name("round_open").data(view.get()));
+        }
         streams.add(currentUser.principal().map(GamePrincipal::id).orElse(null), emitter);
         return emitter;
     }

@@ -2,6 +2,9 @@ package com.rdavies.api.round;
 
 import com.rdavies.api.prediction.PredictionType;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+
 /**
  * Odds for a roll of 1-100 against the current roll R (spec section 3).
  * P(higher) = (100 - R)/100, P(lower) = (R - 1)/100, multiplier = (1 - edge)/P with a 2% edge.
@@ -35,6 +38,12 @@ public final class Odds {
     /** Total credited to a winner, stake included. Must match PredictionRepository.settleRound. */
     public static long payout(long stake, long multiplierBps) {
         return Math.multiplyExact(stake, multiplierBps) / BPS_PER_UNIT;
+    }
+
+    /** For display, e.g. 19600 bps as "1.96x". */
+    public static String format(long multiplierBps) {
+        return BigDecimal.valueOf(multiplierBps).divide(BigDecimal.valueOf(BPS_PER_UNIT))
+                .setScale(2, RoundingMode.HALF_EVEN).toPlainString() + "x";
     }
 
     /** Largest stake whose payout stays within maxPayout: min(maxStake, floor(maxPayout * 10000 / bps)). */

@@ -44,7 +44,6 @@ import java.time.temporal.ChronoUnit;
 public class RoundEngine {
     private static final Logger log = LoggerFactory.getLogger(RoundEngine.class);
 
-    private static final Duration ROUND_LENGTH = Duration.ofMinutes(1);
     /** Arbitrary app-wide key for pg_try_advisory_xact_lock. */
     public static final long ENGINE_LOCK_KEY = 0x486967684C6F77L; // "HighLow"
 
@@ -98,7 +97,7 @@ public class RoundEngine {
         }
 
         Round current = openRound.get();
-        Instant settleAt = current.startsAt().plus(ROUND_LENGTH);
+        Instant settleAt = current.rollTime();
         if (now.isBefore(settleAt)) {
             log.debug("Round {} settles at {}; nothing due", current.id(), settleAt);
             return;
@@ -131,14 +130,14 @@ public class RoundEngine {
             nextSlot = currentSlot;
         }
         open(next, roll, nextSlot);
-        schedule(nextSlot.plus(ROUND_LENGTH));
+        schedule(nextSlot.plus(Round.LENGTH));
     }
 
     /** First ever tick: round 1 opens on the current minute, already rolled, with round 2 scheduled. */
     private void bootstrap(Instant slot) {
         Round first = schedule(slot);
         open(first, ProvablyFair.roll(first.seed(), first.id()), slot);
-        schedule(slot.plus(ROUND_LENGTH));
+        schedule(slot.plus(Round.LENGTH));
     }
 
     private void open(Round round, int roll, Instant slot) {

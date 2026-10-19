@@ -1,5 +1,6 @@
 package com.rdavies.api.prediction;
 
+import com.rdavies.api.round.Odds;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.relational.core.mapping.Table;
 import java.time.Instant;
@@ -18,4 +19,9 @@ public record Prediction(
     Long payout,
     Instant createdAt,
     Instant settledAt
-) {}
+) {
+    /** Not a getter, so it stays out of the JSON. */
+    public String multiplier() {
+        return Odds.format(multiplierBps);
+    }
+}

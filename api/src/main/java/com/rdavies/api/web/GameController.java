@@ -2,6 +2,7 @@ package com.rdavies.api.web;
 
 import com.rdavies.api.GameProperties;
 import com.rdavies.api.prediction.PredictionService;
+import com.rdavies.api.prediction.RoundResult;
 import com.rdavies.api.prediction.PredictionType;
 import com.rdavies.api.round.RoundService;
 import com.rdavies.api.user.CurrentUser;
@@ -74,21 +75,20 @@ public class GameController {
     /** Anyone can watch; the bet, last result and wallet are added only for a logged-in player. */
     private void addBoard(Model model) {
         Optional<GamePrincipal> player = currentUser.principal();
-        roundService.getCurrentRound().ifPresent(round -> {
-            model.addAttribute("round", round);
-            // Epoch millis, so the page counts down by the server clock rather than the browser's
-            model.addAttribute("rollAt", roundService.rollTime(round).toEpochMilli());
-            model.addAttribute("deadline", roundService.predictionDeadline(round).toEpochMilli());
-            player.flatMap(p -> predictionService.getPrediction(p.id(), round.id()))
+        // The view carries the server time and cutoff, so the page counts down by the server clock
+        roundService.currentView().ifPresent(view -> {
+            model.addAttribute("view", view);
+            player.flatMap(p -> predictionService.getPrediction(p.id(), view.roundId()))
                     .ifPresent(p -> model.addAttribute("myPrediction", p));
         });
-        roundService.currentView().ifPresent(view -> model.addAttribute("view", view));
-        model.addAttribute("serverNow", roundService.now().toEpochMilli());
         model.addAttribute("minStake", game.minStake());
-        roundService.getLastSettledRound().ifPresent(last -> model.addAttribute("lastRound", last));
+        roundService.getLastSettledRound().ifPresent(last -> {
+            model.addAttribute("lastRound", last);
+            player.flatMap(p -> predictionService.getPrediction(p.id(), last.round().id()))
+                    .ifPresent(p -> model.addAttribute("lastResult", new RoundResult(last, p)));
+        });
         player.ifPresent(p -> {
             model.addAttribute("player", p);
-            predictionService.getLastResult(p.id()).ifPresent(result -> model.addAttribute("lastResult", result));
             Wallet wallet = walletService.getWallet(p.id());
             model.addAttribute("wallet", wallet);
             model.addAttribute("canTopUp", walletService.canTopUp(wallet));
