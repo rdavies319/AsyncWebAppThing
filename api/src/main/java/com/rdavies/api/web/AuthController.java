@@ -1,6 +1,7 @@
 package com.rdavies.api.web;
 
 import com.rdavies.api.GameProperties;
+import com.rdavies.api.GameRuleException;
 import com.rdavies.api.user.UserService;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -43,7 +44,7 @@ public class AuthController {
                          Model model) {
         try {
             userService.signup(email, displayName, password);
-        } catch (IllegalArgumentException e) {
+        } catch (GameRuleException e) {
             model.addAttribute("error", e.getMessage());
             model.addAttribute("email", email);
             model.addAttribute("displayName", displayName);

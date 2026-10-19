@@ -13,9 +13,12 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.annotation.Transactional;
 
+import jakarta.servlet.ServletException;
 import java.time.Instant;
 
 import static org.hamcrest.Matchers.*;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -119,6 +122,15 @@ class GameApiTests {
         predict(round.id(), allowedDirection(round), 10)
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.detail").value("Predictions for this round have closed"));
+    }
+
+    @Test
+    void internalFaultsAreNotReportedAsRuleViolations() {
+        // A logged-in player with no wallet: a bug, so no 409 ProblemDetail with the internal message
+        GamePrincipal ghost = new GamePrincipal(Long.MAX_VALUE, "ghost@example.invalid", "ghost", "!");
+        ServletException e = assertThrows(ServletException.class,
+                () -> mockMvc.perform(post("/wallet/topup").with(user(ghost)).with(csrf())));
+        assertInstanceOf(IllegalStateException.class, e.getCause());
     }
 
     private Round openRound() {

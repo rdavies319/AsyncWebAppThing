@@ -1,6 +1,7 @@
 package com.rdavies.api.wallet;
 
 import com.rdavies.api.GameProperties;
+import com.rdavies.api.GameRuleException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -46,7 +47,7 @@ public class WalletService {
     @Transactional
     public void debitStake(long userId, long stake, long predictionId, Instant now) {
         if (walletRepository.deductStake(userId, stake, now) == 0) {
-            throw new IllegalStateException("Insufficient funds in wallet");
+            throw GameRuleException.conflict("Insufficient funds in wallet");
         }
         ledgerRepository.save(new LedgerEntry(null, userId, -stake, LedgerEntry.Reason.STAKE, predictionId, now));
     }
@@ -73,10 +74,10 @@ public class WalletService {
         Wallet wallet = walletRepository.lockById(userId)
                 .orElseThrow(() -> new IllegalStateException("Wallet not found for user"));
         if (today().equals(wallet.lastTopUpDate())) {
-            throw new IllegalStateException("You have already claimed today's top-up");
+            throw GameRuleException.conflict("You have already claimed today's top-up");
         }
         if (wallet.balance() >= game.topUpTarget()) {
-            throw new IllegalStateException("Top-ups are for balances below " + game.topUpTarget() + " pts");
+            throw GameRuleException.conflict("Top-ups are for balances below " + game.topUpTarget() + " pts");
         }
         long credit = game.topUpTarget() - wallet.balance();
         Instant now = clock.instant();

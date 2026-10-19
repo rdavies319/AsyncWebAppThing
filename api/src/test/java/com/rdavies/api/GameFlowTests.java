@@ -255,7 +255,7 @@ class GameFlowTests {
     @Test
     void impossibleDirectionsAreRejected() {
         startFrom(100);
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(GameRuleException.class,
                 () -> predictionService.placePrediction(playerId, currentRound().id(), PredictionType.HIGHER, 10L));
         assertEquals(1000, balance());
     }
@@ -263,9 +263,9 @@ class GameFlowTests {
     @Test
     void negativeAndZeroStakesAreRejected() {
         Round round = currentRound();
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(GameRuleException.class,
                 () -> predictionService.placePrediction(playerId, round.id(), allowedDirection(round), -1000L));
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(GameRuleException.class,
                 () -> predictionService.placePrediction(playerId, round.id(), allowedDirection(round), 0L));
         assertEquals(1000, balance());
     }
@@ -274,7 +274,7 @@ class GameFlowTests {
     void predictionsCloseTenSecondsBeforeTheRoll() {
         Round round = currentRound();
         clock.now = Instant.parse("2026-01-01T00:00:50Z");
-        assertThrows(IllegalStateException.class,
+        assertThrows(GameRuleException.class,
                 () -> predictionService.placePrediction(playerId, round.id(), allowedDirection(round), 10L));
         assertEquals(1000, balance());
 
@@ -286,7 +286,7 @@ class GameFlowTests {
     @Test
     void stakesBelowTheMinimumAreRejected() {
         Round round = currentRound();
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(GameRuleException.class,
                 () -> predictionService.placePrediction(playerId, round.id(), allowedDirection(round), 9L));
         assertEquals(1000, balance());
     }
@@ -295,7 +295,7 @@ class GameFlowTests {
     void stakesAboveTheMaximumAreRejected() {
         startFrom(50);
         long roundId = currentRound().id();
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(GameRuleException.class,
                 () -> predictionService.placePrediction(playerId, roundId, PredictionType.HIGHER, 501L));
         predictionService.placePrediction(playerId, roundId, PredictionType.HIGHER, 500L);
         assertEquals(500, balance());
@@ -305,7 +305,7 @@ class GameFlowTests {
     void thePayoutCapLowersTheMaxStakeOnLongShots() {
         startFrom(99); // HIGHER pays 98x, so the 10,000 cap allows at most 102
         long roundId = currentRound().id();
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(GameRuleException.class,
                 () -> predictionService.placePrediction(playerId, roundId, PredictionType.HIGHER, 103L));
         predictionService.placePrediction(playerId, roundId, PredictionType.HIGHER, 102L);
         assertEquals(898, balance());
@@ -315,7 +315,7 @@ class GameFlowTests {
     void insufficientPointsAreRejected() {
         jdbc.update("UPDATE wallets SET balance = 50 WHERE user_id = ?", playerId);
         Round round = currentRound();
-        assertThrows(IllegalStateException.class,
+        assertThrows(GameRuleException.class,
                 () -> predictionService.placePrediction(playerId, round.id(), allowedDirection(round), 100L));
         assertEquals(50, balance());
         assertEquals(1, ledgerRows()); // the signup bonus only: no STAKE row
@@ -340,7 +340,7 @@ class GameFlowTests {
     void secondPredictionInARoundIsRejected() {
         Round round = currentRound();
         predictionService.placePrediction(playerId, round.id(), allowedDirection(round), 10L);
-        assertThrows(IllegalStateException.class,
+        assertThrows(GameRuleException.class,
                 () -> predictionService.placePrediction(playerId, round.id(), allowedDirection(round), 10L));
         assertEquals(990, balance());
     }

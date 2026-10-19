@@ -1,5 +1,6 @@
 package com.rdavies.api.user;
 
+import com.rdavies.api.GameRuleException;
 import com.rdavies.api.wallet.WalletService;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -41,20 +42,20 @@ public class UserService implements UserDetailsService {
         String normalisedEmail = email == null ? "" : normaliseEmail(email);
         String name = displayName == null ? "" : displayName.strip();
         if (!EMAIL.matcher(normalisedEmail).matches() || normalisedEmail.length() > 254) {
-            throw new IllegalArgumentException("Enter a valid email address");
+            throw GameRuleException.invalid("Enter a valid email address");
         }
         if (!DISPLAY_NAME.matcher(name).matches()) {
-            throw new IllegalArgumentException("Display names are 3 to 30 letters, digits or underscores");
+            throw GameRuleException.invalid("Display names are 3 to 30 letters, digits or underscores");
         }
         if (password == null || password.length() < MIN_PASSWORD_LENGTH
                 || password.getBytes(StandardCharsets.UTF_8).length > MAX_PASSWORD_BYTES) {
-            throw new IllegalArgumentException("Passwords are " + MIN_PASSWORD_LENGTH + " to " + MAX_PASSWORD_BYTES + " characters");
+            throw GameRuleException.invalid("Passwords are " + MIN_PASSWORD_LENGTH + " to " + MAX_PASSWORD_BYTES + " characters");
         }
         if (userRepository.existsByEmail(normalisedEmail)) {
-            throw new IllegalArgumentException("That email already has an account");
+            throw GameRuleException.invalid("That email already has an account");
         }
         if (userRepository.existsByDisplayName(name)) {
-            throw new IllegalArgumentException("That display name is taken");
+            throw GameRuleException.invalid("That display name is taken");
         }
 
         User user;
@@ -62,7 +63,7 @@ public class UserService implements UserDetailsService {
             user = userRepository.save(new User(null, normalisedEmail, name, passwordEncoder.encode(password), clock.instant()));
         } catch (DuplicateKeyException e) {
             // Someone took the email or name between the checks above and the insert
-            throw new IllegalArgumentException("That email or display name was just taken", e);
+            throw GameRuleException.invalid("That email or display name was just taken", e);
         }
         walletService.createFor(user.id());
         return GamePrincipal.of(user);

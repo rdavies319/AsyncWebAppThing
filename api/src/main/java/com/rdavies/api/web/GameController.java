@@ -1,6 +1,7 @@
 package com.rdavies.api.web;
 
 import com.rdavies.api.GameProperties;
+import com.rdavies.api.GameRuleException;
 import com.rdavies.api.prediction.PredictionService;
 import com.rdavies.api.prediction.RoundResult;
 import com.rdavies.api.prediction.PredictionType;
@@ -53,7 +54,7 @@ public class GameController {
                           @RequestParam(required = false) Long stake, Model model) {
         try {
             predictionService.placePrediction(currentUser.id(), roundId, prediction, stake);
-        } catch (IllegalArgumentException | IllegalStateException e) {
+        } catch (GameRuleException e) {
             model.addAttribute("error", e.getMessage());
             model.addAttribute("stake", stake);
         }
@@ -65,7 +66,7 @@ public class GameController {
     public String topUp(Model model) {
         try {
             walletService.claimTopUp(currentUser.id());
-        } catch (IllegalStateException e) {
+        } catch (GameRuleException e) {
             model.addAttribute("topUpError", e.getMessage());
         }
         addBoard(model);

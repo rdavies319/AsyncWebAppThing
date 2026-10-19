@@ -76,7 +76,7 @@ class WalletTests {
         spend(500);
 
         clock.now = Instant.parse("2026-01-01T23:59:59Z");
-        assertThrows(IllegalStateException.class, () -> walletService.claimTopUp(playerId));
+        assertThrows(GameRuleException.class, () -> walletService.claimTopUp(playerId));
         assertEquals(500, balance());
 
         clock.now = Instant.parse("2026-01-02T00:00:00Z");
@@ -86,7 +86,7 @@ class WalletTests {
 
     @Test
     void aRefusedClaimDoesNotUseUpTheDay() {
-        assertThrows(IllegalStateException.class, () -> walletService.claimTopUp(playerId)); // already at 1000
+        assertThrows(GameRuleException.class, () -> walletService.claimTopUp(playerId)); // already at 1000
         spend(100);
         assertEquals(100, walletService.claimTopUp(playerId));
     }

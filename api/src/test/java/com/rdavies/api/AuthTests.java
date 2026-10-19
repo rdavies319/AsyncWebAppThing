@@ -57,10 +57,10 @@ class AuthTests {
 
     @Test
     void invalidSignupsAreRejected() {
-        assertThrows(IllegalArgumentException.class, () -> userService.signup("not-an-email", "carol", "correct horse"));
-        assertThrows(IllegalArgumentException.class, () -> userService.signup("c@example.invalid", "c!", "correct horse"));
-        assertThrows(IllegalArgumentException.class, () -> userService.signup("c@example.invalid", "carol", "short"));
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(GameRuleException.class, () -> userService.signup("not-an-email", "carol", "correct horse"));
+        assertThrows(GameRuleException.class, () -> userService.signup("c@example.invalid", "c!", "correct horse"));
+        assertThrows(GameRuleException.class, () -> userService.signup("c@example.invalid", "carol", "short"));
+        assertThrows(GameRuleException.class,
                 () -> userService.signup("c@example.invalid", "carol", "x".repeat(73)));
         assertFalse(userRepository.existsByDisplayName("carol"));
     }
