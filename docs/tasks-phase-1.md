@@ -4,6 +4,8 @@ These tasks bring the existing `api/` code in line with [spec-higher-or-lower.md
 
 Work through the tasks in order unless a task says otherwise. Each task should leave `./mvnw test` green.
 
+**Status:** T0 done (`777cb7e`) · T1 done
+
 ## T0. Commit the current state
 
 All of `api/`, `docs/`, `Dockerfile` and `docker-compose.yml` are untracked. Commit them as they are before changing anything, so there's a known-good point to go back to. Add `.idea/` and `api/target/` to `.gitignore` instead of committing them.
