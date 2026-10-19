@@ -29,7 +29,7 @@ public class RoundService {
     public Optional<RoundView> currentView() {
         return getCurrentRound().map(round -> new RoundView(round.id(), round.rollValue(), round.startsAt(),
                 predictionDeadline(round), side(round, PredictionType.HIGHER), side(round, PredictionType.LOWER),
-                getNextRollCommit().orElse(null)));
+                getNextRollCommit().orElse(null), clock.instant()));
     }
 
     private RoundView.Side side(Round round, PredictionType direction) {

@@ -53,6 +53,9 @@ public class PredictionService {
 
     @Transactional
     public Prediction placePrediction(Long userId, Long roundId, PredictionType type, Long stake) {
+        if (roundId == null) {
+            throw new IllegalArgumentException("Choose a round");
+        }
         if (type == null) {
             throw new IllegalArgumentException("Choose higher or lower");
         }
