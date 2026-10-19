@@ -26,6 +26,7 @@
         .last-result .outcome { font-weight: bold; margin-top: 0.25rem; }
         .my-bet { padding: 0.75rem; border: 1px dashed #1a73e8; border-radius: 0.5rem; color: #1a73e8; }
         .wallet { margin-top: 1.5rem; font-size: 0.9rem; color: #888; }
+        .topup { display: block; margin: 0.5rem auto 0; padding: 0.4rem 0.8rem; border: 1px solid #1a73e8; border-radius: 0.5rem; background: white; color: #1a73e8; cursor: pointer; }
         .commit { margin-top: 1rem; font-size: 0.7rem; color: #888; word-break: break-all; }
     </style>
 </head>
@@ -94,6 +95,9 @@
 
         <div class="wallet">
             Balance: <span th:text="${wallet.balance}">0</span> pts
+            <button class="topup" th:if="${canTopUp}" hx-post="/topup" hx-target="#board" hx-swap="outerHTML"
+                    th:text="'Daily top-up to ' + ${topUpTarget}">Daily top-up</button>
+            <p class="error" th:if="${topUpError}" th:text="${topUpError}" role="alert"></p>
         </div>
     </div>
 </main>

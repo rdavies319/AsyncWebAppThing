@@ -6,6 +6,7 @@ import com.rdavies.api.prediction.PredictionType;
 import com.rdavies.api.round.RoundService;
 import com.rdavies.api.round.RoundView;
 import com.rdavies.api.user.CurrentUser;
+import com.rdavies.api.wallet.WalletService;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -19,11 +20,14 @@ import org.springframework.web.server.ResponseStatusException;
 public class GameApiController {
     private final RoundService roundService;
     private final PredictionService predictionService;
+    private final WalletService walletService;
     private final CurrentUser currentUser;
 
-    public GameApiController(RoundService roundService, PredictionService predictionService, CurrentUser currentUser) {
+    public GameApiController(RoundService roundService, PredictionService predictionService,
+                             WalletService walletService, CurrentUser currentUser) {
         this.roundService = roundService;
         this.predictionService = predictionService;
+        this.walletService = walletService;
         this.currentUser = currentUser;
     }
 
@@ -39,5 +43,13 @@ public class GameApiController {
     @ResponseStatus(HttpStatus.CREATED)
     public Prediction placePrediction(@RequestBody PlacePrediction request) {
         return predictionService.placePrediction(currentUser.id(), request.roundId(), request.direction(), request.stake());
+    }
+
+    public record TopUp(long credited, long balance) {}
+
+    @PostMapping("/wallet/topup")
+    public TopUp claimTopUp() {
+        long credited = walletService.claimTopUp(currentUser.id());
+        return new TopUp(credited, walletService.getWallet(currentUser.id()).balance());
     }
 }

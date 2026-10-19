@@ -5,6 +5,7 @@ import com.rdavies.api.prediction.PredictionService;
 import com.rdavies.api.prediction.PredictionType;
 import com.rdavies.api.round.RoundService;
 import com.rdavies.api.user.CurrentUser;
+import com.rdavies.api.wallet.Wallet;
 import com.rdavies.api.wallet.WalletService;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -56,6 +57,17 @@ public class GameController {
         return "game :: board";
     }
 
+    @PostMapping("/topup")
+    public String topUp(Model model) {
+        try {
+            walletService.claimTopUp(currentUser.id());
+        } catch (IllegalStateException e) {
+            model.addAttribute("topUpError", e.getMessage());
+        }
+        addBoard(model);
+        return "game :: board";
+    }
+
     private void addBoard(Model model) {
         long userId = currentUser.id();
         roundService.getCurrentRound().ifPresent(round -> {
@@ -69,6 +81,9 @@ public class GameController {
         predictionService.getLastResult(userId).ifPresent(result -> model.addAttribute("lastResult", result));
         model.addAttribute("serverNow", roundService.now().toEpochMilli());
         model.addAttribute("minStake", game.minStake());
-        model.addAttribute("wallet", walletService.getWallet(userId));
+        Wallet wallet = walletService.getWallet(userId);
+        model.addAttribute("wallet", wallet);
+        model.addAttribute("canTopUp", walletService.canTopUp(wallet));
+        model.addAttribute("topUpTarget", game.topUpTarget());
     }
 }

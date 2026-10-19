@@ -1,0 +1,147 @@
+package com.rdavies.api;
+
+import com.rdavies.api.wallet.Wallet;
+import com.rdavies.api.wallet.WalletService;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Import;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.Instant;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+/** Signup bonus and daily top-up (spec section 3). Same context as GameApiTests, so they share a container. */
+@SpringBootTest
+@AutoConfigureMockMvc
+@Import({TestcontainersConfiguration.class, GameFlowTests.ClockConfig.class})
+@Transactional
+class WalletTests {
+    private static final long DEMO_USER = 1L;
+    private static final Instant MORNING = Instant.parse("2026-01-01T09:00:00Z");
+
+    @Autowired WalletService walletService;
+    @Autowired JdbcTemplate jdbc;
+    @Autowired GameFlowTests.MutableClock clock;
+    @Autowired MockMvc mockMvc;
+
+    @BeforeEach
+    void setClock() {
+        clock.now = MORNING;
+    }
+
+    @Test
+    void aNewWalletHoldsTheSignupBonus() {
+        long userId = jdbc.queryForObject("""
+                INSERT INTO users (email, display_name, password_hash)
+                VALUES ('new@example.invalid', 'newcomer', '!') RETURNING id""", Long.class);
+
+        Wallet wallet = walletService.createFor(userId);
+
+        assertEquals(1000, wallet.balance());
+        assertNull(wallet.lastTopUpDate());
+        assertEquals("SIGNUP_BONUS", jdbc.queryForObject("SELECT reason FROM ledger WHERE user_id = ?", String.class, userId));
+        assertLedgerMatchesWallet(userId);
+    }
+
+    @Test
+    void topUpRefillsToTheTarget() {
+        spend(700);
+
+        assertEquals(700, walletService.claimTopUp(DEMO_USER));
+
+        assertEquals(1000, balance());
+        assertEquals(700, jdbc.queryForObject(
+                "SELECT delta FROM ledger WHERE user_id = ? AND reason = 'TOPUP'", Long.class, DEMO_USER));
+        assertLedgerMatchesWallet(DEMO_USER);
+    }
+
+    @Test
+    void topUpIsOncePerUtcDay() {
+        spend(500);
+        walletService.claimTopUp(DEMO_USER);
+        spend(500);
+
+        clock.now = Instant.parse("2026-01-01T23:59:59Z");
+        assertThrows(IllegalStateException.class, () -> walletService.claimTopUp(DEMO_USER));
+        assertEquals(500, balance());
+
+        clock.now = Instant.parse("2026-01-02T00:00:00Z");
+        assertEquals(500, walletService.claimTopUp(DEMO_USER));
+        assertLedgerMatchesWallet(DEMO_USER);
+    }
+
+    @Test
+    void aRefusedClaimDoesNotUseUpTheDay() {
+        assertThrows(IllegalStateException.class, () -> walletService.claimTopUp(DEMO_USER)); // already at 1000
+        spend(100);
+        assertEquals(100, walletService.claimTopUp(DEMO_USER));
+    }
+
+    @Test
+    void canTopUpOnlyWhenBelowTargetAndNotClaimedToday() {
+        assertFalse(walletService.canTopUp(wallet()));
+        spend(1);
+        assertTrue(walletService.canTopUp(wallet()));
+        walletService.claimTopUp(DEMO_USER);
+        spend(1);
+        assertFalse(walletService.canTopUp(wallet()));
+    }
+
+    @Test
+    void topUpOverTheJsonApi() throws Exception {
+        spend(250);
+        mockMvc.perform(post("/wallet/topup"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.credited").value(250))
+                .andExpect(jsonPath("$.balance").value(1000));
+        mockMvc.perform(post("/wallet/topup"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.detail").value("You have already claimed today's top-up"));
+    }
+
+    @Test
+    void theBoardOffersTheTopUpOnlyWhenItCanBeClaimed() throws Exception {
+        assertFalse(board().contains("Daily top-up"));
+        spend(400);
+        assertTrue(board().contains("Daily top-up to 1000"));
+
+        String afterClaim = mockMvc.perform(post("/topup")).andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        assertTrue(afterClaim.contains("<span>1000</span> pts"), afterClaim);
+        assertFalse(afterClaim.contains("Daily top-up"), afterClaim);
+    }
+
+    private String board() throws Exception {
+        return mockMvc.perform(get("/fragments/board")).andReturn().getResponse().getContentAsString();
+    }
+
+    /** Takes points from the demo wallet with a matching ledger row, as a lost stake would. */
+    private void spend(long points) {
+        jdbc.update("UPDATE wallets SET balance = balance - ? WHERE user_id = ?", points, DEMO_USER);
+        jdbc.update("INSERT INTO ledger (user_id, delta, reason, created_at) VALUES (?, ?, 'STAKE', now())",
+                DEMO_USER, -points);
+    }
+
+    private Wallet wallet() {
+        return walletService.getWallet(DEMO_USER);
+    }
+
+    private long balance() {
+        return wallet().balance();
+    }
+
+    private void assertLedgerMatchesWallet(long userId) {
+        assertEquals(walletService.getWallet(userId).balance(),
+                jdbc.queryForObject("SELECT SUM(delta) FROM ledger WHERE user_id = ?", Long.class, userId));
+    }
+}
