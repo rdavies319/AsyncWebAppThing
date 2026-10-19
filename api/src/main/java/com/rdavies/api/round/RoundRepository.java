@@ -9,23 +9,38 @@ import java.time.Instant;
 import java.util.Optional;
 
 public interface RoundRepository extends CrudRepository<Round, Long> {
-    @Query("SELECT * FROM rounds WHERE status = 'OPEN' ORDER BY round_id DESC LIMIT 1")
-    Optional<Round> findCurrentOpenRound();
+    @Query("SELECT * FROM rounds WHERE status = 'OPEN'")
+    Optional<Round> findOpenRound();
 
-    /** Same as {@link #findCurrentOpenRound()} but row-locks it until the caller's transaction ends. */
-    @Query("SELECT * FROM rounds WHERE status = 'OPEN' ORDER BY round_id DESC LIMIT 1 FOR UPDATE")
-    Optional<Round> lockCurrentOpenRound();
+    @Query("SELECT * FROM rounds WHERE status = 'SCHEDULED'")
+    Optional<Round> findScheduledRound();
 
-    @Query("SELECT * FROM rounds WHERE status <> 'OPEN' ORDER BY round_id DESC LIMIT 1")
-    Optional<Round> findLastFinishedRound();
+    /** Row-locks the open round until the caller's transaction ends. */
+    @Query("SELECT * FROM rounds WHERE status = 'OPEN' FOR UPDATE")
+    Optional<Round> lockOpenRound();
 
-    /**
-     * Moves an OPEN round to a final status. Returns 0 if the round was not OPEN any more,
-     * in which case the caller must not pay or refund anything.
-     */
+    @Query("SELECT * FROM rounds WHERE status = 'SCHEDULED' FOR UPDATE")
+    Optional<Round> lockScheduledRound();
+
+    /** Shares the row lock with other predictions, but blocks the engine from settling meanwhile. */
+    @Query("SELECT * FROM rounds WHERE id = :id FOR SHARE")
+    Optional<Round> lockForPrediction(@Param("id") Long id);
+
+    @Query("SELECT * FROM rounds WHERE status = 'SETTLED' ORDER BY id DESC LIMIT 1")
+    Optional<Round> findLastSettledRound();
+
+    /** The round after this one, whose roll this round's predictions settle against. */
+    @Query("SELECT * FROM rounds WHERE id > :id ORDER BY id LIMIT 1")
+    Optional<Round> findRoundAfter(@Param("id") Long id);
+
+    /** SCHEDULED to OPEN with its roll. Returns 0 if the round was not SCHEDULED any more. */
     @Modifying
-    @Query("UPDATE rounds SET status = :status, current_roll = :roll, end_time = :end "
-            + "WHERE round_id = :id AND status = 'OPEN'")
-    int finish(@Param("id") Long id, @Param("status") String status,
-               @Param("roll") Integer roll, @Param("end") Instant end);
+    @Query("UPDATE rounds SET status = 'OPEN', roll_value = :roll, starts_at = :startsAt "
+            + "WHERE id = :id AND status = 'SCHEDULED'")
+    int open(@Param("id") Long id, @Param("roll") int roll, @Param("startsAt") Instant startsAt);
+
+    /** OPEN to SETTLED. Returns 0 if the round was not OPEN any more, in which case nothing may be paid. */
+    @Modifying
+    @Query("UPDATE rounds SET status = 'SETTLED', settled_at = :now WHERE id = :id AND status = 'OPEN'")
+    int markSettled(@Param("id") Long id, @Param("now") Instant now);
 }

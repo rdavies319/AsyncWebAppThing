@@ -4,7 +4,9 @@ These tasks bring the existing `api/` code in line with [spec-higher-or-lower.md
 
 Work through the tasks in order unless a task says otherwise. Each task should leave `./mvnw test` green.
 
-**Status:** T0 done (`777cb7e`) · T1 done (`efb736d`) · T2 done (`dd592b5`) · T3 done
+**Status:** T0 done (`777cb7e`) · T1 done (`efb736d`) · T2 done (`dd592b5`) · T3 done (`c53be01`) · T4–T6 done together (the schema change removed the columns the old engine used, so they couldn't land separately)
+
+Carried forward: T6's `RoundSettled` and per-prediction events moved to T10, because nothing consumes them before then. The demo user (id 1) stays in `V2__demo_user.sql` until T9.
 
 ## T0. Commit the current state
 
@@ -92,7 +94,7 @@ Depends on T8.
 
 ## T10. Live updates (SSE)
 
-Depends on T6 and T9.
+Depends on T6 and T9. Includes publishing `RoundSettled` and one event per settled prediction from the engine (carried over from T6). Settlement is set-based SQL, so the engine must query the settled predictions to build them.
 
 - Move to `live/`. On connect, send `server_time` plus a `round_open` snapshot. Emit `round_open` and `round_settled` with the payloads in spec section 8.
 - Keep a registry of emitters keyed by user, and send each `prediction_settled` only to that user's streams.

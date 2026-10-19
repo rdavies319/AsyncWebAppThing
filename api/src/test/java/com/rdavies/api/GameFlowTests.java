@@ -1,14 +1,17 @@
 package com.rdavies.api;
 
-import com.rdavies.api.prediction.PredictionType;
-import com.rdavies.api.round.Round;
-import com.rdavies.api.round.RoundStatus;
-import com.rdavies.api.round.RoundRepository;
-import com.rdavies.api.wallet.WalletRepository;
+import com.rdavies.api.prediction.Prediction;
+import com.rdavies.api.prediction.PredictionRepository;
 import com.rdavies.api.prediction.PredictionService;
-import com.rdavies.api.round.RoundService;
+import com.rdavies.api.prediction.PredictionStatus;
+import com.rdavies.api.prediction.PredictionType;
 import com.rdavies.api.round.ProvablyFair;
+import com.rdavies.api.round.Round;
 import com.rdavies.api.round.RoundEngine;
+import com.rdavies.api.round.RoundRepository;
+import com.rdavies.api.round.RoundService;
+import com.rdavies.api.round.RoundStatus;
+import com.rdavies.api.wallet.WalletRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,10 +21,13 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
+import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.security.SecureRandom;
+import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
@@ -39,11 +45,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class GameFlowTests {
     private static final long DEMO_USER = 1L;
     private static final Instant ROUND_START = Instant.parse("2026-01-01T00:00:00.200Z");
+    private static final SecureRandom RANDOM = new SecureRandom();
 
     @Autowired RoundEngine engine;
     @Autowired PredictionService predictionService;
     @Autowired RoundService roundService;
     @Autowired RoundRepository roundRepository;
+    @Autowired PredictionRepository predictionRepository;
     @Autowired WalletRepository walletRepository;
     @Autowired JdbcTemplate jdbc;
     @Autowired MutableClock clock;
@@ -58,7 +66,23 @@ class GameFlowTests {
     @Test
     void migrationsSeedTheDemoWallet() {
         assertEquals(1000, balance());
+        assertEquals("SIGNUP_BONUS",
+                jdbc.queryForObject("SELECT reason FROM ledger WHERE user_id = ?", String.class, DEMO_USER));
         assertLedgerMatchesWallet();
+    }
+
+    @Test
+    void bootstrapOpensARolledRoundWithTheNextOneScheduled() {
+        Round first = currentRound();
+        assertEquals(Instant.parse("2026-01-01T00:00:00Z"), first.startsAt());
+        assertEquals(ProvablyFair.roll(first.seed(), first.id()), first.rollValue());
+
+        Round next = scheduledRound();
+        assertEquals(Instant.parse("2026-01-01T00:01:00Z"), next.startsAt());
+        assertEquals(ProvablyFair.commit(next.seed()), next.seedCommitHash());
+        assertNull(next.revealedSeed());
+        assertNull(next.rollValue());
+        assertEquals(2, roundRepository.count());
     }
 
     @Test
@@ -67,52 +91,96 @@ class GameFlowTests {
         mockMvc.perform(get("/"))
                 .andExpect(status().isOk())
                 .andExpect(content().string(org.hamcrest.Matchers.containsString(
-                        "value=\"" + round.roundId() + "\"")));
+                        "value=\"" + round.id() + "\"")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString(
+                        scheduledRound().seedCommitHash())));
     }
 
     @Test
     void gamePageShowsTheLastRollAndYourBet() throws Exception {
         Round round = currentRound();
-        predictionService.placePrediction(DEMO_USER, round.roundId(), allowedDirection(round), 10L);
+        predictionService.placePrediction(DEMO_USER, round.id(), allowedDirection(round), 10L);
         mockMvc.perform(get("/"))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("Your bet:")));
 
         clock.now = ROUND_START.plusSeconds(60);
         engine.tick();
 
-        Round settled = roundRepository.findById(round.roundId()).orElseThrow();
         mockMvc.perform(get("/"))
                 .andExpect(status().isOk())
                 .andExpect(content().string(org.hamcrest.Matchers.containsString(
-                        "<strong>" + settled.currentRoll() + "</strong>")))
+                        "<strong>" + currentRound().rollValue() + "</strong>")))
                 .andExpect(content().string(org.hamcrest.Matchers.not(
                         org.hamcrest.Matchers.containsString("Your bet:"))));
     }
 
     @Test
-    void settlingARoundKeepsTheLedgerBalanced() {
-        Round round = currentRound();
-        predictionService.placePrediction(DEMO_USER, round.roundId(), allowedDirection(round), 100L);
+    void aWinPaysTheMultiplierLockedInWhenPlaced() {
+        Instant start = startFrom(50);
+        Prediction placed = predictionService.placePrediction(DEMO_USER, currentRound().id(), PredictionType.HIGHER, 100L);
+        assertEquals(19_600, placed.multiplierBps());
         assertEquals(900, balance());
 
-        clock.now = ROUND_START.plusSeconds(60);
-        engine.tick();
+        plantNextRoll(80);
+        settleRoundStartedAt(start);
 
-        Round settled = roundRepository.findById(round.roundId()).orElseThrow();
-        assertEquals(RoundStatus.SETTLED, settled.status());
-        assertNotNull(settled.currentRoll());
-        assertEquals(RoundStatus.OPEN, currentRound().status());
-        assertEquals(settled.currentRoll(), currentRound().previousRoll());
+        Prediction settled = predictionRepository.findById(placed.id()).orElseThrow();
+        assertEquals(PredictionStatus.WON, settled.status());
+        assertEquals(196, settled.payout());
+        assertEquals(1096, balance());
+        assertEquals(196, jdbc.queryForObject(
+                "SELECT delta FROM ledger WHERE reason = 'PAYOUT' AND ref_id = ?", Long.class, placed.id()));
         assertLedgerMatchesWallet();
+    }
+
+    @Test
+    void aLossKeepsTheStake() {
+        Instant start = startFrom(50);
+        Prediction placed = predictionService.placePrediction(DEMO_USER, currentRound().id(), PredictionType.HIGHER, 100L);
+
+        plantNextRoll(20);
+        settleRoundStartedAt(start);
+
+        Prediction settled = predictionRepository.findById(placed.id()).orElseThrow();
+        assertEquals(PredictionStatus.LOST, settled.status());
+        assertEquals(0, settled.payout());
+        assertEquals(900, balance());
+        assertEquals(2, ledgerRows()); // signup bonus and stake only
+        assertLedgerMatchesWallet();
+    }
+
+    @Test
+    void aTieRefundsTheStake() {
+        Instant start = startFrom(50);
+        Prediction placed = predictionService.placePrediction(DEMO_USER, currentRound().id(), PredictionType.LOWER, 100L);
+
+        plantNextRoll(50);
+        settleRoundStartedAt(start);
+
+        Prediction settled = predictionRepository.findById(placed.id()).orElseThrow();
+        assertEquals(PredictionStatus.PUSH, settled.status());
+        assertEquals(100, settled.payout());
+        assertEquals(1000, balance());
+        assertEquals(100, jdbc.queryForObject(
+                "SELECT delta FROM ledger WHERE reason = 'REFUND' AND ref_id = ?", Long.class, placed.id()));
+        assertLedgerMatchesWallet();
+    }
+
+    @Test
+    void impossibleDirectionsAreRejected() {
+        startFrom(100);
+        assertThrows(IllegalArgumentException.class,
+                () -> predictionService.placePrediction(DEMO_USER, currentRound().id(), PredictionType.HIGHER, 10L));
+        assertEquals(1000, balance());
     }
 
     @Test
     void negativeAndZeroStakesAreRejected() {
         Round round = currentRound();
         assertThrows(IllegalArgumentException.class,
-                () -> predictionService.placePrediction(DEMO_USER, round.roundId(), allowedDirection(round), -1000L));
+                () -> predictionService.placePrediction(DEMO_USER, round.id(), allowedDirection(round), -1000L));
         assertThrows(IllegalArgumentException.class,
-                () -> predictionService.placePrediction(DEMO_USER, round.roundId(), allowedDirection(round), 0L));
+                () -> predictionService.placePrediction(DEMO_USER, round.id(), allowedDirection(round), 0L));
         assertEquals(1000, balance());
     }
 
@@ -121,23 +189,23 @@ class GameFlowTests {
         Round round = currentRound();
         clock.now = Instant.parse("2026-01-01T00:00:55Z");
         assertThrows(IllegalStateException.class,
-                () -> predictionService.placePrediction(DEMO_USER, round.roundId(), allowedDirection(round), 10L));
+                () -> predictionService.placePrediction(DEMO_USER, round.id(), allowedDirection(round), 10L));
         assertEquals(1000, balance());
     }
 
     @Test
     void secondPredictionInARoundIsRejected() {
         Round round = currentRound();
-        predictionService.placePrediction(DEMO_USER, round.roundId(), allowedDirection(round), 10L);
+        predictionService.placePrediction(DEMO_USER, round.id(), allowedDirection(round), 10L);
         assertThrows(IllegalStateException.class,
-                () -> predictionService.placePrediction(DEMO_USER, round.roundId(), allowedDirection(round), 10L));
+                () -> predictionService.placePrediction(DEMO_USER, round.id(), allowedDirection(round), 10L));
         assertEquals(990, balance());
     }
 
     @Test
     void repeatTicksNeverRollOrPayTwice() {
         Round round = currentRound();
-        predictionService.placePrediction(DEMO_USER, round.roundId(), allowedDirection(round), 100L);
+        predictionService.placePrediction(DEMO_USER, round.id(), allowedDirection(round), 100L);
 
         clock.now = ROUND_START.plusSeconds(60);
         engine.tick();
@@ -151,63 +219,150 @@ class GameFlowTests {
 
         assertEquals(balanceAfterSettle, balance());
         assertEquals(ledgerRowsAfterSettle, ledgerRows());
-        assertEquals(next.roundId(), currentRound().roundId());
-        assertEquals(2, roundRepository.count());
+        assertEquals(next.id(), currentRound().id());
+        assertEquals(3, roundRepository.count()); // settled, open, scheduled
         assertLedgerMatchesWallet();
     }
 
     @Test
     void roundsOpenOnTheMinuteAndRollAtTheNext() {
         Round first = currentRound();
-        assertEquals(Instant.parse("2026-01-01T00:00:00Z"), first.startTime());
+        assertEquals(Instant.parse("2026-01-01T00:00:00Z"), first.startsAt());
 
-        // A slightly late tick still settles, and the next round keeps the minute slot
+        // A slightly late tick still settles, and the next round keeps its minute slot
         clock.now = ROUND_START.plusSeconds(70);
         engine.tick();
-        assertEquals(RoundStatus.SETTLED, roundRepository.findById(first.roundId()).orElseThrow().status());
-        assertEquals(Instant.parse("2026-01-01T00:01:00Z"), currentRound().startTime());
+        assertEquals(RoundStatus.SETTLED, roundRepository.findById(first.id()).orElseThrow().status());
+        assertEquals(Instant.parse("2026-01-01T00:01:00Z"), currentRound().startsAt());
+        assertEquals(Instant.parse("2026-01-01T00:02:00Z"), scheduledRound().startsAt());
     }
 
     @Test
-    void roundMissedDuringDowntimeIsVoidedAndRefunded() {
+    void roundMissedDuringDowntimeIsSettledWithItsCommittedSeed() {
         Round stale = currentRound();
-        predictionService.placePrediction(DEMO_USER, stale.roundId(), allowedDirection(stale), 100L);
+        Round committed = scheduledRound();
+        Prediction placed = predictionService.placePrediction(DEMO_USER, stale.id(), allowedDirection(stale), 100L);
 
         clock.now = Instant.parse("2026-01-01T00:10:20Z");
         engine.tick();
 
-        Round voided = roundRepository.findById(stale.roundId()).orElseThrow();
-        assertEquals(RoundStatus.VOIDED, voided.status());
-        assertNull(voided.currentRoll());
-        assertEquals(stale.seed(), voided.revealedSeed());
-        assertEquals(1000, balance());
+        assertEquals(RoundStatus.SETTLED, roundRepository.findById(stale.id()).orElseThrow().status());
+        assertNotEquals(PredictionStatus.PENDING, predictionRepository.findById(placed.id()).orElseThrow().status());
         assertLedgerMatchesWallet();
 
-        Round fresh = currentRound();
-        assertEquals(Instant.parse("2026-01-01T00:10:00Z"), fresh.startTime());
-        assertEquals(stale.previousRoll(), fresh.previousRoll());
-        assertEquals(2, roundRepository.count());
+        // The committed round opens on the current minute with the roll its seed always implied
+        Round reopened = currentRound();
+        assertEquals(committed.id(), reopened.id());
+        assertEquals(Instant.parse("2026-01-01T00:10:00Z"), reopened.startsAt());
+        assertEquals(ProvablyFair.roll(committed.seed(), committed.id()), reopened.rollValue());
+        assertEquals(Instant.parse("2026-01-01T00:11:00Z"), scheduledRound().startsAt());
+        assertEquals(3, roundRepository.count()); // no rounds for the missed minutes
 
         // Catching up again changes nothing
+        long balance = balance();
         engine.tick();
-        assertEquals(fresh.roundId(), currentRound().roundId());
-        assertEquals(1000, balance());
+        assertEquals(reopened.id(), currentRound().id());
+        assertEquals(balance, balance());
     }
 
     @Test
     void rollIsCommittedBeforeAndVerifiableAfter() {
-        Round open = currentRound();
-        assertNotNull(open.seedCommitHash());
-        assertNull(open.revealedSeed());
+        Round next = scheduledRound();
+        assertNotNull(next.seedCommitHash());
+        assertNull(next.revealedSeed());
 
         clock.now = ROUND_START.plusSeconds(60);
         engine.tick();
 
-        Round settled = roundRepository.findById(open.roundId()).orElseThrow();
-        String seed = settled.revealedSeed();
+        Round rolled = roundRepository.findById(next.id()).orElseThrow();
+        String seed = rolled.revealedSeed();
         assertNotNull(seed);
-        assertEquals(open.seedCommitHash(), ProvablyFair.commit(seed));
-        assertEquals(ProvablyFair.roll(seed), settled.currentRoll());
+        assertEquals(next.seedCommitHash(), ProvablyFair.commit(seed));
+        assertEquals(ProvablyFair.roll(seed, rolled.id()), rolled.rollValue());
+    }
+
+    @Test
+    void rollsCannotBeRewritten() {
+        Round round = currentRound();
+        int otherRoll = round.rollValue() == 1 ? 2 : 1;
+        DataAccessException e = assertThrows(DataAccessException.class,
+                () -> jdbc.update("UPDATE rounds SET roll_value = ? WHERE id = ?", otherRoll, round.id()));
+        assertTrue(e.getMostSpecificCause().getMessage().contains("immutable"), e.getMessage());
+    }
+
+    @Test
+    void ledgerIsAppendOnly() {
+        DataAccessException e = assertThrows(DataAccessException.class,
+                () -> jdbc.update("DELETE FROM ledger WHERE user_id = ?", DEMO_USER));
+        assertTrue(e.getMostSpecificCause().getMessage().contains("append-only"), e.getMessage());
+    }
+
+    @Test
+    void settlesAThousandPredictionsInUnderTwoSeconds() {
+        Instant start = startFrom(50);
+        long roundId = currentRound().id();
+        // 1,000 players who each staked 100 of their 1,000 points: half HIGHER, half LOWER
+        jdbc.update("""
+                INSERT INTO users (email, display_name, password_hash)
+                SELECT 'load' || g || '@example.invalid', 'load' || g, '!' FROM generate_series(1, 1000) g""");
+        jdbc.update("INSERT INTO wallets (user_id, balance) SELECT id, 900 FROM users WHERE email LIKE 'load%'");
+        jdbc.update("""
+                INSERT INTO ledger (user_id, delta, reason, created_at)
+                SELECT id, 1000, 'SIGNUP_BONUS', now() FROM users WHERE email LIKE 'load%'""");
+        jdbc.update("""
+                INSERT INTO predictions (user_id, round_id, direction, stake, multiplier_bps, status, created_at)
+                SELECT id, ?, CASE WHEN id % 2 = 0 THEN 'HIGHER' ELSE 'LOWER' END, 100, 19600, 'PENDING', now()
+                FROM users WHERE email LIKE 'load%'""", roundId);
+        jdbc.update("""
+                INSERT INTO ledger (user_id, delta, reason, ref_id, created_at)
+                SELECT user_id, -100, 'STAKE', id, now() FROM predictions WHERE round_id = ?""", roundId);
+
+        plantNextRoll(70);
+        long began = System.nanoTime();
+        settleRoundStartedAt(start);
+        long millis = (System.nanoTime() - began) / 1_000_000;
+
+        assertTrue(millis < 2_000, "settlement took " + millis + " ms");
+        assertEquals(500, jdbc.queryForObject(
+                "SELECT COUNT(*) FROM predictions WHERE round_id = ? AND status = 'WON'", Integer.class, roundId));
+        assertEquals(500, jdbc.queryForObject(
+                "SELECT COUNT(*) FROM predictions WHERE round_id = ? AND status = 'LOST'", Integer.class, roundId));
+        assertEquals(0, jdbc.queryForObject("""
+                SELECT COUNT(*) FROM wallets w
+                WHERE w.balance <> (SELECT COALESCE(SUM(delta), 0) FROM ledger l WHERE l.user_id = w.user_id)""",
+                Integer.class));
+    }
+
+    /**
+     * Settles the bootstrap round against {@code roll}, so the open round shows that number.
+     * Returns the open round's start, at 00:01:00.
+     */
+    private Instant startFrom(int roll) {
+        plantNextRoll(roll);
+        clock.now = ROUND_START.plusSeconds(60);
+        engine.tick();
+        assertEquals(roll, currentRound().rollValue());
+        return currentRound().startsAt();
+    }
+
+    private void settleRoundStartedAt(Instant start) {
+        clock.now = start.plusSeconds(60);
+        engine.tick();
+    }
+
+    /**
+     * Replaces the scheduled round with one whose seed rolls {@code wanted}, found by trying seeds
+     * (about 100 tries). Stands in for chance; the engine still derives the roll from the seed.
+     */
+    private void plantNextRoll(int wanted) {
+        Round next = scheduledRound();
+        String seed;
+        do {
+            seed = ProvablyFair.newSeed(RANDOM);
+        } while (ProvablyFair.roll(seed, next.id()) != wanted);
+        jdbc.update("DELETE FROM rounds WHERE id = ?", next.id());
+        jdbc.update("INSERT INTO rounds (id, starts_at, seed_commit_hash, seed, status) VALUES (?, ?, ?, ?, 'SCHEDULED')",
+                next.id(), Timestamp.from(next.startsAt()), ProvablyFair.commit(seed), seed);
     }
 
     private int ledgerRows() {
@@ -218,8 +373,12 @@ class GameFlowTests {
         return roundService.getCurrentRound().orElseThrow();
     }
 
+    private Round scheduledRound() {
+        return roundRepository.findScheduledRound().orElseThrow();
+    }
+
     private static PredictionType allowedDirection(Round round) {
-        return round.previousRoll() < 100 ? PredictionType.HIGHER : PredictionType.LOWER;
+        return round.rollValue() < 100 ? PredictionType.HIGHER : PredictionType.LOWER;
     }
 
     private long balance() {
@@ -227,7 +386,7 @@ class GameFlowTests {
     }
 
     private void assertLedgerMatchesWallet() {
-        Long ledgerTotal = jdbc.queryForObject("SELECT SUM(amount) FROM ledger WHERE user_id = ?", Long.class, DEMO_USER);
+        Long ledgerTotal = jdbc.queryForObject("SELECT SUM(delta) FROM ledger WHERE user_id = ?", Long.class, DEMO_USER);
         assertEquals(balance(), ledgerTotal);
     }
 

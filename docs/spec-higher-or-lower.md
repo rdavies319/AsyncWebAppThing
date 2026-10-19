@@ -47,7 +47,7 @@ multiplier_bps = floor(980000 / W)            // (1 − 0.02) / (W / 100), in ba
 payout         = floor(stake × multiplier_bps / 10000)   // total credited on a win, stake included
 ```
 
-Examples: R = 50 gives 19600 (1.96x) either way. R = 90 Higher gives 98000 (9.8x), and R = 90 Lower gives 11011 (about 1.10x).
+Examples: R = 50 gives 19600 (1.96x) for Higher and 20000 (2.00x) for Lower, because 50 itself is a tie. R = 90 Higher gives 98000 (9.8x), and R = 90 Lower gives 11011 (about 1.10x).
 
 The multiplier is **locked in when the prediction is placed** and stored with it. All maths uses integers, never floating point.
 

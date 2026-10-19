@@ -46,7 +46,7 @@ class RoundEngineLockTests {
     void tickSkipsWhileAnotherInstanceHoldsTheEngineLock() throws SQLException {
         clock.now = ROUND_START;
         engine.tick();
-        Round round = roundRepository.findAll().iterator().next();
+        Round round = roundRepository.findOpenRound().orElseThrow();
         clock.now = ROUND_START.plusSeconds(60);
 
         // A separate connection stands in for another instance mid-tick
@@ -54,15 +54,15 @@ class RoundEngineLockTests {
             advisoryLock(other, "pg_advisory_lock");
             try {
                 engine.tick();
-                assertEquals(RoundStatus.OPEN, roundRepository.findById(round.roundId()).orElseThrow().status());
-                assertEquals(1, roundRepository.count());
+                assertEquals(RoundStatus.OPEN, roundRepository.findById(round.id()).orElseThrow().status());
+                assertEquals(2, roundRepository.count()); // open and scheduled
             } finally {
                 advisoryLock(other, "pg_advisory_unlock");
             }
         }
 
         engine.tick();
-        assertEquals(RoundStatus.SETTLED, roundRepository.findById(round.roundId()).orElseThrow().status());
+        assertEquals(RoundStatus.SETTLED, roundRepository.findById(round.id()).orElseThrow().status());
     }
 
     private static void advisoryLock(Connection connection, String function) throws SQLException {

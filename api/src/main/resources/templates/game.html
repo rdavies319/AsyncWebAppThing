@@ -28,28 +28,27 @@
     <h2>Higher or Lower</h2>
 
     <div class="last-result" th:if="${lastResult}">
-        <div th:if="${lastResult.voided()}">Last round was voided</div>
-        <div th:unless="${lastResult.voided()}">
-            Last roll: <span th:text="${lastResult.round().previousRoll()}">0</span>
-            &rarr; <strong th:text="${lastResult.round().currentRoll()}">0</strong>
+        <div>
+            Last roll: <span th:text="${lastResult.settled().round().rollValue()}">0</span>
+            &rarr; <strong th:text="${lastResult.settled().nextRoll()}">0</strong>
         </div>
         <div class="outcome" th:if="${lastResult.outcome()}" th:text="${lastResult.outcome()}"></div>
     </div>
 
     <div th:if="${round}">
-        <div class="roll-display" th:text="${round.previousRoll}">0</div>
+        <div class="roll-display" th:text="${round.rollValue}">0</div>
         <div class="timer" id="timer">&nbsp;</div>
 
         <div class="my-bet" th:if="${myPrediction}">
             Your bet: <strong th:text="${myPrediction.stake()}">0</strong> pts on
-            <strong th:text="${myPrediction.prediction()}">HIGHER</strong>
+            <strong th:text="${myPrediction.direction()}">HIGHER</strong>
         </div>
 
         <form id="predictForm" th:unless="${myPrediction}">
-            <input type="hidden" name="roundId" th:value="${round.roundId}">
+            <input type="hidden" name="roundId" th:value="${round.id}">
             <div class="controls">
-                <button type="button" class="btn" th:disabled="${round.previousRoll == 100}" onclick="setPrediction('HIGHER', this)">Higher</button>
-                <button type="button" class="btn" th:disabled="${round.previousRoll == 1}" onclick="setPrediction('LOWER', this)">Lower</button>
+                <button type="button" class="btn" th:disabled="${round.rollValue == 100}" onclick="setPrediction('HIGHER', this)">Higher</button>
+                <button type="button" class="btn" th:disabled="${round.rollValue == 1}" onclick="setPrediction('LOWER', this)">Lower</button>
             </div>
             <input type="hidden" name="prediction" id="predictionInput" required>
             <div style="margin-bottom: 1rem;">
@@ -57,8 +56,8 @@
             </div>
             <button type="submit" class="submit-btn" id="submitBtn">Place Bet</button>
         </form>
-        <p class="commit" th:if="${round.seedCommitHash}">
-            Seed commit (SHA-256): <code th:text="${round.seedCommitHash}"></code>
+        <p class="commit" th:if="${nextCommit}">
+            Next roll's seed commit (SHA-256): <code th:text="${nextCommit}"></code>
         </p>
     </div>
 

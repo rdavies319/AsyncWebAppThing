@@ -31,8 +31,9 @@ public class GameController {
             // Epoch millis, so the page counts down by the server clock rather than the browser's
             model.addAttribute("rollAt", roundService.rollTime(round).toEpochMilli());
             model.addAttribute("deadline", roundService.predictionDeadline(round).toEpochMilli());
-            predictionService.getPrediction(1L, round.roundId()).ifPresent(p -> model.addAttribute("myPrediction", p));
+            predictionService.getPrediction(1L, round.id()).ifPresent(p -> model.addAttribute("myPrediction", p));
         });
+        roundService.getNextRollCommit().ifPresent(commit -> model.addAttribute("nextCommit", commit));
         predictionService.getLastResult(1L).ifPresent(result -> model.addAttribute("lastResult", result));
         model.addAttribute("serverNow", roundService.now().toEpochMilli());
         model.addAttribute("wallet", walletService.getWallet(1L));

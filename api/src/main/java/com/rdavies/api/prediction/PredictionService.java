@@ -39,14 +39,14 @@ public class PredictionService {
         return predictionRepository.findByRoundIdAndUserId(roundId, userId);
     }
 
-    /** The most recently rolled (or voided) round, with this player's prediction on it. */
+    /** The most recently settled round, with this player's prediction on it. */
     public Optional<RoundResult> getLastResult(Long userId) {
-        return roundService.getLastFinishedRound()
-                .map(r -> new RoundResult(r, getPrediction(userId, r.roundId()).orElse(null)));
+        return roundService.getLastSettledRound()
+                .map(s -> new RoundResult(s, getPrediction(userId, s.round().id()).orElse(null)));
     }
 
     @Transactional
-    public void placePrediction(Long userId, Long roundId, PredictionType type, Long stake) {
+    public Prediction placePrediction(Long userId, Long roundId, PredictionType type, Long stake) {
         if (type == null) {
             throw new IllegalArgumentException("Choose higher or lower");
         }
@@ -54,32 +54,34 @@ public class PredictionService {
             throw new IllegalArgumentException("Stake must be a positive number of points");
         }
 
-        // 1. Verify round is still OPEN and its deadline hasn't passed
-        Round round = roundRepository.findById(roundId)
+        // 1. Verify round is still OPEN and its deadline hasn't passed. FOR SHARE keeps the engine
+        //    from settling the round until this prediction has committed.
+        Round round = roundRepository.lockForPrediction(roundId)
                 .filter(r -> r.status() == RoundStatus.OPEN)
                 .orElseThrow(() -> new IllegalStateException("Round is no longer open for predictions"));
-        if (!clock.instant().isBefore(roundService.predictionDeadline(round))) {
+        Instant now = clock.instant();
+        if (!now.isBefore(roundService.predictionDeadline(round))) {
             throw new IllegalStateException("Predictions for this round have closed");
         }
-        if (!Odds.isAllowed(round.previousRoll(), type)) {
-            throw new IllegalArgumentException(type + " cannot win against " + round.previousRoll());
+        if (!Odds.isAllowed(round.rollValue(), type)) {
+            throw new IllegalArgumentException(type + " cannot win against " + round.rollValue());
         }
         if (predictionRepository.existsByRoundIdAndUserId(roundId, userId)) {
             throw new IllegalStateException("You have already predicted this round");
         }
 
         // 2. Atomic stake deduction
-        int affected = walletRepository.deductStake(userId, stake);
+        int affected = walletRepository.deductStake(userId, stake, now);
         if (affected == 0) {
             throw new IllegalStateException("Insufficient funds in wallet");
         }
 
-        // 3. Record prediction
-        Instant now = clock.instant();
-        Prediction prediction = new Prediction(null, roundId, userId, type, stake, now);
-        predictionRepository.save(prediction);
+        // 3. Record prediction, locking in the multiplier
+        Prediction saved = predictionRepository.save(new Prediction(null, userId, roundId, type, stake,
+                Odds.multiplierBps(round.rollValue(), type), PredictionStatus.PENDING, null, now, null));
 
         // 4. Audit ledger
-        ledgerRepository.save(new LedgerEntry(null, userId, roundId, -stake, LedgerEntry.LedgerType.STAKE, now));
+        ledgerRepository.save(new LedgerEntry(null, userId, -stake, LedgerEntry.Reason.STAKE, saved.id(), now));
+        return saved;
     }
 }
