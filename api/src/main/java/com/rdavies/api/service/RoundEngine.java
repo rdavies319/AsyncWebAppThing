@@ -5,7 +5,6 @@ import com.rdavies.api.repository.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.jdbc.core.ConnectionCallback;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -25,7 +24,7 @@ import java.util.Optional;
  *
  * <p>Safe to run on several instances and to trigger more than once per minute:
  * <ul>
- *   <li>on Postgres a transaction-scoped advisory lock makes every other instance skip the tick;</li>
+ *   <li>a transaction-scoped Postgres advisory lock makes every other instance skip the tick;</li>
  *   <li>the open round is row-locked, and a round is only rolled once its roll time has passed,
  *       so a repeat tick finds nothing due;</li>
  *   <li>the round moves out of OPEN with a conditional UPDATE before any points move;</li>
@@ -43,7 +42,7 @@ public class RoundEngine {
     /** How late a roll may be before the round counts as missed and is voided instead. */
     static final Duration ROLL_GRACE = Duration.ofSeconds(30);
     /** Arbitrary app-wide key for pg_try_advisory_xact_lock. */
-    private static final long ENGINE_LOCK_KEY = 0x486967684C6F77L; // "HighLow"
+    public static final long ENGINE_LOCK_KEY = 0x486967684C6F77L; // "HighLow"
 
     private final SecureRandom random = new SecureRandom();
 
@@ -54,7 +53,6 @@ public class RoundEngine {
     private final JdbcTemplate jdbc;
     private final Clock clock;
     private final ApplicationEventPublisher events;
-    private final boolean advisoryLocks;
 
     public RoundEngine(RoundRepository roundRepository, PredictionRepository predictionRepository,
                        WalletRepository walletRepository, LedgerRepository ledgerRepository,
@@ -66,9 +64,6 @@ public class RoundEngine {
         this.jdbc = jdbc;
         this.clock = clock;
         this.events = events;
-        // Advisory locks are Postgres-only; the H2 test database relies on the row lock alone.
-        String product = jdbc.execute((ConnectionCallback<String>) c -> c.getMetaData().getDatabaseProductName());
-        this.advisoryLocks = "PostgreSQL".equals(product);
     }
 
     // Annotated here rather than on a helper: Spring's @Transactional only applies to calls
@@ -76,7 +71,7 @@ public class RoundEngine {
     @Scheduled(cron = "${game.engine.cron:0 * * * * *}")
     @Transactional
     public void tick() {
-        if (advisoryLocks && !Boolean.TRUE.equals(
+        if (!Boolean.TRUE.equals(
                 jdbc.queryForObject("SELECT pg_try_advisory_xact_lock(?)", Boolean.class, ENGINE_LOCK_KEY))) {
             log.info("Round engine is running on another instance; skipping tick");
             return;
