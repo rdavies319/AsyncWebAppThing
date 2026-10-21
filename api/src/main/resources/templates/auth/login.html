@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Log in · Higher or Lower</title>
+    <link rel="stylesheet" th:href="@{/app.css}">
+    <link rel="stylesheet" th:href="@{/auth.css}">
+</head>
+<body>
+<main class="card">
+    <h2>Log in</h2>
+    <p class="notice" th:if="${param.registered}">Account created. Log in to start playing.</p>
+    <p class="error" th:if="${param.error}" role="alert">Wrong email or password.</p>
+    <!-- th:action adds the CSRF token -->
+    <form method="post" th:action="@{/auth/login}">
+        <label>Email <input type="email" name="email" autocomplete="username" required autofocus></label>
+        <label>Password <input type="password" name="password" autocomplete="current-password" required></label>
+        <button type="submit">Log in</button>
+    </form>
+    <p>New here? <a th:href="@{/auth/signup}">Create an account</a> · <a th:href="@{/}">Watch the game</a></p>
+</main>
+</body>
+</html>

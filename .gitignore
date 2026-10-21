@@ -22,3 +22,51 @@
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
 replay_pid*
+
+# AI assistant / agent tooling
+# Claude Code
+.claude/
+CLAUDE.md
+CLAUDE.local.md
+# Installed agent skills (skills CLI)
+.agents/
+skills-lock.json
+# Cursor
+.cursor/
+.cursorignore
+.cursorindexingignore
+# GitHub Copilot
+.copilot/
+# OpenAI Codex
+.codex/
+# Gemini CLI
+.gemini/
+GEMINI.md
+# Aider
+.aider*
+# Continue
+.continue/
+# Windsurf / Codeium
+.windsurf/
+.windsurfrules
+.codeium/
+# Cline / Roo
+.cline/
+.clinerules
+.roo/
+.roomodes
+# Amazon Q
+.amazonq/
+# Tabnine
+.tabnine/
+# JetBrains AI
+.aiassistant/
+.junie/
+# Zed
+.zed/
+# Generic agent files
+AGENTS.md
+.ai/
+
+# JetBrains IDE
+.idea/
