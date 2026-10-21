@@ -21,7 +21,7 @@ class DotEnvFilesTests {
     void anImportedDotEnvFileBindsLikeEnvironmentVariables() {
         StandardEnvironment env = new StandardEnvironment();
         env.getPropertySources().addLast(new MapPropertySource(
-                "Config resource 'file [../.env.dev]' via location 'optional:file:../.env.dev[.properties]'",
+                "Config resource 'file [.env.dev]' via location 'optional:file:.env.dev[.properties]'",
                 Map.of("GAME_EXCHANGE_INTERVAL", "5s", "GAME_ENGINE_CRON", "* * * * * *")));
 
         new DotEnvFiles().postProcessEnvironment(env, new SpringApplication());

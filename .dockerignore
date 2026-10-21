@@ -1,0 +1,4 @@
+# Only the Maven build needs to reach the image
+*
+!pom.xml
+!src/

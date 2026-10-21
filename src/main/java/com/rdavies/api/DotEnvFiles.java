@@ -22,7 +22,7 @@ import java.util.regex.Pattern;
  * META-INF/spring.factories; runs after the config files have loaded.
  */
 public class DotEnvFiles implements EnvironmentPostProcessor, Ordered {
-    /** An imported config file's source name mentions its file, e.g. "Config resource 'file [../.env.dev]' …". */
+    /** An imported config file's source name mentions its file, e.g. "Config resource 'file [.env.dev]' …". */
     private static final Pattern DOT_ENV_FILE = Pattern.compile("^Config resource '.*[\\[/\\\\]\\.env[^/\\\\\\]]*\\]'.*");
 
     @Override

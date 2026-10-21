@@ -37,7 +37,7 @@ class RosterTuningTool {
     @Test
     void searchForABalancedRoster() throws IOException {
         Path out = Path.of(System.getProperty("roster.out")).toAbsolutePath().normalize();
-        Path repo = Path.of("").toAbsolutePath().getParent(); // tests run from api/
+        Path repo = Path.of("").toAbsolutePath(); // tests run from the repo root
         if (out.startsWith(repo)) {
             fail("roster.out must be outside the repo (" + repo + "): the real roster never goes into git");
         }
