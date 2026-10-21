@@ -2,14 +2,22 @@ package com.rdavies.api.fight;
 
 import com.rdavies.api.GameProperties;
 import com.rdavies.api.fight.enums.FightStatus;
+import com.rdavies.api.fight.events.ExchangeRun;
+import com.rdavies.api.fight.events.FightSettled;
+import com.rdavies.api.fight.events.FightStarted;
+import com.rdavies.api.fight.events.MatchupAnnounced;
 import com.rdavies.api.fight.records.ExchangeResult;
+import com.rdavies.api.fight.records.ExchangeView;
 import com.rdavies.api.fight.records.Fight;
+import com.rdavies.api.fight.records.LastFought;
 import com.rdavies.api.fight.records.Outcome;
+import com.rdavies.api.fight.records.Pair;
 import com.rdavies.api.gladiator.GladiatorService;
 import com.rdavies.api.gladiator.records.Gladiator;
 import com.rdavies.api.gladiator.records.Stats;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.support.CronExpression;
 import org.springframework.stereotype.Component;
@@ -19,33 +27,41 @@ import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
-import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * The fight engine (spec section 7). Each tick is one transaction under the arena's advisory lock,
  * and every step is gated on fight status and exchanges_done, so a repeated tick changes nothing.
+ * Events are published inside the tick and reach listeners only after it commits.
  */
 @Component
 public class FightEngine {
     private static final Logger log = LoggerFactory.getLogger(FightEngine.class);
     /** The arena's advisory lock key ("ARENA" in ASCII). */
-    private static final long LOCK_KEY = 0x4152454E41L;
+    static final long LOCK_KEY = 0x4152454E41L;
 
     private final FightRepository fights;
     private final FightExchangeRepository exchanges;
+    private final FightService views;
     private final GladiatorService gladiators;
+    private final ApplicationEventPublisher events;
     private final GameProperties game;
     private final Clock clock;
     private final JdbcTemplate jdbc;
     private final CronExpression fightCron;
     private final SecureRandom random = new SecureRandom();
 
-    FightEngine(FightRepository fights, FightExchangeRepository exchanges, GladiatorService gladiators,
-                GameProperties game, Clock clock, JdbcTemplate jdbc) {
+    FightEngine(FightRepository fights, FightExchangeRepository exchanges, FightService views,
+                GladiatorService gladiators, ApplicationEventPublisher events, GameProperties game,
+                Clock clock, JdbcTemplate jdbc) {
         this.fights = fights;
         this.exchanges = exchanges;
+        this.views = views;
         this.gladiators = gladiators;
+        this.events = events;
         this.game = game;
         this.clock = clock;
         this.jdbc = jdbc;
@@ -59,27 +75,36 @@ public class FightEngine {
             return;
         }
         Instant now = clock.instant();
-        fights.lockLive().ifPresent(live -> runDueExchanges(live, now));
+        boolean fighting = fights.lockLive()
+                .map(live -> runDueExchanges(live, now))
+                .filter(live -> live.status() == FightStatus.LIVE)
+                .isPresent();
 
         Optional<Fight> announced = fights.lockAnnounced();
-        boolean fighting = fights.findLive().isPresent();
         if (announced.isPresent()) {
-            if (!announced.get().startsAt().isAfter(now) && !fighting) {
-                start(announced.get());
+            Fight next = announced.get();
+            if (!next.startsAt().isAfter(now)) {
+                if (fighting) {
+                    postpone(next);
+                } else {
+                    Fight started = start(next);
+                    announce(nextSlot(started.startsAt()), started);
+                }
             }
         } else if (!fighting) {
-            // Bootstrap, and for now also the next fight once the last has settled
-            announce(nextSlot(now));
+            announce(nextSlot(now), null); // bootstrap
         }
     }
 
-    private void runDueExchanges(Fight fight, Instant now) {
+    /** Runs every exchange due by {@code now}, settling the fight if one ends it. Returns the fight as it stands. */
+    private Fight runDueExchanges(Fight fight, Instant now) {
         Stats red = gladiators.stats(fight.redId());
         Stats blue = gladiators.stats(fight.blueId());
         while (fight.status() == FightStatus.LIVE && !fight.nextExchangeAt().isAfter(now)) {
             int n = fight.exchangesDone() + 1;
             ExchangeResult exchange = Combat.exchange(fight.seed(), fight.id(), n, red, blue, fight.redHp(), fight.blueHp());
             exchanges.insert(fight.id(), exchange, fight.nextExchangeAt(), now);
+            events.publishEvent(ExchangeRun.of(fight.id(), ExchangeView.of(exchange)));
             Optional<Outcome> outcome = Combat.ending(n, game.maxExchanges(), red, blue,
                     exchange.redHpAfter(), exchange.blueHpAfter());
             fight = outcome.isPresent()
@@ -88,28 +113,50 @@ public class FightEngine {
             fights.save(fight);
         }
         if (fight.status() == FightStatus.SETTLED) {
+            events.publishEvent(new FightSettled(fight.id(), fight.winner(), fight.endedBy()));
             log.info("Fight {} settled: {} by {} after {} exchanges", fight.id(), fight.winner(), fight.endedBy(), fight.exchangesDone());
         }
+        return fight;
     }
 
-    private void start(Fight fight) {
-        fights.save(fight.start(dueAt(fight, 1)));
-        log.info("Fight {} started", fight.id());
+    private Fight start(Fight fight) {
+        Fight live = fights.save(fight.start(dueAt(fight, 1)));
+        events.publishEvent(new FightStarted(live.id(),
+                views.liveFighter(live.redId(), live.redHp()), views.liveFighter(live.blueId(), live.blueHp())));
+        log.info("Fight {} started", live.id());
+        return live;
     }
 
-    /** Announces a fight for {@code slot}: for now, the two gladiators with the lowest ids. */
-    private void announce(Instant slot) {
-        List<Gladiator> pair = gladiators.roster().stream().limit(2).toList();
-        if (pair.size() < 2) {
-            throw new IllegalStateException("The roster needs at least two gladiators");
-        }
-        Gladiator red = pair.get(0);
-        Gladiator blue = pair.get(1);
+    /** The last fight is still live at this one's slot, so it moves to the following slot. */
+    private void postpone(Fight fight) {
+        Instant slot = nextSlot(fight.startsAt());
+        fights.save(fight.postpone(slot));
+        log.warn("Fight {} postponed from {} to {}: the last fight is still live", fight.id(), fight.startsAt(), slot);
+    }
+
+    /**
+     * Announces a fight for {@code slot} (spec section 4, Pairing). The seed is drawn first, under
+     * the id the fight will have, because the pairing's tie-break rolls with it.
+     *
+     * @param current the fight starting now, whose gladiators sit this one out; null at bootstrap
+     */
+    private void announce(Instant slot, Fight current) {
+        long id = fights.nextId();
         byte[] seed = new byte[32];
         random.nextBytes(seed);
-        Fight fight = fights.save(Fight.announce(slot, red.id(), blue.id(), red.elo(), blue.elo(), seed,
-                gladiators.stats(red.id()).hp(), gladiators.stats(blue.id()).hp()));
-        log.info("Fight {} announced for {}: {} v {}", fight.id(), slot, red.slug(), blue.slug());
+        Set<Long> fighting = current == null ? Set.of() : Set.of(current.redId(), current.blueId());
+        Map<Long, Instant> lastFought = fights.findLastFought().stream()
+                .collect(Collectors.toMap(LastFought::gladiatorId, LastFought::startsAt));
+        Pair pair = Pairing.pick(gladiators.roster().stream().map(Gladiator::id).toList(),
+                lastFought, fighting, fighting, seed, id);
+
+        Gladiator red = gladiators.gladiator(pair.redId());
+        Gladiator blue = gladiators.gladiator(pair.blueId());
+        fights.insertAnnounced(id, slot, red.id(), blue.id(), red.elo(), blue.elo(), seed,
+                gladiators.stats(red.id()).hp(), gladiators.stats(blue.id()).hp());
+        Fight fight = fights.findById(id).orElseThrow();
+        events.publishEvent(new MatchupAnnounced(views.announced(fight)));
+        log.info("Fight {} announced for {}: {} v {}", id, slot, red.slug(), blue.slug());
     }
 
     /** Exchange n is due at starts_at + n × exchange-interval. */

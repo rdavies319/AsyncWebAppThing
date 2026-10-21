@@ -1,5 +1,6 @@
 package com.rdavies.api;
 
+import com.rdavies.api.fight.records.AnnouncedFight;
 import com.rdavies.api.fight.records.LiveFight;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,14 +39,14 @@ class FightApiTests {
 
     @Test
     void anyoneCanSeeTheAnnouncedFight() throws Exception {
-        game.boot();
+        AnnouncedFight announced = game.boot().announced();
         mockMvc.perform(get("/fights/current"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.announced.fight_id").isNumber())
+                .andExpect(jsonPath("$.announced.fight_id").value(announced.fightId()))
                 .andExpect(jsonPath("$.announced.starts_at").value("2026-01-01T01:00:00Z"))
-                .andExpect(jsonPath("$.announced.red.name").value("Brutus"))
-                .andExpect(jsonPath("$.announced.red.epithet").value("the Anvil"))
-                .andExpect(jsonPath("$.announced.blue.slug").value("vex"))
+                .andExpect(jsonPath("$.announced.red.name").value(announced.red().name()))
+                .andExpect(jsonPath("$.announced.red.epithet").value(announced.red().epithet()))
+                .andExpect(jsonPath("$.announced.blue.slug").value(announced.blue().slug()))
                 .andExpect(jsonPath("$.announced.red.elo").value(1000));
     }
 
@@ -56,7 +57,7 @@ class FightApiTests {
 
         mockMvc.perform(get("/fights/current"))
                 .andExpect(jsonPath("$.live.fight_id").value(live.fightId()))
-                .andExpect(jsonPath("$.live.red.name").value("Brutus"))
+                .andExpect(jsonPath("$.live.red.name").value(live.red().name()))
                 .andExpect(jsonPath("$.live.red.starting_hp").isNumber())
                 .andExpect(jsonPath("$.live.red.current_hp").isNumber())
                 .andExpect(jsonPath("$.live.exchanges_done").value(1))

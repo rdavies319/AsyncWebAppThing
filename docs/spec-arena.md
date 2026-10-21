@@ -157,7 +157,7 @@ The ratings are integers, and the change is zero-sum.
               if u < limit: return (u mod k) + 1
   ```
 
-  The pairing tie-break uses `roll(fight, 0, "red", "pair", k)` over the tied gladiators, ordered by id.
+  The pairing tie-break picks from the tied gladiators, ordered by id: `roll(fight, 0, "red", "pair", k)` picks red, and if blue also comes from a tie, `roll(fight, 0, "blue", "pair", k)` picks blue from those left. The fight's id is reserved before its row is inserted, so the rolls can use it.
 - **Internal action log:** every exchange row stores its raw `hit` and `dmg` rolls next to the outcome, for internal fact-checking. Those columns, like the seed and the stats, never leave the server.
 - **Server clock only.** The cutoff, exchange due times and fight starts all read the injected `Clock`. Clients get `server_time` only to drive countdowns.
 

@@ -35,13 +35,6 @@ public record Fight(
     EndedBy endedBy,
     Instant settledAt
 ) {
-    /** A new fight, open for betting until it starts. */
-    public static Fight announce(Instant startsAt, long redId, long blueId, int redElo, int blueElo,
-                                 byte[] seed, int redHp, int blueHp) {
-        return new Fight(null, startsAt, FightStatus.ANNOUNCED, redId, blueId, redElo, blueElo, seed,
-                redHp, blueHp, 0, null, null, null, null);
-    }
-
     public Fight start(Instant firstExchangeAt) {
         return new Fight(id, startsAt, FightStatus.LIVE, redId, blueId, redElo, blueElo, seed,
                 redHp, blueHp, exchangesDone, firstExchangeAt, null, null, null);
@@ -57,6 +50,12 @@ public record Fight(
     public Fight settle(ExchangeResult last, Outcome outcome, Instant now) {
         return new Fight(id, startsAt, FightStatus.SETTLED, redId, blueId, redElo, blueElo, seed,
                 last.redHpAfter(), last.blueHpAfter(), last.n(), null, outcome.winner(), outcome.endedBy(), now);
+    }
+
+    /** Moved to a later slot, while still open for betting. */
+    public Fight postpone(Instant newStartsAt) {
+        return new Fight(id, newStartsAt, status, redId, blueId, redElo, blueElo, seed,
+                redHp, blueHp, exchangesDone, nextExchangeAt, winner, endedBy, settledAt);
     }
 
     @Override

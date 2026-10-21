@@ -2,6 +2,9 @@ package com.rdavies.api;
 
 import com.rdavies.api.fight.FightEngine;
 import com.rdavies.api.fight.FightService;
+import com.rdavies.api.fight.TestFights;
+import com.rdavies.api.fight.enums.EndedBy;
+import com.rdavies.api.fight.enums.Winner;
 import com.rdavies.api.fight.records.CurrentFights;
 import com.rdavies.api.fight.records.FightResult;
 import com.rdavies.api.fight.records.LiveFight;
@@ -23,10 +26,12 @@ public class TestGame {
 
     private final FightEngine engine;
     private final FightService fights;
+    private final TestFights testFights;
     private final MutableClock clock;
     private final JdbcTemplate jdbc;
 
-    TestGame(FightEngine engine, FightService fights, MutableClock clock, JdbcTemplate jdbc) {
+    TestGame(FightEngine engine, FightService fights, TestFights testFights, MutableClock clock, JdbcTemplate jdbc) {
+        this.testFights = testFights;
         this.engine = engine;
         this.fights = fights;
         this.clock = clock;
@@ -74,6 +79,17 @@ public class TestGame {
             nextExchange();
         }
         return fights.result(live.fightId());
+    }
+
+    /**
+     * Makes the announced fight end as wanted (bootstrapping one first if there is none), by giving it
+     * a seed found by search. The engine still plays the fight out from that seed.
+     */
+    public void plantFight(Winner winner, EndedBy endedBy) {
+        if (fights.current().announced() == null) {
+            boot();
+        }
+        testFights.plant(winner, endedBy);
     }
 
     /** The ledger invariant: balance = SUM(ledger.delta). */

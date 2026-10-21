@@ -3,6 +3,7 @@ package com.rdavies.api.fight;
 import com.rdavies.api.GameTest;
 import com.rdavies.api.TestGame;
 import com.rdavies.api.fight.enums.FightStatus;
+import com.rdavies.api.fight.records.AnnouncedFight;
 import com.rdavies.api.fight.records.CurrentFights;
 import com.rdavies.api.fight.records.ExchangeResult;
 import com.rdavies.api.fight.records.Fight;
@@ -14,10 +15,14 @@ import com.rdavies.api.gladiator.records.Gladiator;
 import com.rdavies.api.gladiator.records.Stats;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -26,12 +31,14 @@ import static org.junit.jupiter.api.Assertions.*;
 @Transactional
 class FightEngineTests {
     private static final Instant ONE_AM = Instant.parse("2026-01-01T01:00:00Z");
+    private static final Instant TWO_AM = Instant.parse("2026-01-01T02:00:00Z");
 
     @Autowired TestGame game;
     @Autowired FightService fightService;
     @Autowired FightRepository fights;
     @Autowired FightExchangeRepository exchanges;
     @Autowired GladiatorService gladiators;
+    @Autowired JdbcTemplate jdbc;
 
     @Test
     void bootstrapAnnouncesTheFirstFightForTheNextSlot() {
@@ -39,9 +46,10 @@ class FightEngineTests {
 
         assertNull(now.live());
         assertEquals(ONE_AM, now.announced().startsAt());
-        List<Gladiator> roster = gladiators.roster();
-        assertEquals(roster.get(0).slug(), now.announced().red().slug());
-        assertEquals(roster.get(1).slug(), now.announced().blue().slug());
+        Set<String> slugs = gladiators.roster().stream().map(Gladiator::slug).collect(Collectors.toSet());
+        assertTrue(slugs.contains(now.announced().red().slug()));
+        assertTrue(slugs.contains(now.announced().blue().slug()));
+        assertNotEquals(now.announced().red().slug(), now.announced().blue().slug());
     }
 
     @Test
@@ -63,7 +71,31 @@ class FightEngineTests {
         assertEquals(ONE_AM.plusSeconds(60), live.nextExchangeAt());
         assertEquals(live.red().startingHp(), live.red().currentHp());
         assertTrue(live.exchanges().isEmpty());
-        assertNull(fightService.current().announced()); // until it settles, for now
+    }
+
+    @Test
+    void whenAFightStartsTheNextIsAnnouncedWithoutItsFighters() {
+        LiveFight live = game.startFight();
+
+        AnnouncedFight next = fightService.current().announced();
+
+        assertEquals(TWO_AM, next.startsAt());
+        Set<String> fighting = Set.of(live.red().slug(), live.blue().slug());
+        assertFalse(fighting.contains(next.red().slug()));
+        assertFalse(fighting.contains(next.blue().slug()));
+    }
+
+    @Test
+    void theNextFightWaitsForTheLastToSettle() {
+        LiveFight live = game.startFight();
+        // Hold the live fight past the next slot, as a fight too long for its slot would
+        jdbc.update("UPDATE fights SET next_exchange_at = ? WHERE id = ?",
+                Timestamp.from(Instant.parse("2026-01-01T05:00:00Z")), live.fightId());
+
+        CurrentFights now = game.tickAt(TWO_AM);
+
+        assertEquals(live.fightId(), now.live().fightId());
+        assertEquals(Instant.parse("2026-01-01T03:00:00Z"), now.announced().startsAt()); // moved to the following slot
     }
 
     @Test
@@ -97,7 +129,7 @@ class FightEngineTests {
     }
 
     @Test
-    void aFinishedFightSettlesAndTheNextIsAnnounced() {
+    void aFinishedFightSettlesAndTheNextStartsAtItsSlot() {
         FightResult result = game.finishFight();
         Fight settled = fights.findById(result.fightId()).orElseThrow();
 
@@ -107,7 +139,8 @@ class FightEngineTests {
         assertNull(settled.nextExchangeAt());
         CurrentFights now = fightService.current();
         assertNull(now.live());
-        assertEquals(Instant.parse("2026-01-01T02:00:00Z"), now.announced().startsAt());
+        assertEquals(TWO_AM, now.announced().startsAt());
+        assertEquals(TWO_AM, game.startFight().startsAt());
     }
 
     @Test

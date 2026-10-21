@@ -52,12 +52,12 @@ public class FightService {
                 exchanges.findByFight(fight.id()).stream().map(e -> ExchangeView.of(e.result())).toList());
     }
 
-    private LiveFight.Fighter liveFighter(long gladiatorId, int currentHp) {
+    LiveFight.Fighter liveFighter(long gladiatorId, int currentHp) {
         Gladiator g = gladiators.gladiator(gladiatorId);
         return new LiveFight.Fighter(g.slug(), g.name(), g.epithet(), gladiators.stats(gladiatorId).hp(), currentHp);
     }
 
-    private AnnouncedFight announced(Fight fight) {
+    AnnouncedFight announced(Fight fight) {
         return new AnnouncedFight(fight.id(), fight.startsAt(),
                 announcedFighter(fight.redId(), fight.redElo()), announcedFighter(fight.blueId(), fight.blueElo()));
     }

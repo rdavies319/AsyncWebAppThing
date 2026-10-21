@@ -1,5 +1,7 @@
 package com.rdavies.api;
 
+import com.rdavies.api.fight.TestFightEvents;
+import com.rdavies.api.fight.TestFights;
 import com.rdavies.api.wallet.TestWallets;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -19,5 +21,6 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 @SpringBootTest
 @AutoConfigureMockMvc
-@Import({TestcontainersConfiguration.class, MutableClock.Config.class, TestGame.class, TestWallets.class})
+@Import({TestcontainersConfiguration.class, MutableClock.Config.class, TestGame.class, TestWallets.class,
+        TestFights.class, TestFightEvents.class})
 public @interface GameTest {}
