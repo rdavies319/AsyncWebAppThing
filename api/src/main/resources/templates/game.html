@@ -25,11 +25,30 @@
         .auth-links a { padding: 0.4rem 1rem; border: 2px solid #1a73e8; border-radius: 0.5rem; color: #1a73e8; font-weight: bold; text-decoration: none; }
         .auth-links a.primary { background: #1a73e8; color: white; }
         .topup { display: block; margin: 0.5rem auto 0; padding: 0.4rem 0.8rem; border: 1px solid #1a73e8; border-radius: 0.5rem; background: white; color: #1a73e8; cursor: pointer; }
+        section { margin: 1rem 0; }
+        h3 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: #888; margin: 0 0 0.5rem; }
+        .corners { display: flex; gap: 0.5rem; }
+        .corner { flex: 1; padding: 0.5rem; border-radius: 0.5rem; }
+        .corner.red { background: #fce8e6; }
+        .corner.blue { background: #e8f0fe; }
+        .corner .name { font-weight: bold; }
+        .corner .epithet, .hp-text { font-size: 0.8rem; color: #666; }
+        .hp-bar { height: 0.5rem; background: #ddd; border-radius: 0.25rem; overflow: hidden; margin-top: 0.25rem; }
+        .hp-bar span { display: block; height: 100%; }
+        .red .hp-bar span { background: #c5221f; }
+        .blue .hp-bar span { background: #1a73e8; }
+        .countdown { font-size: 0.85rem; color: #444; margin: 0.5rem 0; }
+        .log { list-style: none; padding: 0; margin: 0; max-height: 10rem; overflow-y: auto; font-size: 0.8rem; text-align: left; }
+        .log li { padding: 0.15rem 0; border-bottom: 1px solid #eee; }
+        .result { font-weight: bold; }
+        .dev { border: 1px dashed #b06000; border-radius: 0.5rem; padding: 0.5rem; }
+        .dev h3 { color: #b06000; }
+        .dev button { margin: 0.15rem; }
     </style>
 </head>
 <body>
 
-<!-- One SSE connection for the page; every connect starts with a server_time snapshot -->
+<!-- One SSE connection for the page; every connect starts with a snapshot -->
 <main class="card" hx-ext="sse" sse-connect="/live">
     <h2>The Arena</h2>
     <form class="account" th:if="${board.player()}" method="post" th:action="@{/auth/logout}">
@@ -40,9 +59,52 @@
         <a class="primary" th:href="@{/auth/signup}">Sign up</a>
     </nav>
 
-    <!-- Renders a board.Board (built by BoardService) and the last request's BoardFeedback -->
-    <div id="board" th:fragment="board" th:with="me=${board.player()}">
-        <p class="soon">Arena opening soon</p>
+    <!--
+        Renders a board.Board (built by BoardService) and the last request's BoardFeedback. Refetched on
+        every arena event, and on the snapshot after a reconnect, so missed events never matter.
+        data-server-time sets the clock the countdowns run on.
+    -->
+    <div id="board" th:fragment="board" th:with="me=${board.player()}"
+         th:data-server-time="${board.serverTime()}"
+         hx-get="/fragments/board" hx-swap="outerHTML"
+         hx-trigger="sse:snapshot, sse:matchup_announced, sse:fight_started, sse:exchange, sse:fight_settled">
+
+        <p class="soon" th:if="${board.openingSoon()}">Arena opening soon</p>
+
+        <section th:if="${board.live()}" th:with="live=${board.live()}">
+            <h3>Now fighting</h3>
+            <div class="corners">
+                <div th:each="side : ${ {'red', 'blue'} }" th:with="c=${side == 'red' ? live.red() : live.blue()}"
+                     th:class="'corner ' + ${side}">
+                    <div class="name" th:text="${c.name()}">Brutus</div>
+                    <div class="epithet" th:text="${c.epithet()}">the Anvil</div>
+                    <div class="hp-bar"><span th:style="'width: ' + ${c.hpPercent()} + '%'"></span></div>
+                    <div class="hp-text" th:text="${c.shownHp()} + ' / ' + ${c.startingHp()} + ' HP'">120 / 120 HP</div>
+                </div>
+            </div>
+            <p class="countdown">Next exchange in <span th:data-until="${live.nextExchangeAt()}">…</span></p>
+            <ol class="log">
+                <li th:each="line : ${live.log()}" th:text="${line}">1. Brutus hits Vex for 14 · Brutus dodges</li>
+            </ol>
+        </section>
+
+        <section th:if="${board.lastResult()}">
+            <h3>Last result</h3>
+            <p class="result" th:text="${board.lastResult().summary()}">Brutus beat Vex by KO</p>
+        </section>
+
+        <section th:if="${board.next()}" th:with="next=${board.next()}">
+            <h3>Next fight</h3>
+            <div class="corners">
+                <div th:each="side : ${ {'red', 'blue'} }" th:with="c=${side == 'red' ? next.red() : next.blue()}"
+                     th:class="'corner ' + ${side}">
+                    <div class="name" th:text="${c.name()}">Vex</div>
+                    <div class="epithet" th:text="${c.epithet()}">the Quick</div>
+                    <div class="hp-text" th:text="'Elo ' + ${c.elo()}">Elo 1000</div>
+                </div>
+            </div>
+            <p class="countdown">Starts in <span th:data-until="${next.startsAt()}">…</span></p>
+        </section>
 
         <p class="login-prompt" th:unless="${me}">
             <a th:href="@{/auth/login}">Log in</a> or <a th:href="@{/auth/signup}">sign up</a> to play.
@@ -54,6 +116,14 @@
                     th:text="'Daily top-up to ' + ${me.topUpTarget()}">Daily top-up</button>
             <p class="error" th:if="${feedback.topUpError()}" th:text="${feedback.topUpError()}" role="alert"></p>
         </div>
+
+        <!-- Dev profile only. Each button pulls a due time forward and ticks the real engine; the events refetch the board. -->
+        <section class="dev" th:if="${board.devPanel()}">
+            <h3>Dev</h3>
+            <button hx-post="/dev/fights/start" hx-swap="none">Start fight</button>
+            <button hx-post="/dev/fights/exchange" hx-swap="none">Next exchange</button>
+            <button hx-post="/dev/fights/finish" hx-swap="none">Finish fight</button>
+        </section>
     </div>
 </main>
 
@@ -63,6 +133,29 @@
         const header = document.querySelector('meta[name="csrf-header"]').content;
         e.detail.headers[header] = document.querySelector('meta[name="csrf-token"]').content;
     });
+
+    // Countdowns run on the server's clock: each board carries the server time it was built at,
+    // and the offset from this browser's clock is applied to every countdown.
+    let serverOffset = 0;
+    function syncServerClock() {
+        const board = document.getElementById('board');
+        if (board && board.dataset.serverTime) {
+            serverOffset = Date.parse(board.dataset.serverTime) - Date.now();
+        }
+    }
+    function formatRemaining(seconds) {
+        return seconds >= 60 ? Math.floor(seconds / 60) + 'm ' + String(seconds % 60).padStart(2, '0') + 's' : seconds + 's';
+    }
+    function tickCountdowns() {
+        const now = Date.now() + serverOffset;
+        document.querySelectorAll('[data-until]').forEach((el) => {
+            el.textContent = formatRemaining(Math.max(0, Math.ceil((Date.parse(el.dataset.until) - now) / 1000)));
+        });
+    }
+    document.body.addEventListener('htmx:afterSettle', () => { syncServerClock(); tickCountdowns(); });
+    syncServerClock();
+    tickCountdowns();
+    setInterval(tickCountdowns, 250);
 </script>
 
 </body>

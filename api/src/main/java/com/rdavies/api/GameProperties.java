@@ -2,8 +2,11 @@ package com.rdavies.api;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;
+import org.springframework.scheduling.support.CronExpression;
 
 import java.time.Duration;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.util.List;
 
 /**
@@ -47,7 +50,10 @@ public record GameProperties(
         }
     }
 
-    /** Checked at startup, so a stake button the server would always refuse can't ship. */
+    /**
+     * Checked at startup, so a stake button the server would always refuse can't ship, and a capped
+     * fight always settles before the next one's slot (spec section 7).
+     */
     public GameProperties {
         if (stakeOptions.isEmpty()) {
             throw new IllegalArgumentException("game.stake-options must list at least one stake");
@@ -59,5 +65,39 @@ public record GameProperties(
             }
         }
         stakeOptions = List.copyOf(stakeOptions);
+        Duration cappedFight = exchangeInterval.multipliedBy(maxExchanges);
+        Duration gap = shortestGap(CronExpression.parse(fightCron));
+        if (cappedFight.compareTo(gap) >= 0) {
+            throw new IllegalArgumentException("game.max-exchanges × game.exchange-interval (" + cappedFight
+                    + ") must be shorter than the gap between two game.fight-cron slots (" + gap + ")");
+        }
+    }
+
+    /** How many consecutive fight slots {@link #shortestGap} compares: plenty for any real schedule. */
+    private static final int SLOTS_CHECKED = 10_000;
+
+    /**
+     * The shortest time between two consecutive slots of {@code cron}, over a leap year's worth of
+     * slots or {@link #SLOTS_CHECKED} of them, whichever comes first. A schedule's gaps can vary
+     * (09:00 and 09:20, then the next morning), and a capped fight must fit in the shortest.
+     */
+    private static Duration shortestGap(CronExpression cron) {
+        ZonedDateTime start = ZonedDateTime.of(2024, 1, 1, 0, 0, 0, 0, ZoneOffset.UTC);
+        ZonedDateTime end = start.plusYears(1);
+        ZonedDateTime slot = cron.next(start);
+        Duration shortest = null;
+        for (int i = 0; slot != null && slot.isBefore(end) && i < SLOTS_CHECKED; i++) {
+            ZonedDateTime next = cron.next(slot);
+            if (next == null) {
+                break;
+            }
+            Duration gap = Duration.between(slot, next);
+            shortest = shortest == null || gap.compareTo(shortest) < 0 ? gap : shortest;
+            slot = next;
+        }
+        if (shortest == null) {
+            throw new IllegalArgumentException("game.fight-cron (" + cron + ") must have at least two slots a year");
+        }
+        return shortest;
     }
 }

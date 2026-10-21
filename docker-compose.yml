@@ -22,6 +22,11 @@ services:
     container_name: higher-lower-api
     ports:
       - "8080:8080"
+    # game.* overrides as environment variables (.env.example lists them). Plain `docker compose up`
+    # loads .env if there is one, else runs on the production defaults; ENV_FILE=.env.dev runs dev.
+    env_file:
+      - path: ${ENV_FILE:-.env}
+        required: false
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/higher_lower
       SPRING_DATASOURCE_USERNAME: user

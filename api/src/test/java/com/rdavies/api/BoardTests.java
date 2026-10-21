@@ -2,35 +2,174 @@ package com.rdavies.api;
 
 import com.rdavies.api.board.BoardService;
 import com.rdavies.api.board.records.Board;
+import com.rdavies.api.fight.enums.EndedBy;
+import com.rdavies.api.fight.enums.Winner;
+import com.rdavies.api.fight.records.AnnouncedFight;
+import com.rdavies.api.fight.records.ExchangeView;
+import com.rdavies.api.fight.records.FightResult;
+import com.rdavies.api.fight.records.LiveFight;
 import com.rdavies.api.user.UserService;
 import com.rdavies.api.user.records.GamePrincipal;
 import com.rdavies.api.wallet.TestWallets;
 import com.rdavies.api.wallet.WalletService;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 
-/** What each viewer sees on the game page, checked on the Board value rather than the rendered HTML. */
+/**
+ * What each viewer sees on the game page, checked on the Board value rather than the rendered HTML.
+ * Every fight state is checked for a logged-out and a logged-in viewer, who see the same arena.
+ */
 @GameTest
 @Transactional
 class BoardTests {
+    private static final Instant ONE_AM = Instant.parse("2026-01-01T01:00:00Z");
+    private static final Instant TWO_AM = Instant.parse("2026-01-01T02:00:00Z");
+
     @Autowired BoardService boardService;
     @Autowired UserService userService;
     @Autowired WalletService walletService;
     @Autowired TestWallets wallets;
+    @Autowired TestGame game;
+    @Autowired MutableClock clock;
     @Autowired MockMvc mockMvc;
+
+    GamePrincipal alice;
+
+    @BeforeEach
+    void signUp() {
+        alice = TestPlayers.signUp(userService, "alice");
+    }
 
     @AfterEach
     void everyWalletMatchesItsLedger() {
         wallets.assertEveryWalletMatchesItsLedger();
+    }
+
+    @Test
+    void beforeAnythingIsAnnouncedTheArenaIsEmpty() {
+        clock.now = TestGame.BOOT;
+
+        Board board = arena();
+
+        assertEquals(TestGame.BOOT, board.serverTime());
+        assertTrue(board.openingSoon());
+        assertNull(board.live());
+        assertNull(board.lastResult());
+        assertNull(board.next());
+    }
+
+    @Test
+    void beforeTheFirstFightOnlyTheNextMatchupShows() {
+        AnnouncedFight announced = game.boot().announced();
+
+        Board board = arena();
+
+        assertFalse(board.openingSoon());
+        assertNull(board.live());
+        assertNull(board.lastResult());
+        assertEquals(new Board.Next(announced.fightId(),
+                new Board.Contender(announced.red().name(), announced.red().epithet(), 1000),
+                new Board.Contender(announced.blue().name(), announced.blue().epithet(), 1000),
+                ONE_AM), board.next());
+    }
+
+    @Test
+    void aLiveFightShowsBothCornersAndTheNextExchange() {
+        LiveFight started = game.startFight();
+        LiveFight live = game.nextExchange().live();
+
+        Board board = arena();
+
+        assertEquals(Instant.parse("2026-01-01T01:01:00Z"), board.serverTime()); // when the first exchange ran
+        assertEquals(started.fightId(), board.live().fightId());
+        assertEquals(new Board.Corner(live.red().name(), live.red().epithet(), live.red().startingHp(), live.red().currentHp()),
+                board.live().red());
+        assertEquals(new Board.Corner(live.blue().name(), live.blue().epithet(), live.blue().startingHp(), live.blue().currentHp()),
+                board.live().blue());
+        assertEquals(ONE_AM.plusSeconds(120), board.live().nextExchangeAt());
+        assertNull(board.lastResult());
+        assertEquals(TWO_AM, board.next().startsAt()); // announced when this fight started
+    }
+
+    @Test
+    void theExchangeLogReadsNewestFirst() {
+        game.plantFight(Winner.RED, EndedBy.KO); // lasts more than two exchanges
+        LiveFight live = game.startFight();
+        game.nextExchange();
+        LiveFight afterTwo = game.nextExchange().live();
+
+        Board board = arena();
+
+        String red = live.red().name();
+        String blue = live.blue().name();
+        assertEquals(2, board.live().log().size());
+        assertEquals(logLine(afterTwo.exchanges().get(1), red, blue), board.live().log().get(0));
+        assertEquals(logLine(afterTwo.exchanges().get(0), red, blue), board.live().log().get(1));
+    }
+
+    @Test
+    void hpBarsAreAShareOfStartingHpAndNeverNegative() {
+        assertEquals(50, new Board.Corner("Brutus", "the Anvil", 120, 60).hpPercent());
+        assertEquals(0, new Board.Corner("Brutus", "the Anvil", 120, 0).hpPercent());
+        assertEquals(100, new Board.Corner("Brutus", "the Anvil", 120, 120).hpPercent());
+        assertEquals(0, new Board.Corner("Brutus", "the Anvil", 120, -7).hpPercent()); // knocked out
+        assertEquals(0, new Board.Corner("Brutus", "the Anvil", 120, -7).shownHp());
+    }
+
+    @Test
+    void afterAWinTheLastResultShowsUntilTheNextFight() {
+        game.plantFight(Winner.RED, EndedBy.KO);
+        LiveFight live = game.startFight();
+        FightResult result = game.finishFight();
+
+        Board board = arena();
+
+        assertNull(board.live());
+        assertEquals(new Board.Result(result.fightId(),
+                live.red().name() + " beat " + live.blue().name() + " by KO"), board.lastResult());
+        assertEquals(TWO_AM, board.next().startsAt());
+    }
+
+    @Test
+    void aDoubleKnockoutIsADraw() {
+        game.plantFight(Winner.DRAW, EndedBy.DOUBLE_KO);
+        LiveFight live = game.startFight();
+        FightResult result = game.finishFight();
+
+        Board board = arena();
+
+        assertEquals(new Board.Result(result.fightId(),
+                "Draw: " + live.red().name() + " and " + live.blue().name() + " knocked each other out"),
+                board.lastResult());
+    }
+
+    @Test
+    void theLastResultGivesWayToTheNextFight() {
+        game.plantFight(Winner.RED, EndedBy.KO);
+        game.finishFight();
+
+        LiveFight second = game.startFight();
+        Board board = arena();
+
+        assertNull(board.lastResult());
+        assertEquals(second.fightId(), board.live().fightId());
+    }
+
+    @Test
+    void theDevPanelIsHiddenWithoutTheDevProfile() {
+        assertFalse(boardService.board(Optional.of(alice)).devPanel());
+        assertFalse(boardService.board(Optional.empty()).devPanel());
     }
 
     @Test
@@ -40,8 +179,6 @@ class BoardTests {
 
     @Test
     void aPlayerSeesTheirBalance() {
-        GamePrincipal alice = TestPlayers.signUp(userService, "alice");
-
         Board board = boardService.board(Optional.of(alice));
 
         assertEquals(new Board.PlayerBoard("alice", 1000, null), board.player()); // at the top-up target already
@@ -49,7 +186,6 @@ class BoardTests {
 
     @Test
     void aPlayerBelowTheTargetIsOfferedTheTopUpUntilTheyClaimIt() {
-        GamePrincipal alice = TestPlayers.signUp(userService, "alice");
         wallets.spend(alice.id(), 400);
 
         assertEquals(new Board.PlayerBoard("alice", 600, 1000L), boardService.board(Optional.of(alice)).player());
@@ -59,13 +195,48 @@ class BoardTests {
     }
 
     @Test
-    void everyoneSeesTheArenaIsOpeningSoon() throws Exception {
-        GamePrincipal alice = TestPlayers.signUp(userService, "alice");
+    void theBoardRefetchesOnEveryArenaEvent() throws Exception {
+        String page = mockMvc.perform(get("/").with(user(alice))).andReturn().getResponse().getContentAsString();
+
+        assertTrue(page.contains(
+                "hx-trigger=\"sse:snapshot, sse:matchup_announced, sse:fight_started, sse:exchange, sse:fight_settled\""),
+                page);
+    }
+
+    @Test
+    void theBoardRendersTheLiveFightForEveryone() throws Exception {
+        LiveFight live = game.startFight();
         String anonymous = mockMvc.perform(get("/fragments/board")).andReturn().getResponse().getContentAsString();
         String player = mockMvc.perform(get("/fragments/board").with(user(alice))).andReturn().getResponse().getContentAsString();
 
-        assertTrue(anonymous.contains("Arena opening soon"), anonymous);
-        assertTrue(player.contains("Arena opening soon"), player);
+        for (String html : new String[] {anonymous, player}) {
+            assertTrue(html.contains(live.red().name()), html);
+            assertTrue(html.contains(live.blue().name()), html);
+            assertTrue(html.contains("data-until=\"2026-01-01T01:01:00Z\""), html); // the next exchange's countdown
+        }
         assertTrue(player.contains("Balance: <span>1000</span> pts"), player);
+    }
+
+    /**
+     * The board as both viewers see it, after checking they see the same arena and that only the
+     * logged-in one gets a player part.
+     */
+    private Board arena() {
+        Board anonymous = boardService.board(Optional.empty());
+        Board player = boardService.board(Optional.of(alice));
+        assertNull(anonymous.player());
+        assertNotNull(player.player());
+        assertEquals(anonymous.serverTime(), player.serverTime());
+        assertEquals(anonymous.live(), player.live());
+        assertEquals(anonymous.lastResult(), player.lastResult());
+        assertEquals(anonymous.next(), player.next());
+        return anonymous;
+    }
+
+    /** "2. Brutus hits Vex for 14 · Brutus dodges": red's attack, then blue's. */
+    private static String logLine(ExchangeView e, String red, String blue) {
+        String redAttack = e.redHit() ? red + " hits " + blue + " for " + e.redDamage() : blue + " dodges";
+        String blueAttack = e.blueHit() ? blue + " hits " + red + " for " + e.blueDamage() : red + " dodges";
+        return e.n() + ". " + redAttack + " · " + blueAttack;
     }
 }

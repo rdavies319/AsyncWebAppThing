@@ -13,6 +13,11 @@ import java.time.ZoneOffset;
 public class MutableClock extends Clock {
     Instant now = Instant.EPOCH;
 
+    /** Sets the time, for tests outside this package. */
+    public void set(Instant when) {
+        now = when;
+    }
+
     @Override public ZoneId getZone() { return ZoneOffset.UTC; }
     @Override public Clock withZone(ZoneId zone) { return this; }
     @Override public Instant instant() { return now; }

@@ -70,3 +70,7 @@ AGENTS.md
 
 # JetBrains IDE
 .idea/
+
+# Environment files: settings and secrets per machine. Only the example is committed.
+.env*
+!.env.example
