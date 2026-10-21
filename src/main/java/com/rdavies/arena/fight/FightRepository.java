@@ -1,8 +1,11 @@
 package com.rdavies.arena.fight;
 
+import com.rdavies.arena.fight.enums.FightStatus;
 import com.rdavies.arena.fight.records.Fight;
 import com.rdavies.arena.fight.records.LastFought;
 import org.springframework.data.jdbc.repository.query.Modifying;
+import org.springframework.data.relational.core.sql.LockMode;
+import org.springframework.data.relational.repository.Lock;
 import org.springframework.data.jdbc.repository.query.Query;
 import org.springframework.data.repository.CrudRepository;
 import org.springframework.data.repository.query.Param;
@@ -17,22 +20,40 @@ import java.util.Optional;
 /** Package-private: fight rows carry the seed, so only the fight feature reads them. */
 interface FightRepository extends CrudRepository<Fight, Long> {
 
+    /** Takes the arena's advisory lock until the transaction ends, or returns false if another tick holds it. */
+    @Query("SELECT pg_try_advisory_xact_lock(:key)")
+    boolean tryLock(@Param("key") long key);
+
+    /** At most one fight is announced and one live at a time. */
+    Optional<Fight> findByStatus(FightStatus status);
+
+    /** As {@link #findByStatus}, row-locking the fight until the transaction ends. */
+    @Lock(LockMode.PESSIMISTIC_WRITE)
+    Optional<Fight> findLockedByStatus(FightStatus status);
+
+    Optional<Fight> findFirstByStatusOrderByStartsAtDesc(FightStatus status);
+
     /** Row-locks the live fight until the engine's transaction ends. */
-    @Query("SELECT * FROM fights WHERE status = 'LIVE' FOR UPDATE")
-    Optional<Fight> lockLive();
+    default Optional<Fight> lockLive() {
+        return findLockedByStatus(FightStatus.LIVE);
+    }
 
     /** Row-locks the announced fight until the engine's transaction ends. */
-    @Query("SELECT * FROM fights WHERE status = 'ANNOUNCED' FOR UPDATE")
-    Optional<Fight> lockAnnounced();
+    default Optional<Fight> lockAnnounced() {
+        return findLockedByStatus(FightStatus.ANNOUNCED);
+    }
 
-    @Query("SELECT * FROM fights WHERE status = 'LIVE'")
-    Optional<Fight> findLive();
+    default Optional<Fight> findLive() {
+        return findByStatus(FightStatus.LIVE);
+    }
 
-    @Query("SELECT * FROM fights WHERE status = 'ANNOUNCED'")
-    Optional<Fight> findAnnounced();
+    default Optional<Fight> findAnnounced() {
+        return findByStatus(FightStatus.ANNOUNCED);
+    }
 
-    @Query("SELECT * FROM fights WHERE status = 'SETTLED' ORDER BY starts_at DESC LIMIT 1")
-    Optional<Fight> findLastSettled();
+    default Optional<Fight> findLastSettled() {
+        return findFirstByStatusOrderByStartsAtDesc(FightStatus.SETTLED);
+    }
 
     /** Dev forcing: moves the announced fight's start to {@code now}, if it is later. */
     @Modifying

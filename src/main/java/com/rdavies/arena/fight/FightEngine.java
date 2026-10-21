@@ -18,7 +18,6 @@ import com.rdavies.arena.gladiator.records.Stats;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.support.CronExpression;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -50,13 +49,12 @@ public class FightEngine {
     private final ApplicationEventPublisher events;
     private final GameProperties game;
     private final Clock clock;
-    private final JdbcTemplate jdbc;
     private final CronExpression fightCron;
     private final SecureRandom random = new SecureRandom();
 
     FightEngine(FightRepository fights, FightExchangeRepository exchanges, FightService views,
                 GladiatorService gladiators, ApplicationEventPublisher events, GameProperties game,
-                Clock clock, JdbcTemplate jdbc) {
+                Clock clock) {
         this.fights = fights;
         this.exchanges = exchanges;
         this.views = views;
@@ -64,13 +62,12 @@ public class FightEngine {
         this.events = events;
         this.game = game;
         this.clock = clock;
-        this.jdbc = jdbc;
         this.fightCron = CronExpression.parse(game.fightCron());
     }
 
     @Transactional
     public void tick() {
-        if (!tryLockArena()) {
+        if (!fights.tryLock(LOCK_KEY)) {
             log.debug("Another tick holds the arena lock; skipping");
             return;
         }
@@ -94,11 +91,6 @@ public class FightEngine {
         } else if (!fighting) {
             announce(nextSlot(now), null); // bootstrap
         }
-    }
-
-    /** Takes the arena's advisory lock until this transaction ends, or returns false if another tick holds it. */
-    private boolean tryLockArena() {
-        return jdbc.queryForObject("SELECT pg_try_advisory_xact_lock(?)", Boolean.class, LOCK_KEY);
     }
 
     /** Runs every exchange due by {@code now}, settling the fight if one ends it. Returns the fight as it stands. */
