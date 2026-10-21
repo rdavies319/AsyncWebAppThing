@@ -1,9 +1,10 @@
 package com.rdavies.api.board;
 
 import com.rdavies.api.GameProperties;
-import com.rdavies.api.user.GamePrincipal;
-import com.rdavies.api.wallet.Wallet;
+import com.rdavies.api.board.records.Board;
+import com.rdavies.api.user.records.GamePrincipal;
 import com.rdavies.api.wallet.WalletService;
+import com.rdavies.api.wallet.records.Wallet;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;

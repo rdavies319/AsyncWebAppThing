@@ -1,6 +1,8 @@
 package com.rdavies.api.user;
 
 import com.rdavies.api.GameRuleException;
+import com.rdavies.api.user.records.GamePrincipal;
+import com.rdavies.api.user.records.User;
 import com.rdavies.api.wallet.WalletService;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.core.userdetails.UserDetailsService;

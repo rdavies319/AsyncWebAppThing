@@ -1,11 +1,11 @@
-package com.rdavies.api.wallet;
+package com.rdavies.api.wallet.records;
 
 import org.springframework.data.annotation.Id;
 import org.springframework.data.relational.core.mapping.Table;
 import java.time.Instant;
 import java.time.LocalDate;
 
-/** Only ever changed by conditional UPDATEs in {@link WalletRepository}, each paired with a ledger row. */
+/** Only ever changed by conditional UPDATEs in the wallet feature's WalletRepository, each paired with a ledger row. */
 @Table("wallets")
 public record Wallet(
     @Id Long userId,

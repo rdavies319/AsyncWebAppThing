@@ -1,5 +1,6 @@
 package com.rdavies.api.user;
 
+import com.rdavies.api.user.records.User;
 import org.springframework.data.repository.CrudRepository;
 
 import java.util.Optional;

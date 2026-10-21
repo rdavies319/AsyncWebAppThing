@@ -1,4 +1,4 @@
-package com.rdavies.api.user;
+package com.rdavies.api.user.records;
 
 import org.springframework.data.annotation.Id;
 import org.springframework.data.relational.core.mapping.Table;

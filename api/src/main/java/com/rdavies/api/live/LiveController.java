@@ -1,7 +1,7 @@
 package com.rdavies.api.live;
 
 import com.rdavies.api.user.CurrentUser;
-import com.rdavies.api.user.GamePrincipal;
+import com.rdavies.api.user.records.GamePrincipal;
 import jakarta.annotation.PreDestroy;
 import org.springframework.http.MediaType;
 import org.springframework.scheduling.annotation.Scheduled;

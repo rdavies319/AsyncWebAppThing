@@ -1,4 +1,4 @@
-package com.rdavies.api.wallet;
+package com.rdavies.api.wallet.records;
 
 import org.springframework.data.annotation.Id;
 import org.springframework.data.relational.core.mapping.Table;

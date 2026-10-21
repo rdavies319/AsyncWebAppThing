@@ -1,6 +1,6 @@
 package com.rdavies.api;
 
-import com.rdavies.api.user.GamePrincipal;
+import com.rdavies.api.user.records.GamePrincipal;
 import jakarta.servlet.ServletException;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

@@ -1,10 +1,10 @@
 package com.rdavies.api;
 
-import com.rdavies.api.user.GamePrincipal;
 import com.rdavies.api.user.UserService;
+import com.rdavies.api.user.records.GamePrincipal;
 import com.rdavies.api.wallet.TestWallets;
-import com.rdavies.api.wallet.Wallet;
 import com.rdavies.api.wallet.WalletService;
+import com.rdavies.api.wallet.records.Wallet;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;

@@ -1,4 +1,4 @@
-package com.rdavies.api.board;
+package com.rdavies.api.board.records;
 
 /**
  * What a viewer sees on the game page. Until the arena opens, only a logged-in player's balance

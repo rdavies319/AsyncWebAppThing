@@ -76,16 +76,16 @@ Exchange `n` (1-based) is due at `starts_at + n × game.exchange-interval` (defa
 
 ```
 for attacker in (red, blue), defender = the other:
-    hit_draw    = draw(fight, n, attacker, "hit", 100)        // 1..100
-    if hit_draw <= defender.agility:   attack is dodged, damage 0
+    hit_roll    = roll(fight, n, attacker, "hit", 100)        // 1..100
+    if hit_roll <= defender.agility:   attack is dodged, damage 0
     else:
-        dmg_draw = draw(fight, n, attacker, "dmg", attacker.attack_max − attacker.attack_min + 1)
-        damage   = max(1, attacker.attack_min + dmg_draw − 1 − defender.defence)
+        dmg_roll = roll(fight, n, attacker, "dmg", attacker.attack_max − attacker.attack_min + 1)
+        damage   = max(1, attacker.attack_min + dmg_roll − 1 − defender.defence)
 red_hp  -= blue's damage
 blue_hp -= red's damage
 ```
 
-The `draw` function is defined in section 6. All maths uses integers.
+The `roll` function is defined in section 6. All maths uses integers.
 
 ### Ending
 
@@ -146,10 +146,10 @@ The ratings are integers, and the change is zero-sum.
 
 - **One seed per fight:** 32 random bytes from `SecureRandom`, created at announcement. The seed is **internal and never revealed**. Nothing publishes a commitment to it either.
 - The seed and the stats fix the whole fight before betting opens, so a fight can be replayed exactly. Tests use this to plant outcomes, and the engine uses it to resume after a crash (section 7).
-- **Draw derivation:** a uniform integer in `1..k`, using rejection sampling to avoid modulo bias:
+- **Rolls:** a uniform integer in `1..k`, using rejection sampling to avoid modulo bias:
 
   ```
-  draw(fight, n, corner, kind, k):
+  roll(fight, n, corner, kind, k):
       limit = floor(2^32 / k) × k
       for counter c = 0, 1, 2, …:
           h = HMAC-SHA256(key = seed, message = ASCII("<fight_id>:<n>:<corner>:<kind>:<c>"))
@@ -157,8 +157,8 @@ The ratings are integers, and the change is zero-sum.
               if u < limit: return (u mod k) + 1
   ```
 
-  The pairing tie-break uses `draw(fight, 0, "red", "pair", k)` over the tied gladiators, ordered by id.
-- **Internal action log:** every exchange row stores its raw `hit` and `dmg` draws next to the outcome, for internal fact-checking. Those columns, like the seed and the stats, never leave the server.
+  The pairing tie-break uses `roll(fight, 0, "red", "pair", k)` over the tied gladiators, ordered by id.
+- **Internal action log:** every exchange row stores its raw `hit` and `dmg` rolls next to the outcome, for internal fact-checking. Those columns, like the seed and the stats, never leave the server.
 - **Server clock only.** The cutoff, exchange due times and fight starts all read the injected `Clock`. Clients get `server_time` only to drive countdowns.
 
 ## 7. Fight Engine
@@ -206,14 +206,14 @@ The engine replaces `RoundEngine`. It runs on `game.engine.cron` (default `0 * *
 | **users**, **wallets**, **ledger** | Unchanged from v2 |
 | **gladiators** | id, slug (unique), name, epithet, bio, hp, attack\_min, attack\_max, defence, agility, elo (int, starts 1000), created\_at. The stat columns are immutable (trigger). |
 | **fights** | id, starts\_at (unique), status (`announced`, `live`, `settled`), red\_id, blue\_id (FK gladiators, different), red\_elo, blue\_elo (at announcement), red\_multiplier\_bps, blue\_multiplier\_bps, seed (internal), red\_hp, blue\_hp (current), exchanges\_done, next\_exchange\_at, winner (`red`, `blue`, `draw`, null), ended\_by (`ko`, `double_ko`, `cap`, null), settled\_at |
-| **fight\_exchanges** | fight\_id, exchange\_no, due\_at, run\_at, red\_hit\_draw, red\_dmg\_draw, blue\_hit\_draw, blue\_dmg\_draw (internal, null where not drawn), red\_hit (bool), red\_damage, blue\_hit, blue\_damage, red\_hp\_after, blue\_hp\_after. PK (fight\_id, exchange\_no). Append-only (trigger). |
+| **fight\_exchanges** | fight\_id, exchange\_no, due\_at, run\_at, red\_hit\_roll, red\_dmg\_roll, blue\_hit\_roll, blue\_dmg\_roll (internal, null where not rolled), red\_hit (bool), red\_damage, blue\_hit, blue\_damage, red\_hp\_after, blue\_hp\_after. PK (fight\_id, exchange\_no). Append-only (trigger). |
 | **bets** | id, user\_id, fight\_id, corner (`red`, `blue`), stake, multiplier\_bps, status (`pending`, `won`, `lost`, `push`), payout, created\_at, settled\_at. `UNIQUE(user_id, fight_id)` |
 
 Constraints:
 
 - A partial unique index allows at most one `announced` and one `live` fight.
 - Triggers make `seed`, the matchup, the stored ratings and multipliers, and a set `winner` immutable.
-- Only the `fight` feature reads `seed` and the draw columns, and no public view carries them.
+- Only the `fight` feature reads `seed` and the roll columns, and no public view carries them.
 
 **Ledger:** reasons are unchanged from v2 (`signup_bonus`, `stake`, `payout`, `refund`, `topup`). `ref_id` on `stake`, `payout` and `refund` rows is a bet id. **Invariant:** `wallets.balance = SUM(ledger.delta)` for every user.
 
@@ -272,7 +272,7 @@ Nothing has been deployed, so the old game is removed outright, as the first Pha
 | Who fights? | Least recently fought, seeded tie-break. Not the current fighters, and not the same pair twice in a row. |
 | When can players bet? | Before the fight only, closing at :59:50. In-fight betting may come later. |
 | How random? | The strongest beats the weakest about 70% of the time (65–75%, checked by a simulation test) |
-| Provably fair? | No, this is a toy. The seed and stats are internal and never revealed. Raw draws are logged per exchange for internal fact-checking. |
+| Provably fair? | No, this is a toy. The seed and stats are internal and never revealed. Raw rolls are logged per exchange for internal fact-checking. |
 | Reveal the stats? | Never. No commitment hash either. |
 | Fixed or evolving roster? | Fixed. 8 gladiators. |
 | Stats? | HP, attack range, defence, agility. Simultaneous exchanges. A crit stat may come later. |

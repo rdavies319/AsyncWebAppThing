@@ -1,4 +1,4 @@
-package com.rdavies.api.board;
+package com.rdavies.api.board.records;
 
 /**
  * The outcome of the request that returned the board, shown inline on it.

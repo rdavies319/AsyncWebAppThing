@@ -1,9 +1,9 @@
 package com.rdavies.api;
 
-import com.rdavies.api.board.Board;
 import com.rdavies.api.board.BoardService;
-import com.rdavies.api.user.GamePrincipal;
+import com.rdavies.api.board.records.Board;
 import com.rdavies.api.user.UserService;
+import com.rdavies.api.user.records.GamePrincipal;
 import com.rdavies.api.wallet.TestWallets;
 import com.rdavies.api.wallet.WalletService;
 import org.junit.jupiter.api.AfterEach;

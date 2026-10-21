@@ -1,8 +1,8 @@
 package com.rdavies.api.web;
 
 import com.rdavies.api.GameRuleException;
-import com.rdavies.api.board.BoardFeedback;
 import com.rdavies.api.board.BoardService;
+import com.rdavies.api.board.records.BoardFeedback;
 import com.rdavies.api.user.CurrentUser;
 import com.rdavies.api.wallet.WalletService;
 import org.springframework.stereotype.Controller;

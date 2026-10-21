@@ -4,7 +4,7 @@ These tasks replace Higher or Lower with the gladiator arena in [spec-arena.md](
 
 The full ticket for each task, with acceptance criteria, is in `.scratch/arena/issues/NN-*.md`. Keep this file and the tickets in step as tasks land.
 
-**Status:** 01 done.
+**Status:** 01 and 02 done.
 
 ## Order
 
@@ -25,7 +25,7 @@ The full ticket for each task, with acceptance criteria, is in `.scratch/arena/i
 
 01 and 02 can start immediately. Once 04 lands, 05, 08 and 11 can run in parallel. 12 can start as soon as 01 is done.
 
-New packages: `gladiator` (roster, stats, Elo, public records), `fight` (engine, combat, draws, odds, pairing), `bet` and `dev`. `board`, `live`, `web`, `wallet`, `user` and `leaderboard` stay. `round` and `prediction` are deleted in 01.
+New packages: `gladiator` (roster, stats, Elo, public records), `fight` (engine, combat, dice, odds, pairing), `bet` and `dev`. `board`, `live`, `web`, `wallet`, `user` and `leaderboard` stay. `round` and `prediction` are deleted in 01.
 
 ## 01. Retire Higher or Lower
 
@@ -40,7 +40,7 @@ The board shows "arena opening soon", plus balance and top-up. `/live` sends a `
 
 ## 02. Combat core and dev roster
 
-Pure code with no Spring: seeded HMAC draws with rejection sampling, an exchange, the end-of-fight rules and a whole-fight simulator. Also the checked-in 8-gladiator dev roster. A balance test asserts that the strongest beats the weakest 65–75% of the time, the median length is 8–15 exchanges, and under 5% of fights reach the cap. An offline tool generates the production roster.
+Pure code with no Spring: seeded HMAC dice rolls with rejection sampling, an exchange, the end-of-fight rules and a whole-fight simulator. Also the checked-in 8-gladiator dev roster. A balance test asserts that the strongest beats the weakest 65–75% of the time, the median length is 8–15 exchanges, and under 5% of fights reach the cap. An offline tool generates the production roster.
 
 ## 03. Arena scaffold (MVP fight loop)
 

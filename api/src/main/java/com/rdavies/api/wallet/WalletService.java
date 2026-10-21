@@ -2,6 +2,8 @@ package com.rdavies.api.wallet;
 
 import com.rdavies.api.GameProperties;
 import com.rdavies.api.GameRuleException;
+import com.rdavies.api.wallet.records.LedgerEntry;
+import com.rdavies.api.wallet.records.Wallet;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
