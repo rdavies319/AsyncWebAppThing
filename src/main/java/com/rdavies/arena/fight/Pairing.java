@@ -56,7 +56,7 @@ final class Pairing {
             List<Long> remaining = new ArrayList<>(group);
             while (ranked.size() < 2 && remaining.size() > 2 - ranked.size()) {
                 Corner corner = ranked.isEmpty() ? Corner.RED : Corner.BLUE;
-                int pick = Dice.roll(seed, fightId, 0, corner, RollKind.PAIR, remaining.size()) - 1;
+                int pick = FightRolls.roll(seed, fightId, 0, corner, RollKind.PAIR, remaining.size()) - 1;
                 ranked.add(remaining.remove(pick));
             }
             remaining.sort(Comparator.naturalOrder());

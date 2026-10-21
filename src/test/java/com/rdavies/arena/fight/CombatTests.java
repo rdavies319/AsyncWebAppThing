@@ -38,7 +38,7 @@ class CombatTests {
         assertEquals(1, Combat.attack(attacker, stats(100, 4, 22, 6, 0), 50, () -> 1).damage()); // 4 + 1 - 1 - 6 < 1
     }
 
-    // --- One exchange, from the seed. Rolls worked out with openssl (see DiceTests).
+    // --- One exchange, from the seed. Rolls worked out with openssl (see FightRollsTests).
 
     @Test
     void bothAttacksResolveFromTheStateBeforeTheExchange() {

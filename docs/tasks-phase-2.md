@@ -25,7 +25,7 @@ The full ticket for each task, with acceptance criteria, is in `.scratch/arena/i
 
 01 and 02 can start immediately. Once 04 lands, 05, 08 and 11 can run in parallel. 12 can start as soon as 01 is done.
 
-New packages: `gladiator` (roster, stats, Elo, public records), `fight` (engine, combat, dice, odds, pairing), `bet` and `dev`. `board`, `live`, `web`, `wallet`, `user` and `leaderboard` stay. `round` and `prediction` are deleted in 01.
+New packages: `gladiator` (roster, stats, Elo, public records), `fight` (engine, combat, rolls, odds, pairing), `bet` and `dev`. `board`, `live`, `web`, `wallet`, `user` and `leaderboard` stay. `round` and `prediction` are deleted in 01.
 
 ## 01. Retire Higher or Lower
 

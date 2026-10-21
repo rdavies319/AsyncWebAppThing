@@ -79,8 +79,8 @@ final class Combat {
     }
 
     private static Attack attack(byte[] seed, long fightId, int n, Corner corner, Stats attacker, Stats defender) {
-        int hitRoll = Dice.roll(seed, fightId, n, corner, RollKind.HIT, 100);
-        return attack(attacker, defender, hitRoll, () -> Dice.roll(seed, fightId, n, corner, RollKind.DMG,
+        int hitRoll = FightRolls.roll(seed, fightId, n, corner, RollKind.HIT, 100);
+        return attack(attacker, defender, hitRoll, () -> FightRolls.roll(seed, fightId, n, corner, RollKind.DMG,
                 attacker.attackMax() - attacker.attackMin() + 1));
     }
 }

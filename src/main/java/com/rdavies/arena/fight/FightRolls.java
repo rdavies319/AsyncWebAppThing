@@ -12,10 +12,10 @@ import java.security.GeneralSecurityException;
  * The fight's only source of chance (spec section 6): every roll is an HMAC-SHA256 of its position
  * in the fight, keyed by the fight's seed, so the seed replays a fight exactly.
  */
-final class Dice {
+final class FightRolls {
     private static final long TWO_POW_32 = 1L << 32;
 
-    private Dice() {}
+    private FightRolls() {}
 
     /**
      * A uniform integer in 1..k. Rejection sampling discards 32-bit words at or above the largest
