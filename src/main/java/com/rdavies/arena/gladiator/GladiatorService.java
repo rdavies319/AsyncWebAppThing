@@ -41,12 +41,13 @@ public class GladiatorService {
 
     /**
      * Loads the roster file if no gladiators exist yet. After that the database is the only source
-     * and the file is ignored, so a changed file never changes the roster.
+     * and the file is ignored, so a changed file never changes the roster. Package-private: only
+     * RosterLoader calls it, at startup.
      *
      * @return whether the roster was loaded
      */
     @Transactional
-    public boolean loadRosterIfEmpty(Resource rosterFile) {
+    boolean loadRosterIfEmpty(Resource rosterFile) {
         if (gladiators.count() > 0) {
             return false;
         }
