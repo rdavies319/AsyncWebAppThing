@@ -100,7 +100,7 @@ final class BalanceSimulation {
             Winner winner = fight.outcome().winner();
             if (winner == aCorner) aWins++;
             else if (winner != Winner.DRAW) bWins++;
-            if (fight.outcome().endedBy() == EndedBy.CAP) capped++;
+            if (fight.outcome().endedBy() == EndedBy.DECISION) capped++;
             lengths[i] = fight.rounds().size();
         }
         return new Pairing(a, b, aWins, bWins, lengths, capped);

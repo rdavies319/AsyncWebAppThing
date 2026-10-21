@@ -13,8 +13,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Knockouts are stored with the right winner and ended_by (spec section 4, Ending). CapEndingTests
- * covers the cap.
+ * Knockouts are stored with the right winner and ended_by (spec section 4, Ending). DecisionEndingTests
+ * covers decisions at the cap.
  */
 @GameTest
 @Transactional

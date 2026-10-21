@@ -58,7 +58,7 @@ final class Combat {
         int redShare = redHp * 10_000 / red.hp();
         int blueShare = blueHp * 10_000 / blue.hp();
         Winner winner = redShare == blueShare ? Winner.DRAW : redShare > blueShare ? Winner.RED : Winner.BLUE;
-        return Optional.of(new Outcome(winner, EndedBy.CAP));
+        return Optional.of(new Outcome(winner, EndedBy.DECISION));
     }
 
     /** Plays the whole fight from its seed. The same seed and stats always give the same fight. */

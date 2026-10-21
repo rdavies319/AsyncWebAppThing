@@ -72,7 +72,7 @@ public class BoardService {
         String summary = switch (fight.endedBy()) {
             case DOUBLE_KO -> "Draw: " + red + " and " + blue + " knocked each other out";
             case KO -> winner(fight, red, blue) + " by KO";
-            case CAP -> fight.winner() == Winner.DRAW
+            case DECISION -> fight.winner() == Winner.DRAW
                     ? "Draw: level on HP after " + fight.roundsDone() + " rounds"
                     : winner(fight, red, blue) + " on HP after " + fight.roundsDone() + " rounds";
         };

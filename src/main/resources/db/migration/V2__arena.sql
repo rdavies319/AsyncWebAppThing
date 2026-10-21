@@ -47,7 +47,7 @@ CREATE TABLE fights (
     rounds_done   INT         NOT NULL DEFAULT 0 CHECK (rounds_done >= 0),
     next_round_at TIMESTAMPTZ,
     winner           VARCHAR(8)  CHECK (winner IN ('RED', 'BLUE', 'DRAW')),
-    ended_by         VARCHAR(16) CHECK (ended_by IN ('KO', 'DOUBLE_KO', 'CAP')),
+    ended_by         VARCHAR(16) CHECK (ended_by IN ('KO', 'DOUBLE_KO', 'DECISION')),
     settled_at       TIMESTAMPTZ,
     CHECK (red_id <> blue_id),
     CHECK ((status = 'LIVE') = (next_round_at IS NOT NULL)),

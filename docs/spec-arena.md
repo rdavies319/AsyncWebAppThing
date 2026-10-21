@@ -95,8 +95,8 @@ After each round:
 | --- | --- | --- |
 | Exactly one gladiator at HP ≤ 0 | The other wins | `ko` |
 | Both at HP ≤ 0 | Draw | `double_ko` |
-| Round 30 done (`game.max-rounds`), both standing | Higher remaining HP share wins, comparing `hp_left × 10000 / hp` (integer division) | `cap` |
-| Round 30 done and the shares are equal | Draw | `cap` |
+| Round 30 done (`game.max-rounds`), both standing | Higher remaining HP share wins, comparing `hp_left × 10000 / hp` (integer division) | `decision` |
+| Round 30 done and the shares are equal | Draw | `decision` |
 
 The default cap is 30 rounds at 1 minute each, so every fight is over by :30. The result then stays on screen until the next fight starts.
 
@@ -206,7 +206,7 @@ The engine replaces Higher or Lower's `RoundEngine`. It runs on `game.engine.cro
 | --- | --- |
 | **users**, **wallets**, **ledger** | Unchanged from v2 |
 | **gladiators** | id, slug (unique), name, epithet, bio, hp, attack\_min, attack\_max, defence, agility, elo (int, starts 1000), created\_at. The stat columns are immutable (trigger). |
-| **fights** | id, starts\_at (unique), status (`announced`, `live`, `settled`), red\_id, blue\_id (FK gladiators, different), red\_elo, blue\_elo (at announcement), red\_multiplier\_bps, blue\_multiplier\_bps, seed (internal), red\_hp, blue\_hp (current), rounds\_done, next\_round\_at, winner (`red`, `blue`, `draw`, null), ended\_by (`ko`, `double_ko`, `cap`, null), settled\_at |
+| **fights** | id, starts\_at (unique), status (`announced`, `live`, `settled`), red\_id, blue\_id (FK gladiators, different), red\_elo, blue\_elo (at announcement), red\_multiplier\_bps, blue\_multiplier\_bps, seed (internal), red\_hp, blue\_hp (current), rounds\_done, next\_round\_at, winner (`red`, `blue`, `draw`, null), ended\_by (`ko`, `double_ko`, `decision`, null), settled\_at |
 | **fight\_rounds** | fight\_id, round\_no, due\_at, run\_at, red\_hit\_roll, red\_dmg\_roll, blue\_hit\_roll, blue\_dmg\_roll (internal, null where not rolled), red\_hit (bool), red\_damage, blue\_hit, blue\_damage, red\_hp\_after, blue\_hp\_after. PK (fight\_id, round\_no). Append-only (trigger). |
 | **bets** | id, user\_id, fight\_id, corner (`red`, `blue`), stake, multiplier\_bps, status (`pending`, `won`, `lost`, `push`), payout, created\_at, settled\_at. `UNIQUE(user_id, fight_id)` |
 

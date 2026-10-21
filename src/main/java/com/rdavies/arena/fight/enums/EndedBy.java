@@ -8,8 +8,8 @@ public enum EndedBy {
     KO,
     /** Both at HP 0 or below in the same round: a draw. */
     DOUBLE_KO,
-    /** The round cap, decided on remaining HP share. */
-    CAP;
+    /** Reached the round cap with both standing, so decided on remaining HP share. */
+    DECISION;
 
     @JsonValue
     public String label() {

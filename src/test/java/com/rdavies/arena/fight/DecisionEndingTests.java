@@ -20,27 +20,27 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 @GameTest
 @Transactional
 @TestPropertySource(properties = "game.max-rounds=1")
-class CapEndingTests {
+class DecisionEndingTests {
     @Autowired TestGame game;
 
     @Test
     void theHigherShareOfHpWins() {
-        game.plantFight(Winner.RED, EndedBy.CAP);
+        game.plantFight(Winner.RED, EndedBy.DECISION);
 
         FightResult result = game.finishFight();
 
         assertEquals(Winner.RED, result.winner());
-        assertEquals(EndedBy.CAP, result.endedBy());
+        assertEquals(EndedBy.DECISION, result.endedBy());
         assertEquals(1, result.roundsDone());
     }
 
     @Test
     void equalSharesAreADraw() {
-        game.plantFight(Winner.DRAW, EndedBy.CAP);
+        game.plantFight(Winner.DRAW, EndedBy.DECISION);
 
         FightResult result = game.finishFight();
 
         assertEquals(Winner.DRAW, result.winner());
-        assertEquals(EndedBy.CAP, result.endedBy());
+        assertEquals(EndedBy.DECISION, result.endedBy());
     }
 }

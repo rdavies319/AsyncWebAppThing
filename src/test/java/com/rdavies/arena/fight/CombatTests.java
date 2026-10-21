@@ -99,17 +99,17 @@ class CombatTests {
     @Test
     void atTheCapTheHigherShareOfHpWins() {
         // red keeps 60/120 = 5000, blue keeps 51/100 = 5100: blue has less HP left but the larger share
-        assertEquals(Optional.of(new Outcome(Winner.BLUE, EndedBy.CAP)),
+        assertEquals(Optional.of(new Outcome(Winner.BLUE, EndedBy.DECISION)),
                 Combat.ending(CAP, CAP, stats(120, 5, 9, 0, 10), stats(100, 5, 9, 0, 10), 60, 51));
     }
 
     @Test
     void atTheCapEqualSharesAreADraw() {
         // 50/100 and 41/82 are both 5000 by integer division
-        assertEquals(Optional.of(new Outcome(Winner.DRAW, EndedBy.CAP)),
+        assertEquals(Optional.of(new Outcome(Winner.DRAW, EndedBy.DECISION)),
                 Combat.ending(CAP, CAP, stats(100, 5, 9, 0, 10), stats(82, 5, 9, 0, 10), 50, 41));
         // 33/100 = 3300 and 33/99 = 3333, so not equal
-        assertEquals(Optional.of(new Outcome(Winner.BLUE, EndedBy.CAP)),
+        assertEquals(Optional.of(new Outcome(Winner.BLUE, EndedBy.DECISION)),
                 Combat.ending(CAP, CAP, stats(100, 5, 9, 0, 10), stats(99, 5, 9, 0, 10), 33, 33));
     }
 
@@ -160,7 +160,7 @@ class CombatTests {
         SimulatedFight fight = Combat.simulate(SEED, 3, untouchable, untouchable, CAP);
 
         assertEquals(CAP, fight.rounds().size());
-        assertEquals(new Outcome(Winner.DRAW, EndedBy.CAP), fight.outcome());
+        assertEquals(new Outcome(Winner.DRAW, EndedBy.DECISION), fight.outcome());
     }
 
     private static Stats stats(int hp, int attackMin, int attackMax, int defence, int agility) {
