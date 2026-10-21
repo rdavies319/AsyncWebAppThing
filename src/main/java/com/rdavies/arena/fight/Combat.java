@@ -5,7 +5,7 @@ import com.rdavies.arena.fight.enums.EndedBy;
 import com.rdavies.arena.fight.enums.RollKind;
 import com.rdavies.arena.fight.enums.Winner;
 import com.rdavies.arena.fight.records.Attack;
-import com.rdavies.arena.fight.records.ExchangeResult;
+import com.rdavies.arena.fight.records.RoundResult;
 import com.rdavies.arena.fight.records.Outcome;
 import com.rdavies.arena.fight.records.SimulatedFight;
 import com.rdavies.arena.gladiator.records.Stats;
@@ -19,13 +19,13 @@ final class Combat {
     private Combat() {}
 
     /**
-     * Exchange {@code n}: both gladiators attack at once, from the HP before the exchange, so a
+     * Round {@code n}: both gladiators attack at once, from the HP before the round, so a
      * gladiator knocked out in it still lands their blow.
      */
-    static ExchangeResult exchange(byte[] seed, long fightId, int n, Stats red, Stats blue, int redHp, int blueHp) {
+    static RoundResult round(byte[] seed, long fightId, int n, Stats red, Stats blue, int redHp, int blueHp) {
         Attack redAttack = attack(seed, fightId, n, Corner.RED, red, blue);
         Attack blueAttack = attack(seed, fightId, n, Corner.BLUE, blue, red);
-        return new ExchangeResult(n, redAttack, blueAttack, redHp - blueAttack.damage(), blueHp - redAttack.damage());
+        return new RoundResult(n, redAttack, blueAttack, redHp - blueAttack.damage(), blueHp - redAttack.damage());
     }
 
     /**
@@ -41,8 +41,8 @@ final class Combat {
         return new Attack(hitRoll, dmg, true, Math.max(1, attacker.attackMin() + dmg - 1 - defender.defence()));
     }
 
-    /** How the fight ended after {@code exchangesDone} exchanges, or empty if it fights on. */
-    static Optional<Outcome> ending(int exchangesDone, int maxExchanges, Stats red, Stats blue, int redHp, int blueHp) {
+    /** How the fight ended after {@code roundsDone} rounds, or empty if it fights on. */
+    static Optional<Outcome> ending(int roundsDone, int maxRounds, Stats red, Stats blue, int redHp, int blueHp) {
         boolean redDown = redHp <= 0;
         boolean blueDown = blueHp <= 0;
         if (redDown && blueDown) {
@@ -51,7 +51,7 @@ final class Combat {
         if (redDown || blueDown) {
             return Optional.of(new Outcome(redDown ? Winner.BLUE : Winner.RED, EndedBy.KO));
         }
-        if (exchangesDone < maxExchanges) {
+        if (roundsDone < maxRounds) {
             return Optional.empty();
         }
         // HP left as a share of starting HP, in basis points with integer division
@@ -62,18 +62,18 @@ final class Combat {
     }
 
     /** Plays the whole fight from its seed. The same seed and stats always give the same fight. */
-    static SimulatedFight simulate(byte[] seed, long fightId, Stats red, Stats blue, int maxExchanges) {
-        List<ExchangeResult> exchanges = new ArrayList<>();
+    static SimulatedFight simulate(byte[] seed, long fightId, Stats red, Stats blue, int maxRounds) {
+        List<RoundResult> rounds = new ArrayList<>();
         int redHp = red.hp();
         int blueHp = blue.hp();
         for (int n = 1; ; n++) {
-            ExchangeResult exchange = exchange(seed, fightId, n, red, blue, redHp, blueHp);
-            exchanges.add(exchange);
-            redHp = exchange.redHpAfter();
-            blueHp = exchange.blueHpAfter();
-            Optional<Outcome> outcome = ending(n, maxExchanges, red, blue, redHp, blueHp);
+            RoundResult round = round(seed, fightId, n, red, blue, redHp, blueHp);
+            rounds.add(round);
+            redHp = round.redHpAfter();
+            blueHp = round.blueHpAfter();
+            Optional<Outcome> outcome = ending(n, maxRounds, red, blue, redHp, blueHp);
             if (outcome.isPresent()) {
-                return new SimulatedFight(exchanges, outcome.get());
+                return new SimulatedFight(rounds, outcome.get());
             }
         }
     }

@@ -75,16 +75,16 @@ class ArenaBroadcastTests {
     }
 
     @Test
-    void eachExchangeSendsWhoHitAndTheHpAfter() throws Exception {
+    void eachRoundSendsWhoHitAndTheHpAfter() throws Exception {
         LiveFight live = game.startFight();
         viewer.awaitEvents(3, WAIT);
 
-        LiveFight after = game.nextExchange().live();
+        LiveFight after = game.nextRound().live();
 
         viewer.awaitEvents(4, WAIT);
-        assertEquals("exchange", viewer.eventNames().getLast());
+        assertEquals("round", viewer.eventNames().getLast());
         String data = viewer.sent.getLast();
-        assertTrue(data.startsWith("event:exchange\ndata:{\"fight_id\":" + live.fightId() + ",\"n\":1,"), data);
+        assertTrue(data.startsWith("event:round\ndata:{\"fight_id\":" + live.fightId() + ",\"n\":1,"), data);
         assertTrue(data.contains("\"red_hp_after\":" + after.red().currentHp()), data);
         assertTrue(data.contains("\"blue_hp_after\":" + after.blue().currentHp()), data);
         assertTrue(data.contains("\"red_hit\":"), data);
@@ -98,9 +98,9 @@ class ArenaBroadcastTests {
 
         FightResult result = game.finishFight();
 
-        int expected = 3 + result.exchangesDone() + 1;
+        int expected = 3 + result.roundsDone() + 1;
         viewer.awaitEvents(expected, WAIT);
-        assertEquals(result.exchangesDone(), Collections.frequency(viewer.eventNames(), "exchange"));
+        assertEquals(result.roundsDone(), Collections.frequency(viewer.eventNames(), "round"));
         assertEquals("event:fight_settled\ndata:{\"fight_id\":" + result.fightId()
                 + ",\"winner\":\"blue\",\"ended_by\":\"ko\"}\n\n", viewer.sent.getLast());
     }

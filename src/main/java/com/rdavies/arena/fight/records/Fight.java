@@ -15,7 +15,7 @@ import java.time.Instant;
  * @param redElo         red's rating at announcement
  * @param seed           32 random bytes that fix the whole fight (internal, never published)
  * @param redHp          red's current HP
- * @param nextExchangeAt when the next exchange is due; set only while live
+ * @param nextRoundAt when the next round is due; set only while live
  */
 @Table("fights")
 public record Fight(
@@ -29,25 +29,25 @@ public record Fight(
     byte[] seed,
     int redHp,
     int blueHp,
-    int exchangesDone,
-    Instant nextExchangeAt,
+    int roundsDone,
+    Instant nextRoundAt,
     Winner winner,
     EndedBy endedBy,
     Instant settledAt
 ) {
-    public Fight start(Instant firstExchangeAt) {
+    public Fight start(Instant firstRoundAt) {
         return new Fight(id, startsAt, FightStatus.LIVE, redId, blueId, redElo, blueElo, seed,
-                redHp, blueHp, exchangesDone, firstExchangeAt, null, null, null);
+                redHp, blueHp, roundsDone, firstRoundAt, null, null, null);
     }
 
-    /** After an exchange the fight carries on from. */
-    public Fight afterExchange(ExchangeResult exchange, Instant nextExchangeAt) {
+    /** After a round the fight carries on from. */
+    public Fight afterRound(RoundResult round, Instant nextRoundAt) {
         return new Fight(id, startsAt, status, redId, blueId, redElo, blueElo, seed,
-                exchange.redHpAfter(), exchange.blueHpAfter(), exchange.n(), nextExchangeAt, null, null, null);
+                round.redHpAfter(), round.blueHpAfter(), round.n(), nextRoundAt, null, null, null);
     }
 
-    /** After the exchange that ended it. */
-    public Fight settle(ExchangeResult last, Outcome outcome, Instant now) {
+    /** After the round that ended it. */
+    public Fight settle(RoundResult last, Outcome outcome, Instant now) {
         return new Fight(id, startsAt, FightStatus.SETTLED, redId, blueId, redElo, blueElo, seed,
                 last.redHpAfter(), last.blueHpAfter(), last.n(), null, outcome.winner(), outcome.endedBy(), now);
     }
@@ -55,7 +55,7 @@ public record Fight(
     /** Moved to a later slot, while still open for betting. */
     public Fight postpone(Instant newStartsAt) {
         return new Fight(id, newStartsAt, status, redId, blueId, redElo, blueElo, seed,
-                redHp, blueHp, exchangesDone, nextExchangeAt, winner, endedBy, settledAt);
+                redHp, blueHp, roundsDone, nextRoundAt, winner, endedBy, settledAt);
     }
 
     @Override

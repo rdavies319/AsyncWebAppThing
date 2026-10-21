@@ -2,12 +2,12 @@ package com.rdavies.arena.fight;
 
 import com.rdavies.arena.GameProperties;
 import com.rdavies.arena.fight.enums.FightStatus;
-import com.rdavies.arena.fight.events.ExchangeRun;
+import com.rdavies.arena.fight.events.RoundFought;
 import com.rdavies.arena.fight.events.FightSettled;
 import com.rdavies.arena.fight.events.FightStarted;
 import com.rdavies.arena.fight.events.MatchupAnnounced;
-import com.rdavies.arena.fight.records.ExchangeResult;
-import com.rdavies.arena.fight.records.ExchangeView;
+import com.rdavies.arena.fight.records.RoundResult;
+import com.rdavies.arena.fight.records.RoundView;
 import com.rdavies.arena.fight.records.Fight;
 import com.rdavies.arena.fight.records.LastFought;
 import com.rdavies.arena.fight.records.Outcome;
@@ -33,7 +33,7 @@ import java.util.stream.Collectors;
 
 /**
  * The fight engine (spec section 7). Each tick is one transaction under the arena's advisory lock,
- * and every step is gated on fight status and exchanges_done, so a repeated tick changes nothing.
+ * and every step is gated on fight status and rounds_done, so a repeated tick changes nothing.
  * Events are published inside the tick and reach listeners only after it commits.
  */
 @Component
@@ -43,7 +43,7 @@ public class FightEngine {
     static final long LOCK_KEY = 0x4152454E41L;
 
     private final FightRepository fights;
-    private final FightExchangeRepository exchanges;
+    private final FightRoundRepository rounds;
     private final FightService views;
     private final GladiatorService gladiators;
     private final ApplicationEventPublisher events;
@@ -52,11 +52,11 @@ public class FightEngine {
     private final CronExpression fightCron;
     private final SecureRandom random = new SecureRandom();
 
-    FightEngine(FightRepository fights, FightExchangeRepository exchanges, FightService views,
+    FightEngine(FightRepository fights, FightRoundRepository rounds, FightService views,
                 GladiatorService gladiators, ApplicationEventPublisher events, GameProperties game,
                 Clock clock) {
         this.fights = fights;
-        this.exchanges = exchanges;
+        this.rounds = rounds;
         this.views = views;
         this.gladiators = gladiators;
         this.events = events;
@@ -73,7 +73,7 @@ public class FightEngine {
         }
         Instant now = clock.instant();
         boolean fighting = fights.lockLive()
-                .map(live -> runDueExchanges(live, now))
+                .map(live -> runDueRounds(live, now))
                 .filter(live -> live.status() == FightStatus.LIVE)
                 .isPresent();
 
@@ -93,25 +93,25 @@ public class FightEngine {
         }
     }
 
-    /** Runs every exchange due by {@code now}, settling the fight if one ends it. Returns the fight as it stands. */
-    private Fight runDueExchanges(Fight fight, Instant now) {
+    /** Runs every round due by {@code now}, settling the fight if one ends it. Returns the fight as it stands. */
+    private Fight runDueRounds(Fight fight, Instant now) {
         Stats red = gladiators.stats(fight.redId());
         Stats blue = gladiators.stats(fight.blueId());
-        while (fight.status() == FightStatus.LIVE && !fight.nextExchangeAt().isAfter(now)) {
-            int n = fight.exchangesDone() + 1;
-            ExchangeResult exchange = Combat.exchange(fight.seed(), fight.id(), n, red, blue, fight.redHp(), fight.blueHp());
-            exchanges.insert(fight.id(), exchange, fight.nextExchangeAt(), now);
-            events.publishEvent(ExchangeRun.of(fight.id(), ExchangeView.of(exchange)));
-            Optional<Outcome> outcome = Combat.ending(n, game.maxExchanges(), red, blue,
-                    exchange.redHpAfter(), exchange.blueHpAfter());
+        while (fight.status() == FightStatus.LIVE && !fight.nextRoundAt().isAfter(now)) {
+            int n = fight.roundsDone() + 1;
+            RoundResult round = Combat.round(fight.seed(), fight.id(), n, red, blue, fight.redHp(), fight.blueHp());
+            rounds.insert(fight.id(), round, fight.nextRoundAt(), now);
+            events.publishEvent(RoundFought.of(fight.id(), RoundView.of(round)));
+            Optional<Outcome> outcome = Combat.ending(n, game.maxRounds(), red, blue,
+                    round.redHpAfter(), round.blueHpAfter());
             fight = outcome.isPresent()
-                    ? fight.settle(exchange, outcome.get(), now)
-                    : fight.afterExchange(exchange, dueAt(fight, n + 1));
+                    ? fight.settle(round, outcome.get(), now)
+                    : fight.afterRound(round, dueAt(fight, n + 1));
             fights.save(fight);
         }
         if (fight.status() == FightStatus.SETTLED) {
             events.publishEvent(new FightSettled(fight.id(), fight.winner(), fight.endedBy()));
-            log.info("Fight {} settled: {} by {} after {} exchanges", fight.id(), fight.winner(), fight.endedBy(), fight.exchangesDone());
+            log.info("Fight {} settled: {} by {} after {} rounds", fight.id(), fight.winner(), fight.endedBy(), fight.roundsDone());
         }
         return fight;
     }
@@ -156,9 +156,9 @@ public class FightEngine {
         log.info("Fight {} announced for {}: {} v {}", id, slot, red.slug(), blue.slug());
     }
 
-    /** Exchange n is due at starts_at + n × exchange-interval. */
+    /** Round n is due at starts_at + n × round-interval. */
     private Instant dueAt(Fight fight, int n) {
-        return fight.startsAt().plus(game.exchangeInterval().multipliedBy(n));
+        return fight.startsAt().plus(game.roundInterval().multipliedBy(n));
     }
 
     private Instant nextSlot(Instant after) {

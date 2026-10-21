@@ -1,6 +1,6 @@
 package com.rdavies.arena.fight;
 
-import com.rdavies.arena.fight.events.ExchangeRun;
+import com.rdavies.arena.fight.events.RoundFought;
 import com.rdavies.arena.fight.events.FightSettled;
 import com.rdavies.arena.fight.events.FightStarted;
 import com.rdavies.arena.fight.events.MatchupAnnounced;
@@ -24,7 +24,7 @@ public class TestFightEvents {
     }
 
     @TransactionalEventListener
-    void on(ExchangeRun event) {
+    void on(RoundFought event) {
         delivered.add(event);
     }
 

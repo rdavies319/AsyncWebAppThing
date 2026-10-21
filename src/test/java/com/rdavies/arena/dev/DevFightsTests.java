@@ -74,27 +74,27 @@ class DevFightsTests {
     }
 
     @Test
-    void exchangeRunsTheNextExchangeNow() throws Exception {
+    void roundRunsTheNextRoundNow() throws Exception {
         LiveFight live = game.startFight(); // at 01:00
         clock.set(live.startsAt().plusSeconds(10));
 
-        mockMvc.perform(post("/dev/fights/exchange").with(user(dev)).with(csrf()))
+        mockMvc.perform(post("/dev/fights/round").with(user(dev)).with(csrf()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.live.exchanges_done").value(1))
-                .andExpect(jsonPath("$.live.next_exchange_at").value("2026-01-01T01:02:00Z"));
+                .andExpect(jsonPath("$.live.rounds_done").value(1))
+                .andExpect(jsonPath("$.live.next_round_at").value("2026-01-01T01:02:00Z"));
     }
 
     @Test
-    void exchangeIsRefusedWithoutALiveFight() throws Exception {
+    void roundIsRefusedWithoutALiveFight() throws Exception {
         game.boot();
 
-        mockMvc.perform(post("/dev/fights/exchange").with(user(dev)).with(csrf()))
+        mockMvc.perform(post("/dev/fights/round").with(user(dev)).with(csrf()))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.detail").value("No fight is live"));
     }
 
     @Test
-    void finishRunsExchangesUntilTheFightSettles() throws Exception {
+    void finishRunsRoundsUntilTheFightSettles() throws Exception {
         LiveFight live = game.startFight();
         clock.set(live.startsAt().plusSeconds(10));
 

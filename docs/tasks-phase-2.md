@@ -40,11 +40,11 @@ The board shows "arena opening soon", plus balance and top-up. `/live` sends a `
 
 ## 02. Combat core and dev roster
 
-Pure code with no Spring: seeded HMAC dice rolls with rejection sampling, an exchange, the end-of-fight rules and a whole-fight simulator. Also the checked-in 8-gladiator dev roster. A balance test asserts that the strongest beats the weakest 65–75% of the time, the median length is 8–15 exchanges, and under 5% of fights reach the cap. An offline tool generates the production roster.
+Pure code with no Spring: seeded HMAC dice rolls with rejection sampling, a round, the end-of-fight rules and a whole-fight simulator. Also the checked-in 8-gladiator dev roster. A balance test asserts that the strongest beats the weakest 65–75% of the time, the median length is 8–15 rounds, and under 5% of fights reach the cap. An offline tool generates the production roster.
 
 ## 03. Arena scaffold (MVP fight loop)
 
-Schema for `gladiators`, `fights` and `fight_exchanges` (with triggers and indexes), and roster loading on first boot. An engine tick under its own advisory lock bootstraps, starts, runs exchanges and settles a fight. `GET /fights/current` is public and shows nothing internal. The cadence properties go into `GameProperties`. `TestGame` gets `startFight`, `nextExchange` and `finishFight`. Pairing and announcement are deliberately simple here, and there are no events yet.
+Schema for `gladiators`, `fights` and `fight_rounds` (with triggers and indexes), and roster loading on first boot. An engine tick under its own advisory lock bootstraps, starts, runs rounds and settles a fight. `GET /fights/current` is public and shows nothing internal. The cadence properties go into `GameProperties`. `TestGame` gets `startFight`, `nextRound` and `finishFight`. Pairing and announcement are deliberately simple here, and there are no events yet.
 
 ## 04. Full fight engine
 
@@ -52,7 +52,7 @@ The real pairing rules, and the next fight announced when the current one starts
 
 ## 05. Watch the fight live, with dev cadence and forcing
 
-The arena `Board` covers every fight state, the SSE events and snapshot carry the arena, and countdowns run on server time. Environment-variable overrides, `.env.example` and `.env.dev`, and `ENV_FILE` in compose. The app refuses to start if a capped fight can't fit between two slots. Dev-profile `/dev/fights/{start,exchange,finish}` endpoints and a dev panel. Run commands documented.
+The arena `Board` covers every fight state, the SSE events and snapshot carry the arena, and countdowns run on server time. Environment-variable overrides, `.env.example` and `.env.dev`, and `ENV_FILE` in compose. The app refuses to start if a capped fight can't fit between two slots. Dev-profile `/dev/fights/{start,round,finish}` endpoints and a dev panel. Run commands documented.
 
 ## 06. Elo ratings and odds
 
@@ -71,7 +71,7 @@ The parts:
 
 ## 08. Crash resume and missed starts
 
-Overdue exchanges replay from the seed and give the same result as no outage. The fight then realigns to the next interval and carries on live. A missed start moves to the next slot and betting reopens. Gaps are logged at WARN. Fights are never voided. Once 07 has landed, bets stand when a start moves.
+Overdue rounds replay from the seed and give the same result as no outage. The fight then realigns to the next interval and carries on live. A missed start moves to the next slot and betting reopens. Gaps are logged at WARN. Fights are never voided. Once 07 has landed, bets stand when a start moves.
 
 ## 09. Bet history
 
@@ -83,7 +83,7 @@ Overdue exchanges replay from the seed and give the same result as no outage. Th
 
 ## 11. Fight history pages
 
-`/fights` and `/fights/{id}`: the matchup, odds, result and public exchange log, with links from the board.
+`/fights` and `/fights/{id}`: the matchup, odds, result and public round log, with links from the board.
 
 ## 12. Leaderboard
 

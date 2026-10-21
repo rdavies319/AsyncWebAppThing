@@ -3,7 +3,7 @@ package com.rdavies.arena.fight;
 import com.rdavies.arena.fight.enums.EndedBy;
 import com.rdavies.arena.fight.enums.Winner;
 import com.rdavies.arena.fight.records.Attack;
-import com.rdavies.arena.fight.records.ExchangeResult;
+import com.rdavies.arena.fight.records.RoundResult;
 import com.rdavies.arena.fight.records.Outcome;
 import com.rdavies.arena.fight.records.SimulatedFight;
 import com.rdavies.arena.gladiator.records.Stats;
@@ -14,7 +14,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-/** One exchange, the end-of-fight rules and a whole fight, from spec section 4. */
+/** One round, the end-of-fight rules and a whole fight, from spec section 4. */
 class CombatTests {
     private static final byte[] SEED = HexFormat.of().parseHex("000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f");
     private static final int CAP = 30;
@@ -38,14 +38,14 @@ class CombatTests {
         assertEquals(1, Combat.attack(attacker, stats(100, 4, 22, 6, 0), 50, () -> 1).damage()); // 4 + 1 - 1 - 6 < 1
     }
 
-    // --- One exchange, from the seed. Rolls worked out with openssl (see FightRollsTests).
+    // --- One round, from the seed. Rolls worked out with openssl (see FightRollsTests).
 
     @Test
-    void bothAttacksResolveFromTheStateBeforeTheExchange() {
+    void bothAttacksResolveFromTheStateBeforeTheRound() {
         Stats red = stats(100, 10, 18, 2, 20);
         Stats blue = stats(90, 4, 22, 3, 25);
 
-        ExchangeResult result = Combat.exchange(SEED, 1, 1, red, blue, 100, 90);
+        RoundResult result = Combat.round(SEED, 1, 1, red, blue, 100, 90);
 
         // red: hit roll 70 > blue's agility 25, dmg roll 4 of 1..9: 10 + 4 - 1 - 3 = 10
         assertEquals(new Attack(70, 4, true, 10), result.red());
@@ -60,7 +60,7 @@ class CombatTests {
         Stats red = stats(100, 10, 18, 2, 20);
         Stats blue = stats(90, 4, 22, 3, 25);
 
-        ExchangeResult result = Combat.exchange(SEED, 1, 1, red, blue, 2, 10); // both fall in the same exchange
+        RoundResult result = Combat.round(SEED, 1, 1, red, blue, 2, 10); // both fall in the same round
 
         assertEquals(0, result.redHpAfter());
         assertEquals(0, result.blueHpAfter());
@@ -69,7 +69,7 @@ class CombatTests {
     @Test
     void theHitRollDodgesAtExactlyTheDefendersAgility() {
         Stats red = stats(100, 10, 18, 2, 26); // blue's hit roll is 26
-        ExchangeResult result = Combat.exchange(SEED, 1, 1, red, stats(90, 4, 22, 3, 25), 100, 90);
+        RoundResult result = Combat.round(SEED, 1, 1, red, stats(90, 4, 22, 3, 25), 100, 90);
 
         assertEquals(new Attack(26, null, false, 0), result.blue());
         assertEquals(100, result.redHpAfter());
@@ -114,7 +114,7 @@ class CombatTests {
     }
 
     @Test
-    void aKnockoutInTheLastExchangeIsStillAKnockout() {
+    void aKnockoutInTheLastRoundIsStillAKnockout() {
         Stats any = stats(100, 5, 9, 0, 10);
         assertEquals(Optional.of(new Outcome(Winner.RED, EndedBy.KO)), Combat.ending(CAP, CAP, any, any, 40, 0));
     }
@@ -133,7 +133,7 @@ class CombatTests {
     }
 
     @Test
-    void aSimulatedFightRunsExchangeByExchangeUntilItEnds() {
+    void aSimulatedFightRunsRoundByRoundUntilItEnds() {
         Stats red = stats(110, 6, 16, 2, 15);
         Stats blue = stats(100, 8, 14, 1, 20);
 
@@ -141,16 +141,16 @@ class CombatTests {
 
         int redHp = red.hp();
         int blueHp = blue.hp();
-        for (int i = 0; i < fight.exchanges().size(); i++) {
-            ExchangeResult exchange = fight.exchanges().get(i);
-            assertEquals(i + 1, exchange.n());
-            assertEquals(Combat.exchange(SEED, 9, i + 1, red, blue, redHp, blueHp), exchange);
-            redHp = exchange.redHpAfter();
-            blueHp = exchange.blueHpAfter();
-            boolean last = i == fight.exchanges().size() - 1;
+        for (int i = 0; i < fight.rounds().size(); i++) {
+            RoundResult round = fight.rounds().get(i);
+            assertEquals(i + 1, round.n());
+            assertEquals(Combat.round(SEED, 9, i + 1, red, blue, redHp, blueHp), round);
+            redHp = round.redHpAfter();
+            blueHp = round.blueHpAfter();
+            boolean last = i == fight.rounds().size() - 1;
             assertEquals(last, Combat.ending(i + 1, CAP, red, blue, redHp, blueHp).isPresent());
         }
-        assertEquals(Combat.ending(fight.exchanges().size(), CAP, red, blue, redHp, blueHp).orElseThrow(), fight.outcome());
+        assertEquals(Combat.ending(fight.rounds().size(), CAP, red, blue, redHp, blueHp).orElseThrow(), fight.outcome());
     }
 
     @Test
@@ -159,7 +159,7 @@ class CombatTests {
 
         SimulatedFight fight = Combat.simulate(SEED, 3, untouchable, untouchable, CAP);
 
-        assertEquals(CAP, fight.exchanges().size());
+        assertEquals(CAP, fight.rounds().size());
         assertEquals(new Outcome(Winner.DRAW, EndedBy.CAP), fight.outcome());
     }
 

@@ -5,7 +5,7 @@ import com.rdavies.arena.TestGame;
 import com.rdavies.arena.fight.enums.FightStatus;
 import com.rdavies.arena.fight.records.AnnouncedFight;
 import com.rdavies.arena.fight.records.CurrentFights;
-import com.rdavies.arena.fight.records.ExchangeResult;
+import com.rdavies.arena.fight.records.RoundResult;
 import com.rdavies.arena.fight.records.Fight;
 import com.rdavies.arena.fight.records.FightResult;
 import com.rdavies.arena.fight.records.LiveFight;
@@ -36,7 +36,7 @@ class FightEngineTests {
     @Autowired TestGame game;
     @Autowired FightService fightService;
     @Autowired FightRepository fights;
-    @Autowired FightExchangeRepository exchanges;
+    @Autowired FightRoundRepository rounds;
     @Autowired GladiatorService gladiators;
     @Autowired JdbcTemplate jdbc;
 
@@ -67,10 +67,10 @@ class FightEngineTests {
         LiveFight live = game.startFight();
 
         assertEquals(ONE_AM, live.startsAt());
-        assertEquals(0, live.exchangesDone());
-        assertEquals(ONE_AM.plusSeconds(60), live.nextExchangeAt());
+        assertEquals(0, live.roundsDone());
+        assertEquals(ONE_AM.plusSeconds(60), live.nextRoundAt());
         assertEquals(live.red().startingHp(), live.red().currentHp());
-        assertTrue(live.exchanges().isEmpty());
+        assertTrue(live.rounds().isEmpty());
     }
 
     @Test
@@ -89,7 +89,7 @@ class FightEngineTests {
     void theNextFightWaitsForTheLastToSettle() {
         LiveFight live = game.startFight();
         // Hold the live fight past the next slot, as a fight too long for its slot would
-        jdbc.update("UPDATE fights SET next_exchange_at = ? WHERE id = ?",
+        jdbc.update("UPDATE fights SET next_round_at = ? WHERE id = ?",
                 Timestamp.from(Instant.parse("2026-01-01T05:00:00Z")), live.fightId());
 
         CurrentFights now = game.tickAt(TWO_AM);
@@ -99,29 +99,29 @@ class FightEngineTests {
     }
 
     @Test
-    void eachDueExchangeIsWrittenWithTheNewHp() {
+    void eachDueRoundIsWrittenWithTheNewHp() {
         LiveFight started = game.startFight();
 
-        LiveFight live = game.nextExchange().live();
+        LiveFight live = game.nextRound().live();
 
-        assertEquals(1, live.exchangesDone());
-        assertEquals(ONE_AM.plusSeconds(120), live.nextExchangeAt());
-        assertEquals(1, live.exchanges().size());
-        assertEquals(started.red().startingHp() - live.exchanges().getFirst().blueDamage(), live.red().currentHp());
-        assertEquals(started.blue().startingHp() - live.exchanges().getFirst().redDamage(), live.blue().currentHp());
+        assertEquals(1, live.roundsDone());
+        assertEquals(ONE_AM.plusSeconds(120), live.nextRoundAt());
+        assertEquals(1, live.rounds().size());
+        assertEquals(started.red().startingHp() - live.rounds().getFirst().blueDamage(), live.red().currentHp());
+        assertEquals(started.blue().startingHp() - live.rounds().getFirst().redDamage(), live.blue().currentHp());
     }
 
     @Test
-    void anExchangeWaitsUntilItIsDue() {
+    void aRoundWaitsUntilItIsDue() {
         LiveFight live = game.startFight();
 
-        assertEquals(0, game.tickAt(live.nextExchangeAt().minusMillis(1)).live().exchangesDone());
+        assertEquals(0, game.tickAt(live.nextRoundAt().minusMillis(1)).live().roundsDone());
     }
 
     @Test
     void repeatingATickChangesNothing() {
         game.startFight();
-        CurrentFights once = game.nextExchange();
+        CurrentFights once = game.nextRound();
 
         CurrentFights twice = game.tickAt(once.serverTime());
 
@@ -136,7 +136,7 @@ class FightEngineTests {
         assertEquals(FightStatus.SETTLED, settled.status());
         assertNotNull(result.winner());
         assertNotNull(result.endedBy());
-        assertNull(settled.nextExchangeAt());
+        assertNull(settled.nextRoundAt());
         CurrentFights now = fightService.current();
         assertNull(now.live());
         assertEquals(TWO_AM, now.announced().startsAt());
@@ -154,10 +154,10 @@ class FightEngineTests {
 
         assertEquals(simulated.outcome().winner(), result.winner());
         assertEquals(simulated.outcome().endedBy(), result.endedBy());
-        assertEquals(simulated.exchanges().size(), result.exchangesDone());
-        List<ExchangeResult> stored = exchanges.findByFight(fight.id()).stream().map(e -> e.result()).toList();
-        assertEquals(simulated.exchanges(), stored);
-        ExchangeResult last = simulated.exchanges().getLast();
+        assertEquals(simulated.rounds().size(), result.roundsDone());
+        List<RoundResult> stored = rounds.findByFight(fight.id()).stream().map(e -> e.result()).toList();
+        assertEquals(simulated.rounds(), stored);
+        RoundResult last = simulated.rounds().getLast();
         assertEquals(last.redHpAfter(), result.redHp());
         assertEquals(last.blueHpAfter(), result.blueHp());
     }

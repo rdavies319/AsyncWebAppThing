@@ -20,8 +20,8 @@ import java.util.List;
  * @param topUpTarget  the daily top-up refills a wallet to this balance
  * @param stakeOptions the stakes the game page offers as buttons, each within minStake..maxStake
  * @param fightCron        when fights start, as a Spring cron expression in UTC (spec section 4)
- * @param exchangeInterval the time between a fight's exchanges; exchange n is due at starts_at + n × this
- * @param maxExchanges     the exchange cap, after which a fight is decided on remaining HP share
+ * @param roundInterval the time between a fight's rounds; round n is due at starts_at + n × this
+ * @param maxRounds     the round cap, after which a fight is decided on remaining HP share
  * @param rosterFile       where the roster loads from on first boot, as a Spring resource location
  * @param engine           when the fight engine ticks
  */
@@ -35,8 +35,8 @@ public record GameProperties(
     @DefaultValue("1000") long topUpTarget,
     @DefaultValue({"10", "100", "500"}) List<Long> stakeOptions,
     @DefaultValue("0 0 * * * *") String fightCron,
-    @DefaultValue("1m") Duration exchangeInterval,
-    @DefaultValue("30") int maxExchanges,
+    @DefaultValue("1m") Duration roundInterval,
+    @DefaultValue("30") int maxRounds,
     @DefaultValue("classpath:roster-dev.json") String rosterFile,
     @DefaultValue Engine engine
 ) {
@@ -65,10 +65,10 @@ public record GameProperties(
             }
         }
         stakeOptions = List.copyOf(stakeOptions);
-        Duration cappedFight = exchangeInterval.multipliedBy(maxExchanges);
+        Duration cappedFight = roundInterval.multipliedBy(maxRounds);
         Duration gap = shortestGap(CronExpression.parse(fightCron));
         if (cappedFight.compareTo(gap) >= 0) {
-            throw new IllegalArgumentException("game.max-exchanges × game.exchange-interval (" + cappedFight
+            throw new IllegalArgumentException("game.max-rounds × game.round-interval (" + cappedFight
                     + ") must be shorter than the gap between two game.fight-cron slots (" + gap + ")");
         }
     }

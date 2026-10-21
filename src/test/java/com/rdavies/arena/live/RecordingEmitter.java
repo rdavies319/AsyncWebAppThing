@@ -27,7 +27,7 @@ public class RecordingEmitter extends SseEmitter {
         sent.add(builder.build().stream().map(part -> String.valueOf(part.getData())).collect(Collectors.joining()));
     }
 
-    /** The names of the events sent so far, in order, e.g. ["server_time", "exchange"]. */
+    /** The names of the events sent so far, in order, e.g. ["server_time", "round"]. */
     public List<String> eventNames() {
         return sent.stream().filter(s -> s.startsWith("event:"))
                 .map(s -> s.substring("event:".length(), s.indexOf('\n'))).toList();

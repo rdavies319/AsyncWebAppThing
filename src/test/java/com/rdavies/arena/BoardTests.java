@@ -5,7 +5,7 @@ import com.rdavies.arena.board.records.Board;
 import com.rdavies.arena.fight.enums.EndedBy;
 import com.rdavies.arena.fight.enums.Winner;
 import com.rdavies.arena.fight.records.AnnouncedFight;
-import com.rdavies.arena.fight.records.ExchangeView;
+import com.rdavies.arena.fight.records.RoundView;
 import com.rdavies.arena.fight.records.FightResult;
 import com.rdavies.arena.fight.records.LiveFight;
 import com.rdavies.arena.user.UserService;
@@ -85,37 +85,37 @@ class BoardTests {
     }
 
     @Test
-    void aLiveFightShowsBothCornersAndTheNextExchange() {
+    void aLiveFightShowsBothCornersAndTheNextRound() {
         LiveFight started = game.startFight();
-        LiveFight live = game.nextExchange().live();
+        LiveFight live = game.nextRound().live();
 
         Board board = arena();
 
-        assertEquals(Instant.parse("2026-01-01T01:01:00Z"), board.serverTime()); // when the first exchange ran
+        assertEquals(Instant.parse("2026-01-01T01:01:00Z"), board.serverTime()); // when the first round ran
         assertEquals(started.fightId(), board.live().fightId());
         assertEquals(new Board.Corner(live.red().name(), live.red().epithet(), live.red().startingHp(), live.red().currentHp()),
                 board.live().red());
         assertEquals(new Board.Corner(live.blue().name(), live.blue().epithet(), live.blue().startingHp(), live.blue().currentHp()),
                 board.live().blue());
-        assertEquals(ONE_AM.plusSeconds(120), board.live().nextExchangeAt());
+        assertEquals(ONE_AM.plusSeconds(120), board.live().nextRoundAt());
         assertNull(board.lastResult());
         assertEquals(TWO_AM, board.next().startsAt()); // announced when this fight started
     }
 
     @Test
-    void theExchangeLogReadsNewestFirst() {
-        game.plantFight(Winner.RED, EndedBy.KO); // lasts more than two exchanges
+    void theRoundLogReadsNewestFirst() {
+        game.plantFight(Winner.RED, EndedBy.KO); // lasts more than two rounds
         LiveFight live = game.startFight();
-        game.nextExchange();
-        LiveFight afterTwo = game.nextExchange().live();
+        game.nextRound();
+        LiveFight afterTwo = game.nextRound().live();
 
         Board board = arena();
 
         String red = live.red().name();
         String blue = live.blue().name();
         assertEquals(2, board.live().log().size());
-        assertEquals(logLine(afterTwo.exchanges().get(1), red, blue), board.live().log().get(0));
-        assertEquals(logLine(afterTwo.exchanges().get(0), red, blue), board.live().log().get(1));
+        assertEquals(logLine(afterTwo.rounds().get(1), red, blue), board.live().log().get(0));
+        assertEquals(logLine(afterTwo.rounds().get(0), red, blue), board.live().log().get(1));
     }
 
     @Test
@@ -199,7 +199,7 @@ class BoardTests {
         String page = mockMvc.perform(get("/").with(user(alice))).andReturn().getResponse().getContentAsString();
 
         assertTrue(page.contains(
-                "hx-trigger=\"sse:snapshot, sse:matchup_announced, sse:fight_started, sse:exchange, sse:fight_settled\""),
+                "hx-trigger=\"sse:snapshot, sse:matchup_announced, sse:fight_started, sse:round, sse:fight_settled\""),
                 page);
     }
 
@@ -212,7 +212,7 @@ class BoardTests {
         for (String html : new String[] {anonymous, player}) {
             assertTrue(html.contains(live.red().name()), html);
             assertTrue(html.contains(live.blue().name()), html);
-            assertTrue(html.contains("data-until=\"2026-01-01T01:01:00Z\""), html); // the next exchange's countdown
+            assertTrue(html.contains("data-until=\"2026-01-01T01:01:00Z\""), html); // the next round's countdown
         }
         assertTrue(player.contains("Balance: <span>1000</span> pts"), player);
     }
@@ -234,7 +234,7 @@ class BoardTests {
     }
 
     /** "2. Brutus hits Vex for 14 · Brutus dodges": red's attack, then blue's. */
-    private static String logLine(ExchangeView e, String red, String blue) {
+    private static String logLine(RoundView e, String red, String blue) {
         String redAttack = e.redHit() ? red + " hits " + blue + " for " + e.redDamage() : blue + " dodges";
         String blueAttack = e.blueHit() ? blue + " hits " + red + " for " + e.blueDamage() : red + " dodges";
         return e.n() + ". " + redAttack + " · " + blueAttack;

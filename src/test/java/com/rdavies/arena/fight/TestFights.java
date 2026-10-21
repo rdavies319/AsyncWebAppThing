@@ -44,7 +44,7 @@ public class TestFights {
         byte[] seed = new byte[32];
         for (int i = 0; i < SEARCH_LIMIT; i++) {
             RANDOM.nextBytes(seed);
-            if (Combat.simulate(seed, id, red, blue, game.maxExchanges()).outcome().equals(wanted)) {
+            if (Combat.simulate(seed, id, red, blue, game.maxRounds()).outcome().equals(wanted)) {
                 // The seed is immutable, so the row is replaced rather than updated
                 jdbc.update("DELETE FROM fights WHERE id = ?", id);
                 jdbc.update("""
@@ -60,9 +60,9 @@ public class TestFights {
 
     /**
      * Removes every fight, for tests that commit. TRUNCATE skips the append-only trigger, which
-     * blocks deleting exchanges row by row.
+     * blocks deleting rounds row by row.
      */
     public void deleteAll() {
-        jdbc.execute("TRUNCATE fight_exchanges, fights");
+        jdbc.execute("TRUNCATE fight_rounds, fights");
     }
 }

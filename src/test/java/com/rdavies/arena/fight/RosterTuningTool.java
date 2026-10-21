@@ -44,12 +44,12 @@ class RosterTuningTool {
         long seed = Long.getLong("roster.seed", System.nanoTime());
         Random random = new Random(seed);
         List<RosterEntry> current = randomStats(identities(), random);
-        double score = score(BalanceSimulation.run(current, SEARCH_FIGHTS, RosterBalanceTests.MAX_EXCHANGES));
+        double score = score(BalanceSimulation.run(current, SEARCH_FIGHTS, RosterBalanceTests.MAX_ROUNDS));
 
         for (int i = 0; i < ITERATIONS; i++) {
             if (score == 0) {
                 BalanceSimulation.Report full = BalanceSimulation.run(current, RosterBalanceTests.FIGHTS_PER_PAIRING,
-                        RosterBalanceTests.MAX_EXCHANGES);
+                        RosterBalanceTests.MAX_ROUNDS);
                 if (score(full) == 0) {
                     write(current, out);
                     System.out.printf("Roster written to %s after %d steps (roster.seed=%d)%n%s", out, i, seed, full);
@@ -58,14 +58,14 @@ class RosterTuningTool {
                 score = score(full); // the rough count was lucky: keep climbing from the accurate score
             }
             List<RosterEntry> candidate = mutate(current, random);
-            double candidateScore = score(BalanceSimulation.run(candidate, SEARCH_FIGHTS, RosterBalanceTests.MAX_EXCHANGES));
+            double candidateScore = score(BalanceSimulation.run(candidate, SEARCH_FIGHTS, RosterBalanceTests.MAX_ROUNDS));
             if (candidateScore <= score) {
                 current = candidate;
                 score = candidateScore;
             }
         }
         fail("no balanced roster after " + ITERATIONS + " steps; try another roster.seed. Closest (score "
-                + score + "):\n" + BalanceSimulation.run(current, RosterBalanceTests.FIGHTS_PER_PAIRING, RosterBalanceTests.MAX_EXCHANGES));
+                + score + "):\n" + BalanceSimulation.run(current, RosterBalanceTests.FIGHTS_PER_PAIRING, RosterBalanceTests.MAX_ROUNDS));
     }
 
     /**
@@ -74,7 +74,7 @@ class RosterTuningTool {
      */
     private static double score(BalanceSimulation.Report report) {
         double winRate = Math.max(0, Math.abs(report.strongestBeatsWeakest() - 0.70) - 0.025) * 20;
-        // The median moves in whole exchanges, so a one-stat nudge rarely shifts it; the mean gives the climb a slope
+        // The median moves in whole rounds, so a one-stat nudge rarely shifts it; the mean gives the climb a slope
         double length = Math.max(0, 10 - report.medianLength()) + Math.max(0, report.medianLength() - 13)
                 + Math.max(0, 10 - report.meanLength()) + Math.max(0, report.meanLength() - 13);
         double cap = Math.max(0, report.capRate() - 0.025) * 40;

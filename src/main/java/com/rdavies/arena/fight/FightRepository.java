@@ -60,10 +60,10 @@ interface FightRepository extends CrudRepository<Fight, Long> {
     @Query("UPDATE fights SET starts_at = :now WHERE status = 'ANNOUNCED' AND starts_at > :now")
     void pullStartForward(@Param("now") Instant now);
 
-    /** Dev forcing: moves the live fight's next exchange to {@code now}, if it is later. */
+    /** Dev forcing: moves the live fight's next round to {@code now}, if it is later. */
     @Modifying
-    @Query("UPDATE fights SET next_exchange_at = :now WHERE status = 'LIVE' AND next_exchange_at > :now")
-    void pullExchangeForward(@Param("now") Instant now);
+    @Query("UPDATE fights SET next_round_at = :now WHERE status = 'LIVE' AND next_round_at > :now")
+    void pullRoundForward(@Param("now") Instant now);
 
     /** Reserves the next fight's id, which its seed's tie-break rolls need before the row exists. */
     @Query("SELECT nextval(pg_get_serial_sequence('fights', 'id'))")

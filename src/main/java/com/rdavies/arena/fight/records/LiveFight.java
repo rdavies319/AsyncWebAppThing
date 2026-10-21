@@ -6,12 +6,12 @@ import java.util.List;
 /**
  * The fight happening now, as anyone may see it.
  *
- * @param exchanges every exchange so far, oldest first
+ * @param rounds every round so far, oldest first
  */
-public record LiveFight(long fightId, Instant startsAt, Fighter red, Fighter blue, int exchangesDone,
-                        Instant nextExchangeAt, List<ExchangeView> exchanges) {
+public record LiveFight(long fightId, Instant startsAt, Fighter red, Fighter blue, int roundsDone,
+                        Instant nextRoundAt, List<RoundView> rounds) {
     public LiveFight {
-        exchanges = List.copyOf(exchanges);
+        rounds = List.copyOf(rounds);
     }
 
     /**

@@ -46,19 +46,19 @@ public class FightForcing {
         }
     }
 
-    /** Runs the live fight's next exchange now. */
+    /** Runs the live fight's next round now. */
     @Transactional
-    public void exchange() {
-        runNextExchange(requireLive());
+    public void round() {
+        runNextRound(requireLive());
     }
 
-    /** Runs the live fight's exchanges now, until it settles. */
+    /** Runs the live fight's rounds now, until it settles. */
     @Transactional
     public void finish() {
         Optional<Fight> live = Optional.of(requireLive());
-        // Each tick runs one exchange, and a fight never runs past the cap
-        for (int i = 0; i < game.maxExchanges() && live.isPresent(); i++) {
-            runNextExchange(live.get());
+        // Each tick runs one round, and a fight never runs past the cap
+        for (int i = 0; i < game.maxRounds() && live.isPresent(); i++) {
+            runNextRound(live.get());
             live = fights.findLive();
         }
     }
@@ -67,10 +67,10 @@ public class FightForcing {
         return fights.findLive().orElseThrow(() -> GameRuleException.conflict("No fight is live"));
     }
 
-    private void runNextExchange(Fight live) {
-        fights.pullExchangeForward(clock.instant());
+    private void runNextRound(Fight live) {
+        fights.pullRoundForward(clock.instant());
         engine.tick();
-        if (fights.findLive().filter(after -> after.exchangesDone() == live.exchangesDone()).isPresent()) {
+        if (fights.findLive().filter(after -> after.roundsDone() == live.roundsDone()).isPresent()) {
             throw busy();
         }
     }

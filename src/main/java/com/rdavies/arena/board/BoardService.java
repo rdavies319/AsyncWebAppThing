@@ -6,7 +6,7 @@ import com.rdavies.arena.fight.FightService;
 import com.rdavies.arena.fight.enums.Winner;
 import com.rdavies.arena.fight.records.AnnouncedFight;
 import com.rdavies.arena.fight.records.CurrentFights;
-import com.rdavies.arena.fight.records.ExchangeView;
+import com.rdavies.arena.fight.records.RoundView;
 import com.rdavies.arena.fight.records.LiveFight;
 import com.rdavies.arena.fight.records.SettledFight;
 import com.rdavies.arena.user.records.GamePrincipal;
@@ -51,8 +51,8 @@ public class BoardService {
     private static Board.Live live(LiveFight fight) {
         String red = fight.red().name();
         String blue = fight.blue().name();
-        return new Board.Live(fight.fightId(), corner(fight.red()), corner(fight.blue()), fight.nextExchangeAt(),
-                fight.exchanges().reversed().stream().map(e -> logLine(e, red, blue)).toList());
+        return new Board.Live(fight.fightId(), corner(fight.red()), corner(fight.blue()), fight.nextRoundAt(),
+                fight.rounds().reversed().stream().map(e -> logLine(e, red, blue)).toList());
     }
 
     private static Board.Corner corner(LiveFight.Fighter fighter) {
@@ -60,7 +60,7 @@ public class BoardService {
     }
 
     /** "2. Brutus hits Vex for 14 · Brutus dodges": red's attack on blue, then blue's on red. */
-    private static String logLine(ExchangeView e, String red, String blue) {
+    private static String logLine(RoundView e, String red, String blue) {
         String redAttack = e.redHit() ? red + " hits " + blue + " for " + e.redDamage() : blue + " dodges";
         String blueAttack = e.blueHit() ? blue + " hits " + red + " for " + e.blueDamage() : red + " dodges";
         return e.n() + ". " + redAttack + " · " + blueAttack;
@@ -73,8 +73,8 @@ public class BoardService {
             case DOUBLE_KO -> "Draw: " + red + " and " + blue + " knocked each other out";
             case KO -> winner(fight, red, blue) + " by KO";
             case CAP -> fight.winner() == Winner.DRAW
-                    ? "Draw: level on HP after " + fight.exchangesDone() + " exchanges"
-                    : winner(fight, red, blue) + " on HP after " + fight.exchangesDone() + " exchanges";
+                    ? "Draw: level on HP after " + fight.roundsDone() + " rounds"
+                    : winner(fight, red, blue) + " on HP after " + fight.roundsDone() + " rounds";
         };
         return new Board.Result(fight.fightId(), summary);
     }

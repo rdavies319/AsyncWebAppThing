@@ -14,12 +14,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Fights that reach the cap are decided on HP share (spec section 4, Ending). The dev roster almost
- * never lasts 30 exchanges, so these run with a cap of one, which no knockout can beat; that costs
+ * never lasts 30 rounds, so these run with a cap of one, which no knockout can beat; that costs
  * this class its own Spring context.
  */
 @GameTest
 @Transactional
-@TestPropertySource(properties = "game.max-exchanges=1")
+@TestPropertySource(properties = "game.max-rounds=1")
 class CapEndingTests {
     @Autowired TestGame game;
 
@@ -31,7 +31,7 @@ class CapEndingTests {
 
         assertEquals(Winner.RED, result.winner());
         assertEquals(EndedBy.CAP, result.endedBy());
-        assertEquals(1, result.exchangesDone());
+        assertEquals(1, result.roundsDone());
     }
 
     @Test

@@ -51,29 +51,29 @@ class FightApiTests {
     }
 
     @Test
-    void theLiveFightShowsHpExchangesAndTheNextExchangeTime() throws Exception {
+    void theLiveFightShowsHpRoundsAndTheNextRoundTime() throws Exception {
         LiveFight live = game.startFight();
-        game.nextExchange();
+        game.nextRound();
 
         mockMvc.perform(get("/fights/current"))
                 .andExpect(jsonPath("$.live.fight_id").value(live.fightId()))
                 .andExpect(jsonPath("$.live.red.name").value(live.red().name()))
                 .andExpect(jsonPath("$.live.red.starting_hp").isNumber())
                 .andExpect(jsonPath("$.live.red.current_hp").isNumber())
-                .andExpect(jsonPath("$.live.exchanges_done").value(1))
-                .andExpect(jsonPath("$.live.next_exchange_at").value("2026-01-01T01:02:00Z"))
-                .andExpect(jsonPath("$.live.exchanges[0].n").value(1))
-                .andExpect(jsonPath("$.live.exchanges[0].red_hit").isBoolean())
-                .andExpect(jsonPath("$.live.exchanges[0].red_damage").isNumber())
-                .andExpect(jsonPath("$.live.exchanges[0].blue_hp_after").isNumber())
+                .andExpect(jsonPath("$.live.rounds_done").value(1))
+                .andExpect(jsonPath("$.live.next_round_at").value("2026-01-01T01:02:00Z"))
+                .andExpect(jsonPath("$.live.rounds[0].n").value(1))
+                .andExpect(jsonPath("$.live.rounds[0].red_hit").isBoolean())
+                .andExpect(jsonPath("$.live.rounds[0].red_damage").isNumber())
+                .andExpect(jsonPath("$.live.rounds[0].blue_hp_after").isNumber())
                 .andExpect(jsonPath("$.server_time").value("2026-01-01T01:01:00Z"));
     }
 
     @Test
     void noStatSeedOrRollIsEverShown() throws Exception {
         game.startFight();
-        game.nextExchange();
-        game.nextExchange();
+        game.nextRound();
+        game.nextRound();
 
         String body = mockMvc.perform(get("/fights/current")).andReturn().getResponse().getContentAsString();
 

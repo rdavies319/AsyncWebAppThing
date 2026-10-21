@@ -17,7 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class RosterBalanceTests {
     static final int FIGHTS_PER_PAIRING = 2000;
-    static final int MAX_EXCHANGES = 30;
+    static final int MAX_ROUNDS = 30;
 
     private static BalanceSimulation.Report report;
 
@@ -25,7 +25,7 @@ class RosterBalanceTests {
     static void simulate() throws IOException {
         try (InputStream in = RosterBalanceTests.class.getResourceAsStream("/roster-dev.json")) {
             List<RosterEntry> roster = Roster.read(in);
-            report = BalanceSimulation.run(roster, FIGHTS_PER_PAIRING, MAX_EXCHANGES);
+            report = BalanceSimulation.run(roster, FIGHTS_PER_PAIRING, MAX_ROUNDS);
         }
     }
 
@@ -35,7 +35,7 @@ class RosterBalanceTests {
     }
 
     @Test
-    void theMedianFightLastsEightToFifteenExchanges() {
+    void theMedianFightLastsEightToFifteenRounds() {
         assertTrue(meetsLengthTarget(report), report.toString());
     }
 

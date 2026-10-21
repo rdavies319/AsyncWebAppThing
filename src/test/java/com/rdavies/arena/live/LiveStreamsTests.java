@@ -14,9 +14,9 @@ class LiveStreamsTests {
         RecordingEmitter alice = subscribe(1);
         RecordingEmitter bob = subscribe(2);
 
-        streams.broadcast("exchange", "r1");
+        streams.broadcast("round", "r1");
 
-        assertEquals(List.of("event:exchange\ndata:r1\n\n"), alice.sent);
+        assertEquals(List.of("event:round\ndata:r1\n\n"), alice.sent);
         assertEquals(alice.sent, bob.sent);
     }
 
@@ -39,8 +39,8 @@ class LiveStreamsTests {
         RecordingEmitter live = subscribe(2);
         gone.broken = true;
 
-        streams.broadcast("exchange", "r1");
-        streams.broadcast("exchange", "r2");
+        streams.broadcast("round", "r1");
+        streams.broadcast("round", "r2");
 
         assertEquals(1, streams.size());
         assertEquals(2, live.sent.size());

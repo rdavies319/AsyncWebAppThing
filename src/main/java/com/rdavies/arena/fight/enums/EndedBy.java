@@ -6,9 +6,9 @@ import com.fasterxml.jackson.annotation.JsonValue;
 public enum EndedBy {
     /** Exactly one gladiator at HP 0 or below. */
     KO,
-    /** Both at HP 0 or below in the same exchange: a draw. */
+    /** Both at HP 0 or below in the same round: a draw. */
     DOUBLE_KO,
-    /** The exchange cap, decided on remaining HP share. */
+    /** The round cap, decided on remaining HP share. */
     CAP;
 
     @JsonValue

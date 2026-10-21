@@ -5,7 +5,7 @@ import com.rdavies.arena.GameProperties;
 import com.rdavies.arena.MutableClock;
 import com.rdavies.arena.TestGame;
 import com.rdavies.arena.TestPlayers;
-import com.rdavies.arena.fight.records.ExchangeResult;
+import com.rdavies.arena.fight.records.RoundResult;
 import com.rdavies.arena.fight.records.Fight;
 import com.rdavies.arena.fight.records.FightResult;
 import com.rdavies.arena.fight.records.SimulatedFight;
@@ -39,7 +39,7 @@ class ForcedFightTests {
     @Autowired MutableClock clock;
     @Autowired FightService fightService;
     @Autowired FightRepository fights;
-    @Autowired FightExchangeRepository exchanges;
+    @Autowired FightRoundRepository rounds;
     @Autowired GladiatorService gladiators;
     @Autowired UserService userService;
 
@@ -50,16 +50,16 @@ class ForcedFightTests {
         clock.set(Instant.parse("2026-01-01T00:05:00Z"));
 
         mockMvc.perform(post("/dev/fights/start").with(user(dev)).with(csrf())).andExpect(status().isOk());
-        mockMvc.perform(post("/dev/fights/exchange").with(user(dev)).with(csrf())).andExpect(status().isOk());
+        mockMvc.perform(post("/dev/fights/round").with(user(dev)).with(csrf())).andExpect(status().isOk());
         mockMvc.perform(post("/dev/fights/finish").with(user(dev)).with(csrf())).andExpect(status().isOk());
 
         FightResult result = fightService.result(id);
         Fight fight = fights.findById(id).orElseThrow();
         SimulatedFight simulated = Combat.simulate(fight.seed(), id,
-                gladiators.stats(fight.redId()), gladiators.stats(fight.blueId()), gameProperties.maxExchanges());
+                gladiators.stats(fight.redId()), gladiators.stats(fight.blueId()), gameProperties.maxRounds());
         assertEquals(simulated.outcome().winner(), result.winner());
         assertEquals(simulated.outcome().endedBy(), result.endedBy());
-        List<ExchangeResult> stored = exchanges.findByFight(id).stream().map(e -> e.result()).toList();
-        assertEquals(simulated.exchanges(), stored);
+        List<RoundResult> stored = rounds.findByFight(id).stream().map(e -> e.result()).toList();
+        assertEquals(simulated.rounds(), stored);
     }
 }

@@ -4,7 +4,7 @@ import com.rdavies.arena.GameTest;
 import com.rdavies.arena.TestGame;
 import com.rdavies.arena.fight.enums.EndedBy;
 import com.rdavies.arena.fight.enums.Winner;
-import com.rdavies.arena.fight.events.ExchangeRun;
+import com.rdavies.arena.fight.events.RoundFought;
 import com.rdavies.arena.fight.events.FightSettled;
 import com.rdavies.arena.fight.events.FightStarted;
 import com.rdavies.arena.fight.events.MatchupAnnounced;
@@ -64,7 +64,7 @@ class FightEventsTests {
     }
 
     @Test
-    void eachExchangeAndTheResultAreDelivered() {
+    void eachRoundAndTheResultAreDelivered() {
         game.plantFight(Winner.RED, EndedBy.KO);
         LiveFight live = game.startFight();
         events.delivered.clear();
@@ -72,9 +72,9 @@ class FightEventsTests {
         FightResult result = game.finishFight();
 
         List<Class<?>> types = events.types();
-        assertEquals(result.exchangesDone() + 1, types.size());
-        assertTrue(types.subList(0, result.exchangesDone()).stream().allMatch(ExchangeRun.class::equals), types.toString());
-        ExchangeRun first = (ExchangeRun) events.delivered.getFirst();
+        assertEquals(result.roundsDone() + 1, types.size());
+        assertTrue(types.subList(0, result.roundsDone()).stream().allMatch(RoundFought.class::equals), types.toString());
+        RoundFought first = (RoundFought) events.delivered.getFirst();
         assertEquals(live.fightId(), first.fightId());
         assertEquals(1, first.n());
         assertEquals(new FightSettled(live.fightId(), Winner.RED, EndedBy.KO), events.delivered.getLast());

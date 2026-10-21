@@ -2,7 +2,7 @@ package com.rdavies.arena.fight;
 
 import com.rdavies.arena.fight.records.AnnouncedFight;
 import com.rdavies.arena.fight.records.CurrentFights;
-import com.rdavies.arena.fight.records.ExchangeView;
+import com.rdavies.arena.fight.records.RoundView;
 import com.rdavies.arena.fight.records.Fight;
 import com.rdavies.arena.fight.records.FightResult;
 import com.rdavies.arena.fight.records.LiveFight;
@@ -19,13 +19,13 @@ import java.util.Optional;
 @Service
 public class FightService {
     private final FightRepository fights;
-    private final FightExchangeRepository exchanges;
+    private final FightRoundRepository rounds;
     private final GladiatorService gladiators;
     private final Clock clock;
 
-    FightService(FightRepository fights, FightExchangeRepository exchanges, GladiatorService gladiators, Clock clock) {
+    FightService(FightRepository fights, FightRoundRepository rounds, GladiatorService gladiators, Clock clock) {
         this.fights = fights;
-        this.exchanges = exchanges;
+        this.rounds = rounds;
         this.gladiators = gladiators;
         this.clock = clock;
     }
@@ -43,7 +43,7 @@ public class FightService {
     public Optional<SettledFight> lastSettled() {
         return fights.findLastSettled().map(fight -> new SettledFight(fight.id(),
                 liveFighter(fight.redId(), fight.redHp()), liveFighter(fight.blueId(), fight.blueHp()),
-                fight.winner(), fight.endedBy(), fight.exchangesDone()));
+                fight.winner(), fight.endedBy(), fight.roundsDone()));
     }
 
     /** A settled fight's result. */
@@ -52,14 +52,14 @@ public class FightService {
         if (fight.winner() == null) {
             throw new IllegalStateException("Fight " + fightId + " hasn't settled");
         }
-        return new FightResult(fight.id(), fight.winner(), fight.endedBy(), fight.exchangesDone(), fight.redHp(), fight.blueHp());
+        return new FightResult(fight.id(), fight.winner(), fight.endedBy(), fight.roundsDone(), fight.redHp(), fight.blueHp());
     }
 
     private LiveFight live(Fight fight) {
         return new LiveFight(fight.id(), fight.startsAt(),
                 liveFighter(fight.redId(), fight.redHp()), liveFighter(fight.blueId(), fight.blueHp()),
-                fight.exchangesDone(), fight.nextExchangeAt(),
-                exchanges.findByFight(fight.id()).stream().map(e -> ExchangeView.of(e.result())).toList());
+                fight.roundsDone(), fight.nextRoundAt(),
+                rounds.findByFight(fight.id()).stream().map(e -> RoundView.of(e.result())).toList());
     }
 
     LiveFight.Fighter liveFighter(long gladiatorId, int currentHp) {

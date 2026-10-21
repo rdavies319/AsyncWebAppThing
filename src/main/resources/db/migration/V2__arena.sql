@@ -44,13 +44,13 @@ CREATE TABLE fights (
     seed             BYTEA       NOT NULL CHECK (octet_length(seed) = 32),
     red_hp           INT         NOT NULL,
     blue_hp          INT         NOT NULL,
-    exchanges_done   INT         NOT NULL DEFAULT 0 CHECK (exchanges_done >= 0),
-    next_exchange_at TIMESTAMPTZ,
+    rounds_done   INT         NOT NULL DEFAULT 0 CHECK (rounds_done >= 0),
+    next_round_at TIMESTAMPTZ,
     winner           VARCHAR(8)  CHECK (winner IN ('RED', 'BLUE', 'DRAW')),
     ended_by         VARCHAR(16) CHECK (ended_by IN ('KO', 'DOUBLE_KO', 'CAP')),
     settled_at       TIMESTAMPTZ,
     CHECK (red_id <> blue_id),
-    CHECK ((status = 'LIVE') = (next_exchange_at IS NOT NULL)),
+    CHECK ((status = 'LIVE') = (next_round_at IS NOT NULL)),
     CHECK ((status = 'SETTLED') = (winner IS NOT NULL)),
     CHECK ((winner IS NULL) = (ended_by IS NULL)),
     CHECK ((status = 'SETTLED') = (settled_at IS NOT NULL))
@@ -76,11 +76,11 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER fights_immutable_announcement BEFORE UPDATE ON fights
     FOR EACH ROW EXECUTE FUNCTION fights_keep_announcement_immutable();
 
--- One row per exchange. The *_roll columns are the raw dice rolls, kept for internal
+-- One row per round. The *_roll columns are the raw dice rolls, kept for internal
 -- fact-checking and never published; a dmg roll is null when the attack was dodged.
-CREATE TABLE fight_exchanges (
+CREATE TABLE fight_rounds (
     fight_id      BIGINT      NOT NULL REFERENCES fights (id),
-    exchange_no   INT         NOT NULL CHECK (exchange_no >= 1),
+    round_no   INT         NOT NULL CHECK (round_no >= 1),
     due_at        TIMESTAMPTZ NOT NULL,
     run_at        TIMESTAMPTZ NOT NULL,
     red_hit_roll  INT         NOT NULL,
@@ -93,16 +93,16 @@ CREATE TABLE fight_exchanges (
     blue_damage   INT         NOT NULL CHECK (blue_damage >= 0),
     red_hp_after  INT         NOT NULL,
     blue_hp_after INT         NOT NULL,
-    PRIMARY KEY (fight_id, exchange_no),
+    PRIMARY KEY (fight_id, round_no),
     CHECK (red_hit = (red_dmg_roll IS NOT NULL)),
     CHECK (blue_hit = (blue_dmg_roll IS NOT NULL))
 );
 
-CREATE FUNCTION fight_exchanges_reject_changes() RETURNS trigger AS $$
+CREATE FUNCTION fight_rounds_reject_changes() RETURNS trigger AS $$
 BEGIN
-    RAISE EXCEPTION 'fight_exchanges is append-only';
+    RAISE EXCEPTION 'fight_rounds is append-only';
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER fight_exchanges_append_only BEFORE UPDATE OR DELETE ON fight_exchanges
-    FOR EACH ROW EXECUTE FUNCTION fight_exchanges_reject_changes();
+CREATE TRIGGER fight_rounds_append_only BEFORE UPDATE OR DELETE ON fight_rounds
+    FOR EACH ROW EXECUTE FUNCTION fight_rounds_reject_changes();

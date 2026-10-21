@@ -62,21 +62,21 @@ public class TestGame {
         return live;
     }
 
-    /** Runs the live fight's next exchange at its due time. Returns what's on afterwards. */
-    public CurrentFights nextExchange() {
+    /** Runs the live fight's next round at its due time. Returns what's on afterwards. */
+    public CurrentFights nextRound() {
         LiveFight live = fights.current().live();
         assertNotNull(live, "a live fight");
-        return tickAt(live.nextExchangeAt());
+        return tickAt(live.nextRoundAt());
     }
 
-    /** Runs exchanges until the live fight settles, starting one first if none is live. Returns the result. */
+    /** Runs rounds until the live fight settles, starting one first if none is live. Returns the result. */
     public FightResult finishFight() {
         LiveFight live = fights.current().live();
         if (live == null) {
             live = startFight();
         }
         while (fights.current().live() != null) {
-            nextExchange();
+            nextRound();
         }
         return fights.result(live.fightId());
     }

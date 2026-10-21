@@ -25,7 +25,7 @@ class NoDevFightsTests {
     @Autowired UserService userService;
 
     @ParameterizedTest
-    @ValueSource(strings = {"start", "exchange", "finish"})
+    @ValueSource(strings = {"start", "round", "finish"})
     void theDevEndpointsAreMissing(String verb) throws Exception {
         GamePrincipal player = TestPlayers.signUp(userService, verb);
         game.boot();

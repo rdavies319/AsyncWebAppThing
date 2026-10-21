@@ -31,9 +31,9 @@ public class DevController {
         return fightService.current();
     }
 
-    @PostMapping("/exchange")
-    public CurrentFights exchange() {
-        forcing.exchange();
+    @PostMapping("/round")
+    public CurrentFights round() {
+        forcing.round();
         return fightService.current();
     }
 

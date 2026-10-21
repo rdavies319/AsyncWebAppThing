@@ -1,6 +1,6 @@
 package com.rdavies.arena.live;
 
-import com.rdavies.arena.fight.events.ExchangeRun;
+import com.rdavies.arena.fight.events.RoundFought;
 import com.rdavies.arena.fight.events.FightSettled;
 import com.rdavies.arena.fight.events.FightStarted;
 import com.rdavies.arena.fight.events.MatchupAnnounced;
@@ -35,8 +35,8 @@ class ArenaBroadcasts {
     }
 
     @TransactionalEventListener
-    void on(ExchangeRun event) {
-        broadcast("exchange", event);
+    void on(RoundFought event) {
+        broadcast("round", event);
     }
 
     @TransactionalEventListener

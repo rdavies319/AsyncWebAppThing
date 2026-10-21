@@ -21,8 +21,8 @@ public record Board(Instant serverTime, Live live, Result lastResult, Next next,
         return live == null && lastResult == null && next == null;
     }
 
-    /** @param log one line per exchange, newest first */
-    public record Live(long fightId, Corner red, Corner blue, Instant nextExchangeAt, List<String> log) {
+    /** @param log one line per round, newest first */
+    public record Live(long fightId, Corner red, Corner blue, Instant nextRoundAt, List<String> log) {
         public Live {
             log = List.copyOf(log);
         }

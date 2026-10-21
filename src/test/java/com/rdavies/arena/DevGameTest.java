@@ -18,5 +18,5 @@ import java.lang.annotation.Target;
 @GameTest
 @ActiveProfiles("dev")
 @TestPropertySource(properties = {
-        "game.engine.cron=-", "game.fight-cron=0 0 * * * *", "game.exchange-interval=1m", "game.max-exchanges=30"})
+        "game.engine.cron=-", "game.fight-cron=0 0 * * * *", "game.round-interval=1m", "game.max-rounds=30"})
 public @interface DevGameTest {}

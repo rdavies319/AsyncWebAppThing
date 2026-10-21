@@ -24,16 +24,16 @@ final class BalanceSimulation {
     /**
      * @param strongestBeatsWeakest how often the gladiator with the best record beats the one with
      *                              the worst, head to head (a draw is not a win)
-     * @param medianLength          the median fight length in exchanges, over every fight
-     * @param meanLength            the mean fight length in exchanges
-     * @param capRate               the share of fights that reached the exchange cap
+     * @param medianLength          the median fight length in rounds, over every fight
+     * @param meanLength            the mean fight length in rounds
+     * @param capRate               the share of fights that reached the round cap
      * @param scores                each gladiator's score against the field (a draw counts half), by slug
      */
     record Report(String strongest, String weakest, double strongestBeatsWeakest,
                   int medianLength, double meanLength, double capRate, Map<String, Double> scores) {
         @Override
         public String toString() {
-            StringBuilder s = new StringBuilder("%s beats %s %.1f%%; median %d exchanges (mean %.1f); %.1f%% reach the cap%n"
+            StringBuilder s = new StringBuilder("%s beats %s %.1f%%; median %d rounds (mean %.1f); %.1f%% reach the cap%n"
                     .formatted(strongest, weakest, strongestBeatsWeakest * 100, medianLength, meanLength, capRate * 100));
             scores.forEach((slug, score) -> s.append("  %-12s %.1f%%%n".formatted(slug, score * 100)));
             return s.toString();
@@ -42,7 +42,7 @@ final class BalanceSimulation {
 
     private record Pairing(int a, int b, int aWins, int bWins, int[] lengths, int capped) {}
 
-    static Report run(List<RosterEntry> roster, int fightsPerPairing, int maxExchanges) {
+    static Report run(List<RosterEntry> roster, int fightsPerPairing, int maxRounds) {
         List<int[]> pairs = new ArrayList<>();
         for (int a = 0; a < roster.size(); a++) {
             for (int b = a + 1; b < roster.size(); b++) {
@@ -50,7 +50,7 @@ final class BalanceSimulation {
             }
         }
         List<Pairing> results = pairs.parallelStream()
-                .map(p -> play(roster, p[0], p[1], fightsPerPairing, maxExchanges)).toList();
+                .map(p -> play(roster, p[0], p[1], fightsPerPairing, maxRounds)).toList();
 
         double[] points = new double[roster.size()];
         int[] fights = new int[roster.size()];
@@ -86,7 +86,7 @@ final class BalanceSimulation {
     }
 
     /** Plays {@code a} against {@code b}, swapping corners every fight so neither side favours one. */
-    private static Pairing play(List<RosterEntry> roster, int a, int b, int fights, int maxExchanges) {
+    private static Pairing play(List<RosterEntry> roster, int a, int b, int fights, int maxRounds) {
         Stats sa = roster.get(a).stats();
         Stats sb = roster.get(b).stats();
         int aWins = 0;
@@ -95,13 +95,13 @@ final class BalanceSimulation {
         int[] lengths = new int[fights];
         for (int i = 0; i < fights; i++) {
             boolean aIsRed = i % 2 == 0;
-            SimulatedFight fight = Combat.simulate(seed(a, b, i), i + 1, aIsRed ? sa : sb, aIsRed ? sb : sa, maxExchanges);
+            SimulatedFight fight = Combat.simulate(seed(a, b, i), i + 1, aIsRed ? sa : sb, aIsRed ? sb : sa, maxRounds);
             Winner aCorner = aIsRed ? Winner.RED : Winner.BLUE;
             Winner winner = fight.outcome().winner();
             if (winner == aCorner) aWins++;
             else if (winner != Winner.DRAW) bWins++;
             if (fight.outcome().endedBy() == EndedBy.CAP) capped++;
-            lengths[i] = fight.exchanges().size();
+            lengths[i] = fight.rounds().size();
         }
         return new Pairing(a, b, aWins, bWins, lengths, capped);
     }
