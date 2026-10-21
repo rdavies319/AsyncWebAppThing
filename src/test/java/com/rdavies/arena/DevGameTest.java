@@ -10,8 +10,8 @@ import java.lang.annotation.Target;
 
 /**
  * {@link GameTest} under the dev profile, for the dev controls. Every class using it shares one
- * more Spring context. The cadence is pinned to production, so a local .env.dev (which the dev
- * profile imports) can't change it, and the engine still ticks only when a test says so.
+ * more Spring context. The cadence is pinned back to production over the dev profile's fast one, so
+ * the engine still ticks only when a test says so.
  */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)

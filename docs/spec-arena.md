@@ -185,7 +185,8 @@ The engine replaces `RoundEngine`. It runs on `game.engine.cron` (default `0 * *
 ### Configuration and profiles
 
 - **Production values are the defaults** in `GameProperties`. Every `game.*` setting can be overridden by an environment variable, which Spring Boot binds automatically (`GAME_EXCHANGE_INTERVAL=5s`, `GAME_FIGHT_CRON=0 */3 * * * *`).
-- **`.env` files per profile.** `.env.dev` holds the fast dev cadence (for example a fight every 3 minutes, 5-second exchanges and a tick every second) and `SPRING_PROFILES_ACTIVE=dev`. `docker-compose.yml` loads the file named by `ENV_FILE` through `env_file`, so `ENV_FILE=.env.dev docker compose up` runs dev and plain `docker compose up` runs production values. For `./mvnw spring-boot:run`, `application-dev.properties` imports `optional:file:../.env.dev[.properties]`.
+- **The dev profile holds the fast dev cadence** in `application-dev.properties` (a fight every 3 minutes, 5-second exchanges and a tick every second), so compose and `./mvnw spring-boot:run -Dspring-boot.run.profiles=dev` read the same values.
+- **`.env` files per environment.** `docker-compose.yml` loads the file named by `ENV_FILE` through `env_file`. `.env.dev` holds `SPRING_PROFILES_ACTIVE=dev`, so `ENV_FILE=.env.dev docker compose up` runs dev and plain `docker compose up` runs production values.
 - `.env*` files are gitignored. A committed `.env.example` lists every key with its production default.
 - At startup the app checks that `max-exchanges × exchange-interval` is shorter than the gap between two consecutive fight-cron slots, and refuses to start otherwise.
 
@@ -281,7 +282,7 @@ Nothing has been deployed, so the old game is removed outright, as the first Pha
 | Bet rules? | One final bet per fight. A draw refunds. Stake limits from v2's `GameProperties` (10–500, payout capped at 10,000). |
 | Crash in the middle of a fight? | Resume from the fight row and replay overdue exchanges from the seed. Never void automatically. |
 | Downtime at a fight's start? | Move to the next slot with betting reopened. No backfill. |
-| Configuration? | Production defaults in `GameProperties`, overridden by environment variables, with `.env` files per profile through compose. `.env.example` is committed. |
+| Configuration? | Production defaults in `GameProperties`, overridden by environment variables, with `.env` files through compose. The dev cadence is in `application-dev.properties`. `.env.example` is committed. |
 | Dev forcing? | Dev-profile endpoints that pull due times forward and tick the real engine |
 | Where do the real stats live? | Outside git, in a roster file loaded once on first boot |
 | Ledger? | Unchanged reasons and wording. `ref_id` is the bet id. |

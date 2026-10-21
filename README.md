@@ -20,13 +20,10 @@ Production values are the defaults. Any `game.*` setting can be overridden by an
 
 ### Dev mode
 
-Production fights take an hour, so dev mode runs a fight every 3 minutes with 5-second exchanges, and adds a dev panel to start a fight, run an exchange or finish a fight straight away. Create `.env.dev` in the repo root:
+Production fights take an hour, so the `dev` profile runs a fight every 3 minutes with 5-second exchanges (set in [`application-dev.properties`](src/main/resources/application-dev.properties)), and adds a dev panel to start a fight, run an exchange or finish a fight straight away. For compose, create `.env.dev` in the repo root:
 
 ```bash
 SPRING_PROFILES_ACTIVE=dev
-GAME_FIGHT_CRON=0 */3 * * * *
-GAME_EXCHANGE_INTERVAL=5s
-GAME_ENGINE_CRON=* * * * * *
 ```
 
 Then run either:
@@ -39,7 +36,7 @@ docker compose up db                                   # or Postgres in Docker..
 
 `ENV_FILE=.env.dev docker compose …` is Bash syntax. In PowerShell, set the variable first: `$env:ENV_FILE = ".env.dev"; docker compose up --build`. It stays set for that PowerShell session, so run `Remove-Item Env:ENV_FILE` to go back to production values.
 
-With Maven, the dev profile reads `.env.dev` itself, and the datasource still comes from `SPRING_DATASOURCE_*` (`jdbc:postgresql://localhost:5432/arena`, user `user`, password `password` for the compose database). Log in to see the dev panel. The buttons only pull due times forward, so a forced fight ends exactly as it would have.
+Maven doesn't need `.env.dev`. Any `GAME_*` environment variable still overrides the dev cadence. The datasource still comes from `SPRING_DATASOURCE_*` (`jdbc:postgresql://localhost:5432/arena`, user `user`, password `password` for the compose database). Log in to see the dev panel. The buttons only pull due times forward, so a forced fight ends exactly as it would have.
 
 ## Docs
 

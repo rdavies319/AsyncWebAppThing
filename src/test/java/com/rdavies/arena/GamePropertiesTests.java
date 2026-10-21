@@ -7,10 +7,14 @@ import org.springframework.boot.context.properties.source.ConfigurationPropertyS
 import org.springframework.boot.context.properties.source.MapConfigurationPropertySource;
 import org.springframework.core.env.StandardEnvironment;
 import org.springframework.core.env.SystemEnvironmentPropertySource;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.support.PropertiesLoaderUtils;
 
+import java.io.IOException;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -64,7 +68,7 @@ class GamePropertiesTests {
 
     @Test
     void environmentVariablesOverrideAnySetting() {
-        // Bound as Spring Boot binds the real environment, e.g. GAME_EXCHANGE_INTERVAL=5s from .env.dev
+        // Bound as Spring Boot binds the real environment, e.g. GAME_EXCHANGE_INTERVAL=5s from a .env file
         Map<String, Object> env = Map.of(
                 "GAME_FIGHT_CRON", "0 */3 * * * *",
                 "GAME_EXCHANGE_INTERVAL", "5s",
@@ -82,10 +86,13 @@ class GamePropertiesTests {
     }
 
     @Test
-    void theDevCadenceFitsAFightBetweenSlots() {
-        GameProperties game = bind(Map.of("game.fight-cron", "0 */3 * * * *", "game.exchange-interval", "5s"));
+    void theDevProfileRunsTheFastCadenceAndFitsAFightBetweenSlots() throws IOException {
+        Properties dev = PropertiesLoaderUtils.loadProperties(new ClassPathResource("application-dev.properties"));
+        GameProperties game = new Binder(new MapConfigurationPropertySource(dev)).bindOrCreate("game", GameProperties.class);
 
+        assertEquals("0 */3 * * * *", game.fightCron()); // every 3 minutes
         assertEquals(Duration.ofSeconds(5), game.exchangeInterval()); // 30 × 5s = 2.5 minutes, within 3
+        assertEquals("* * * * * *", game.engine().cron()); // every second
     }
 
     @Test
