@@ -198,6 +198,7 @@ The engine replaces Higher or Lower's `RoundEngine`. It runs on `game.engine.cro
   - `POST /dev/fights/finish` repeats that until the fight settles.
 
   Each verb only pulls a due time forward and then runs the real `tick()`, so dev uses the same code path and lock as production. Forcing never changes a result, which the seed has already fixed. The game page shows a small dev panel with these buttons only under the dev profile.
+- **Seeded ratings**, under the dev profile only: on a fresh arena (no fights yet), every gladiator's starting Elo comes from a simulated season, 50 deterministic round-robins of the roster played through the real Elo update, so the first fights already have uneven odds. It is built from the hidden stats, which is acceptable only because the dev roster is checked in. Production always starts at 1000 (section 5, Odds). A `game.engine.cron` of `-` turns it off, as it does the startup tick.
 - `TestGame` gets the same verbs: `startFight()`, `nextRound()`, `finishFight()`, and `plantFight(...)` to search for a seed that gives a wanted outcome.
 
 ## 8. Data Model

@@ -31,6 +31,10 @@ interface GladiatorRepository extends CrudRepository<Gladiator, Long> {
     @Query("UPDATE gladiators SET elo = elo + :delta WHERE id = :id")
     void addElo(@Param("id") long id, @Param("delta") int delta);
 
+    @Modifying
+    @Query("UPDATE gladiators SET elo = :elo WHERE id = :id")
+    void setElo(@Param("id") long id, @Param("elo") int elo);
+
     @Query(value = "SELECT hp, attack_min, attack_max, defence, agility FROM gladiators WHERE id = :id",
             rowMapperClass = StatsRowMapper.class)
     Optional<Stats> findStats(@Param("id") long id);

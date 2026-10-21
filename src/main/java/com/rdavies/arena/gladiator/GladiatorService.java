@@ -41,6 +41,12 @@ public class GladiatorService {
         gladiators.addElo(blueId, -redDelta);
     }
 
+    /** Sets a starting rating, before any fight: for the dev profile's seeded ratings only. */
+    @Transactional
+    public void seedElo(long id, int elo) {
+        gladiators.setElo(id, elo);
+    }
+
     /** The hidden stat block. For the fight feature only: never put it in a response, event or log line. */
     public Stats stats(long id) {
         return gladiators.findStats(id).orElseThrow(() -> new IllegalStateException("No gladiator " + id));
