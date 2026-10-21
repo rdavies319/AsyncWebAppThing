@@ -5,6 +5,7 @@ import org.springframework.boot.context.properties.bind.BindException;
 import org.springframework.boot.context.properties.bind.Binder;
 import org.springframework.boot.context.properties.source.MapConfigurationPropertySource;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 
@@ -16,6 +17,23 @@ class GamePropertiesTests {
     @Test
     void theDefaultStakeOptionsAreValid() {
         assertEquals(List.of(10L, 100L, 500L), bind(Map.of()).stakeOptions());
+    }
+
+    @Test
+    void theArenaCadenceDefaultsToProduction() {
+        GameProperties game = bind(Map.of());
+
+        assertEquals("0 0 * * * *", game.fightCron()); // the top of every hour
+        assertEquals(Duration.ofMinutes(1), game.exchangeInterval());
+        assertEquals(30, game.maxExchanges());
+        assertEquals("0 * * * * *", game.engine().cron()); // every minute
+        assertTrue(game.engine().scheduled());
+        assertEquals("classpath:roster-dev.json", game.rosterFile());
+    }
+
+    @Test
+    void aDashTurnsTheEngineScheduleOff() {
+        assertFalse(bind(Map.of("game.engine.cron", "-")).engine().scheduled());
     }
 
     @Test
