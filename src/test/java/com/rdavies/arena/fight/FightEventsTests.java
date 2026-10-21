@@ -77,7 +77,8 @@ class FightEventsTests {
         RoundFought first = (RoundFought) events.delivered.getFirst();
         assertEquals(live.fightId(), first.fightId());
         assertEquals(1, first.n());
-        assertEquals(new FightSettled(live.fightId(), Winner.RED, EndedBy.KO), events.delivered.getLast());
+        // Both started on 1000, so the win is worth half of K = 32
+        assertEquals(new FightSettled(live.fightId(), Winner.RED, EndedBy.KO, 1016, 984), events.delivered.getLast());
     }
 
     @Test

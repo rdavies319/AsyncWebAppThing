@@ -72,11 +72,15 @@ interface FightRepository extends CrudRepository<Fight, Long> {
     /** Inserts an announced fight under an id from {@link #nextId()}; save() would treat a set id as an update. */
     @Modifying
     @Query("""
-            INSERT INTO fights (id, starts_at, status, red_id, blue_id, red_elo, blue_elo, seed, red_hp, blue_hp)
-            VALUES (:id, :startsAt, 'ANNOUNCED', :redId, :blueId, :redElo, :blueElo, :seed, :redHp, :blueHp)""")
+            INSERT INTO fights (id, starts_at, status, red_id, blue_id, red_elo, blue_elo,
+                                red_multiplier_bps, blue_multiplier_bps, seed, red_hp, blue_hp)
+            VALUES (:id, :startsAt, 'ANNOUNCED', :redId, :blueId, :redElo, :blueElo,
+                    :redMultiplierBps, :blueMultiplierBps, :seed, :redHp, :blueHp)""")
     void insertAnnounced(@Param("id") long id, @Param("startsAt") Instant startsAt,
                          @Param("redId") long redId, @Param("blueId") long blueId,
-                         @Param("redElo") int redElo, @Param("blueElo") int blueElo, @Param("seed") byte[] seed,
+                         @Param("redElo") int redElo, @Param("blueElo") int blueElo,
+                         @Param("redMultiplierBps") int redMultiplierBps,
+                         @Param("blueMultiplierBps") int blueMultiplierBps, @Param("seed") byte[] seed,
                          @Param("redHp") int redHp, @Param("blueHp") int blueHp);
 
     /** Each gladiator's most recent fight start, in any status; a gladiator who never fought has no row. */

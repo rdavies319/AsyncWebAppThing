@@ -51,6 +51,19 @@ class FightApiTests {
     }
 
     @Test
+    void theAnnouncedFightShowsEachCornersOddsAndMaxStake() throws Exception {
+        game.boot(); // every rating starts at 1000, so the odds are even
+
+        mockMvc.perform(get("/fights/current"))
+                .andExpect(jsonPath("$.announced.red.elo").value(1000))
+                .andExpect(jsonPath("$.announced.red.multiplier_bps").value(19600))
+                .andExpect(jsonPath("$.announced.red.max_stake").value(500))
+                .andExpect(jsonPath("$.announced.blue.elo").value(1000))
+                .andExpect(jsonPath("$.announced.blue.multiplier_bps").value(19600))
+                .andExpect(jsonPath("$.announced.blue.max_stake").value(500));
+    }
+
+    @Test
     void theLiveFightShowsHpRoundsAndTheNextRoundTime() throws Exception {
         LiveFight live = game.startFight();
         game.nextRound();

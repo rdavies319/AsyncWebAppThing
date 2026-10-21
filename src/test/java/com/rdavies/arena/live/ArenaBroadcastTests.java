@@ -92,7 +92,16 @@ class ArenaBroadcastTests {
     }
 
     @Test
-    void aSettledFightSendsTheResult() throws Exception {
+    void anAnnouncementSendsEachCornersOdds() throws Exception {
+        game.boot();
+
+        viewer.awaitEvents(1, WAIT);
+        String data = viewer.sent.getFirst();
+        assertTrue(data.contains("\"elo\":1000,\"multiplier_bps\":19600,\"max_stake\":500}"), data);
+    }
+
+    @Test
+    void aSettledFightSendsTheResultAndTheNewRatings() throws Exception {
         game.plantFight(Winner.BLUE, EndedBy.KO);
         game.startFight();
 
@@ -102,6 +111,6 @@ class ArenaBroadcastTests {
         viewer.awaitEvents(expected, WAIT);
         assertEquals(result.roundsDone(), Collections.frequency(viewer.eventNames(), "round"));
         assertEquals("event:fight_settled\ndata:{\"fight_id\":" + result.fightId()
-                + ",\"winner\":\"blue\",\"ended_by\":\"ko\"}\n\n", viewer.sent.getLast());
+                + ",\"winner\":\"blue\",\"ended_by\":\"ko\",\"red_elo\":984,\"blue_elo\":1016}\n\n", viewer.sent.getLast());
     }
 }

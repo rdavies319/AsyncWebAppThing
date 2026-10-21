@@ -79,9 +79,16 @@ class BoardTests {
         assertNull(board.live());
         assertNull(board.lastResult());
         assertEquals(new Board.Next(announced.fightId(),
-                new Board.Contender(announced.red().name(), announced.red().epithet(), 1000),
-                new Board.Contender(announced.blue().name(), announced.blue().epithet(), 1000),
+                new Board.Contender(announced.red().name(), announced.red().epithet(), 1000, 19600, 500),
+                new Board.Contender(announced.blue().name(), announced.blue().epithet(), 1000, 19600, 500),
                 ONE_AM), board.next());
+    }
+
+    @Test
+    void oddsShowAsAMultiplierRoundedDown() {
+        assertEquals("1.96x", new Board.Contender("Vex", "the Quick", 1000, 19600, 500).odds());
+        assertEquals("1.08x", new Board.Contender("Vex", "the Quick", 1383, 10888, 500).odds()); // pays 1.0888x
+        assertEquals("9.80x", new Board.Contender("Vex", "the Quick", 617, 98000, 500).odds());
     }
 
     @Test

@@ -1,4 +1,4 @@
--- The arena: spec v3, section 8. Odds columns (red/blue_multiplier_bps) arrive with Elo and odds in task 06.
+-- The arena: spec v3, section 8.
 
 -- The stat columns are hidden: only the gladiator and fight features read them, and no public view carries them.
 CREATE TABLE gladiators (
@@ -32,7 +32,8 @@ CREATE TRIGGER gladiators_immutable_stats BEFORE UPDATE ON gladiators
     FOR EACH ROW EXECUTE FUNCTION gladiators_keep_stats_immutable();
 
 -- announced -> live -> settled. The seed is internal and fixes the whole fight at announcement.
--- red_elo/blue_elo are the ratings at announcement.
+-- red_elo/blue_elo are the ratings at announcement, and the multipliers are the odds priced from them
+-- (spec section 5): what a winning bet pays per point staked, stake included, in basis points.
 CREATE TABLE fights (
     id               BIGSERIAL   PRIMARY KEY,
     starts_at        TIMESTAMPTZ NOT NULL UNIQUE,
@@ -41,6 +42,8 @@ CREATE TABLE fights (
     blue_id          BIGINT      NOT NULL REFERENCES gladiators (id),
     red_elo          INT         NOT NULL,
     blue_elo         INT         NOT NULL,
+    red_multiplier_bps  INT      NOT NULL CHECK (red_multiplier_bps > 10000),
+    blue_multiplier_bps INT      NOT NULL CHECK (blue_multiplier_bps > 10000),
     seed             BYTEA       NOT NULL CHECK (octet_length(seed) = 32),
     red_hp           INT         NOT NULL,
     blue_hp          INT         NOT NULL,
@@ -61,13 +64,14 @@ CREATE UNIQUE INDEX fights_one_per_open_status ON fights (status) WHERE status I
 CREATE INDEX fights_by_red ON fights (red_id);
 CREATE INDEX fights_by_blue ON fights (blue_id);
 
--- The matchup, its seed and ratings are fixed at announcement, and a result is final.
+-- The matchup, its seed, ratings and odds are fixed at announcement, and a result is final.
 CREATE FUNCTION fights_keep_announcement_immutable() RETURNS trigger AS $$
 BEGIN
-    IF (NEW.seed, NEW.red_id, NEW.blue_id, NEW.red_elo, NEW.blue_elo)
-            IS DISTINCT FROM (OLD.seed, OLD.red_id, OLD.blue_id, OLD.red_elo, OLD.blue_elo)
+    IF (NEW.seed, NEW.red_id, NEW.blue_id, NEW.red_elo, NEW.blue_elo, NEW.red_multiplier_bps, NEW.blue_multiplier_bps)
+            IS DISTINCT FROM (OLD.seed, OLD.red_id, OLD.blue_id, OLD.red_elo, OLD.blue_elo,
+                              OLD.red_multiplier_bps, OLD.blue_multiplier_bps)
             OR (OLD.winner IS NOT NULL AND (NEW.winner, NEW.ended_by) IS DISTINCT FROM (OLD.winner, OLD.ended_by)) THEN
-        RAISE EXCEPTION 'fight %: the matchup, seed, ratings and result are immutable', OLD.id;
+        RAISE EXCEPTION 'fight %: the matchup, seed, ratings, odds and result are immutable', OLD.id;
     END IF;
     RETURN NEW;
 END;

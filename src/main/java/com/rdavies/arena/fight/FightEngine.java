@@ -110,10 +110,17 @@ public class FightEngine {
             fights.save(fight);
         }
         if (fight.status() == FightStatus.SETTLED) {
-            events.publishEvent(new FightSettled(fight.id(), fight.winner(), fight.endedBy()));
-            log.info("Fight {} settled: {} by {} after {} rounds", fight.id(), fight.winner(), fight.endedBy(), fight.roundsDone());
+            settle(fight);
         }
         return fight;
+    }
+
+    /** Moves both ratings by the result, against the ratings stored at announcement (spec section 5, Elo update). */
+    private void settle(Fight fight) {
+        gladiators.moveElo(fight.redId(), fight.blueId(), Elo.redDelta(fight.redElo(), fight.blueElo(), fight.winner()));
+        events.publishEvent(new FightSettled(fight.id(), fight.winner(), fight.endedBy(),
+                gladiators.gladiator(fight.redId()).elo(), gladiators.gladiator(fight.blueId()).elo()));
+        log.info("Fight {} settled: {} by {} after {} rounds", fight.id(), fight.winner(), fight.endedBy(), fight.roundsDone());
     }
 
     private Fight start(Fight fight) {
@@ -149,7 +156,9 @@ public class FightEngine {
 
         Gladiator red = gladiators.gladiator(pair.redId());
         Gladiator blue = gladiators.gladiator(pair.blueId());
-        fights.insertAnnounced(id, slot, red.id(), blue.id(), red.elo(), blue.elo(), seed,
+        int redChance = Odds.redChanceBps(red.elo(), blue.elo());
+        fights.insertAnnounced(id, slot, red.id(), blue.id(), red.elo(), blue.elo(),
+                Odds.multiplierBps(redChance), Odds.multiplierBps(10_000 - redChance), seed,
                 gladiators.stats(red.id()).hp(), gladiators.stats(blue.id()).hp());
         Fight fight = fights.findById(id).orElseThrow();
         events.publishEvent(new MatchupAnnounced(views.announced(fight)));

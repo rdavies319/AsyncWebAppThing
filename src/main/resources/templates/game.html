@@ -41,6 +41,7 @@
         .log { list-style: none; padding: 0; margin: 0; max-height: 10rem; overflow-y: auto; font-size: 0.8rem; text-align: left; }
         .log li { padding: 0.15rem 0; border-bottom: 1px solid #eee; }
         .result { font-weight: bold; }
+        .odds { font-size: 1.2rem; font-weight: bold; margin: 0.25rem 0; }
         .dev { border: 1px dashed #b06000; border-radius: 0.5rem; padding: 0.5rem; }
         .dev h3 { color: #b06000; }
         .dev button { margin: 0.15rem; }
@@ -101,6 +102,8 @@
                     <div class="name" th:text="${c.name()}">Vex</div>
                     <div class="epithet" th:text="${c.epithet()}">the Quick</div>
                     <div class="hp-text" th:text="'Elo ' + ${c.elo()}">Elo 1000</div>
+                    <div class="odds" th:text="${c.odds()}">1.96x</div>
+                    <div class="hp-text" th:text="'Max stake ' + ${c.maxStake()}">Max stake 500</div>
                 </div>
             </div>
             <p class="countdown">Starts in <span th:data-until="${next.startsAt()}">…</span></p>

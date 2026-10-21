@@ -46,7 +46,16 @@ public record Board(Instant serverTime, Live live, Result lastResult, Next next,
 
     public record Next(long fightId, Contender red, Contender blue, Instant startsAt) {}
 
-    public record Contender(String name, String epithet, int elo) {}
+    /**
+     * @param multiplierBps what a winning bet on this corner pays per point staked, in basis points
+     * @param maxStake      the largest stake on this corner
+     */
+    public record Contender(String name, String epithet, int elo, int multiplierBps, long maxStake) {
+        /** The multiplier as shown, e.g. "1.96x": rounded down, so it never promises more than a win pays. */
+        public String odds() {
+            return multiplierBps / 10_000 + "." + String.format("%02d", multiplierBps % 10_000 / 100) + "x";
+        }
+    }
 
     /** @param topUpTarget the balance the daily top-up would refill to; null if it can't be claimed now */
     public record PlayerBoard(String name, long balance, Long topUpTarget) {}

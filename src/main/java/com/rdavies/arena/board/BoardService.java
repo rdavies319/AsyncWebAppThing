@@ -89,7 +89,7 @@ public class BoardService {
     }
 
     private static Board.Contender contender(AnnouncedFight.Fighter fighter) {
-        return new Board.Contender(fighter.name(), fighter.epithet(), fighter.elo());
+        return new Board.Contender(fighter.name(), fighter.epithet(), fighter.elo(), fighter.multiplierBps(), fighter.maxStake());
     }
 
     private Board.PlayerBoard playerBoard(GamePrincipal viewer) {

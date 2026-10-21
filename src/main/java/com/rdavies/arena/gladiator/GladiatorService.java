@@ -34,6 +34,13 @@ public class GladiatorService {
         return gladiators.findById(id).orElseThrow(() -> new IllegalStateException("No gladiator " + id));
     }
 
+    /** Moves red's rating by {@code redDelta} and blue's the opposite way, so the change is zero-sum. */
+    @Transactional
+    public void moveElo(long redId, long blueId, int redDelta) {
+        gladiators.addElo(redId, redDelta);
+        gladiators.addElo(blueId, -redDelta);
+    }
+
     /** The hidden stat block. For the fight feature only: never put it in a response, event or log line. */
     public Stats stats(long id) {
         return gladiators.findStats(id).orElseThrow(() -> new IllegalStateException("No gladiator " + id));

@@ -1,5 +1,6 @@
 package com.rdavies.arena.fight;
 
+import com.rdavies.arena.GameProperties;
 import com.rdavies.arena.fight.records.AnnouncedFight;
 import com.rdavies.arena.fight.records.CurrentFights;
 import com.rdavies.arena.fight.records.RoundView;
@@ -21,12 +22,15 @@ public class FightService {
     private final FightRepository fights;
     private final FightRoundRepository rounds;
     private final GladiatorService gladiators;
+    private final GameProperties game;
     private final Clock clock;
 
-    FightService(FightRepository fights, FightRoundRepository rounds, GladiatorService gladiators, Clock clock) {
+    FightService(FightRepository fights, FightRoundRepository rounds, GladiatorService gladiators,
+                 GameProperties game, Clock clock) {
         this.fights = fights;
         this.rounds = rounds;
         this.gladiators = gladiators;
+        this.game = game;
         this.clock = clock;
     }
 
@@ -69,11 +73,13 @@ public class FightService {
 
     AnnouncedFight announced(Fight fight) {
         return new AnnouncedFight(fight.id(), fight.startsAt(),
-                announcedFighter(fight.redId(), fight.redElo()), announcedFighter(fight.blueId(), fight.blueElo()));
+                announcedFighter(fight.redId(), fight.redElo(), fight.redMultiplierBps()),
+                announcedFighter(fight.blueId(), fight.blueElo(), fight.blueMultiplierBps()));
     }
 
-    private AnnouncedFight.Fighter announcedFighter(long gladiatorId, int elo) {
+    private AnnouncedFight.Fighter announcedFighter(long gladiatorId, int elo, int multiplierBps) {
         Gladiator g = gladiators.gladiator(gladiatorId);
-        return new AnnouncedFight.Fighter(g.slug(), g.name(), g.epithet(), elo);
+        return new AnnouncedFight.Fighter(g.slug(), g.name(), g.epithet(), elo, multiplierBps,
+                Odds.maxStake(game.maxStake(), game.maxPayout(), multiplierBps));
     }
 }

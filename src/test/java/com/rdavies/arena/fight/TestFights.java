@@ -48,10 +48,12 @@ public class TestFights {
                 // The seed is immutable, so the row is replaced rather than updated
                 jdbc.update("DELETE FROM fights WHERE id = ?", id);
                 jdbc.update("""
-                        INSERT INTO fights (id, starts_at, status, red_id, blue_id, red_elo, blue_elo, seed, red_hp, blue_hp)
-                        VALUES (?, ?, 'ANNOUNCED', ?, ?, ?, ?, ?, ?, ?)""",
+                        INSERT INTO fights (id, starts_at, status, red_id, blue_id, red_elo, blue_elo,
+                                            red_multiplier_bps, blue_multiplier_bps, seed, red_hp, blue_hp)
+                        VALUES (?, ?, 'ANNOUNCED', ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                         id, fight.get("starts_at"), fight.get("red_id"), fight.get("blue_id"), fight.get("red_elo"),
-                        fight.get("blue_elo"), seed, fight.get("red_hp"), fight.get("blue_hp"));
+                        fight.get("blue_elo"), fight.get("red_multiplier_bps"), fight.get("blue_multiplier_bps"),
+                        seed, fight.get("red_hp"), fight.get("blue_hp"));
                 return;
             }
         }
@@ -59,10 +61,11 @@ public class TestFights {
     }
 
     /**
-     * Removes every fight, for tests that commit. TRUNCATE skips the append-only trigger, which
-     * blocks deleting rounds row by row.
+     * Removes every fight and puts every rating back to its starting 1000, for tests that commit.
+     * TRUNCATE skips the append-only trigger, which blocks deleting rounds row by row.
      */
     public void deleteAll() {
         jdbc.execute("TRUNCATE fight_rounds, fights");
+        jdbc.update("UPDATE gladiators SET elo = 1000");
     }
 }
