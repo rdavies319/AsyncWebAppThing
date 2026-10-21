@@ -70,7 +70,7 @@ public class FightEngine {
 
     @Transactional
     public void tick() {
-        if (!Boolean.TRUE.equals(jdbc.queryForObject("SELECT pg_try_advisory_xact_lock(?)", Boolean.class, LOCK_KEY))) {
+        if (!tryLockArena()) {
             log.debug("Another tick holds the arena lock; skipping");
             return;
         }
@@ -94,6 +94,11 @@ public class FightEngine {
         } else if (!fighting) {
             announce(nextSlot(now), null); // bootstrap
         }
+    }
+
+    /** Takes the arena's advisory lock until this transaction ends, or returns false if another tick holds it. */
+    private boolean tryLockArena() {
+        return jdbc.queryForObject("SELECT pg_try_advisory_xact_lock(?)", Boolean.class, LOCK_KEY);
     }
 
     /** Runs every exchange due by {@code now}, settling the fight if one ends it. Returns the fight as it stands. */
