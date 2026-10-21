@@ -6,9 +6,9 @@ package com.rdavies.api;
  */
 public class GameRuleException extends RuntimeException {
     public enum Kind {
-        /** The request itself is wrong (stake out of range, impossible direction): 400. */
+        /** The request itself is wrong (an invalid signup, a stake out of range): 400. */
         INVALID,
-        /** The request clashes with the game's state (round closed, already predicted, too few points): 409. */
+        /** The request clashes with the game's state (top-up already claimed, too few points): 409. */
         CONFLICT
     }
 

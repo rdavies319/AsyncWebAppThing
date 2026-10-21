@@ -12,7 +12,7 @@ import java.time.Clock;
 @ConfigurationPropertiesScan
 @EnableScheduling
 public class ApiApplication {
-    /** The server clock is the only authority on round timing. */
+    /** The server clock is the only authority on game timing. */
     @Bean
     Clock clock() {
         return Clock.systemUTC();

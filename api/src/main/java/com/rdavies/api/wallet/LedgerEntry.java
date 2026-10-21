@@ -4,7 +4,7 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.relational.core.mapping.Table;
 import java.time.Instant;
 
-/** One append-only balance change. {@code refId} is the prediction id for STAKE, PAYOUT and REFUND. */
+/** One append-only balance change. {@code refId} is the bet id for STAKE, PAYOUT and REFUND. */
 @Table("ledger")
 public record LedgerEntry(
     @Id Long id,

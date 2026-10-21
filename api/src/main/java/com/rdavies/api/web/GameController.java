@@ -3,30 +3,25 @@ package com.rdavies.api.web;
 import com.rdavies.api.GameRuleException;
 import com.rdavies.api.board.BoardFeedback;
 import com.rdavies.api.board.BoardService;
-import com.rdavies.api.prediction.PredictionService;
-import com.rdavies.api.prediction.PredictionType;
 import com.rdavies.api.user.CurrentUser;
 import com.rdavies.api.wallet.WalletService;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 
 /**
- * The game page. htmx swaps the {@code board} fragment: refetched on every SSE round_open, and
- * returned by the prediction and top-up forms so their outcome shows inline. The JSON API is
- * GameApiController.
+ * The game page. htmx swaps the {@code board} fragment, which the top-up form returns so its
+ * outcome shows inline. The JSON API is GameApiController.
  */
 @Controller
 public class GameController {
     private final BoardService boardService;
-    private final PredictionService predictionService;
     private final WalletService walletService;
     private final CurrentUser currentUser;
 
-    public GameController(BoardService boardService, PredictionService predictionService,
-                          WalletService walletService, CurrentUser currentUser) {
+    public GameController(BoardService boardService, WalletService walletService, CurrentUser currentUser) {
         this.boardService = boardService;
-        this.predictionService = predictionService;
         this.walletService = walletService;
         this.currentUser = currentUser;
     }
@@ -40,20 +35,6 @@ public class GameController {
     @GetMapping("/fragments/board")
     public String board(Model model) {
         addBoard(model, BoardFeedback.none());
-        return "game :: board";
-    }
-
-    @PostMapping("/predict")
-    public String predict(@RequestParam Long roundId, @RequestParam PredictionType prediction,
-                          @RequestParam(required = false) Long stake, Model model) {
-        BoardFeedback feedback;
-        try {
-            predictionService.placePrediction(currentUser.id(), roundId, prediction, stake);
-            feedback = BoardFeedback.betPlaced();
-        } catch (GameRuleException e) {
-            feedback = BoardFeedback.betRefused(e.getMessage(), stake, prediction);
-        }
-        addBoard(model, feedback);
         return "game :: board";
     }
 

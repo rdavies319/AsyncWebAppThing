@@ -12,8 +12,8 @@ import java.lang.annotation.Target;
 
 /**
  * The one test setup: every class using it shares a Spring context, and so one Postgres container.
- * Drive rounds through the {@link TestGame} bean, and set up unusual wallets through {@link TestWallets}.
- * Add @Transactional per class (but see RoundEngineLockTests).
+ * Drive the game through the {@link TestGame} bean, and set up unusual wallets through {@link TestWallets}.
+ * Add @Transactional per class, except where a test takes an advisory lock from another thread.
  */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)

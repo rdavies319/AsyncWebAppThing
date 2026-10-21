@@ -7,12 +7,12 @@ import java.time.Duration;
 import java.util.List;
 
 /**
- * Game settings from spec section 3, overridable as game.* properties.
+ * Game settings, overridable as game.* properties.
  *
- * @param cutoff       predictions close this long before the next roll
+ * @param cutoff       betting on a fight closes this long before it starts
  * @param minStake     smallest stake accepted
  * @param maxStake     largest stake accepted, before the payout cap lowers it
- * @param maxPayout    most one prediction can pay out, stake included
+ * @param maxPayout    most one bet can pay out, stake included
  * @param signupBonus  points credited to a new wallet
  * @param topUpTarget  the daily top-up refills a wallet to this balance
  * @param stakeOptions the stakes the game page offers as buttons, each within minStake..maxStake

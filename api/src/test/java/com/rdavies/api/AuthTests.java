@@ -92,13 +92,13 @@ class AuthTests {
     }
 
     @Test
-    void anyoneCanWatchButOnlyPlayersSeeTheFormAndWallet() throws Exception {
+    void anyoneCanWatchButOnlyPlayersSeeTheWallet() throws Exception {
         mockMvc.perform(get("/"))
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("to play.")))
                 .andExpect(content().string(containsString("<nav class=\"auth-links\">")))
                 .andExpect(content().string(not(containsString("Balance:"))));
-        mockMvc.perform(get("/rounds/current")).andExpect(status().is(not(401)));
+        mockMvc.perform(get("/fragments/board")).andExpect(status().isOk());
         mockMvc.perform(get("/live")).andExpect(request().asyncStarted());
 
         GamePrincipal frank = TestPlayers.signUp(userService, "frank");
@@ -111,22 +111,24 @@ class AuthTests {
 
     @Test
     void anonymousApiCallsGet401() throws Exception {
-        mockMvc.perform(post("/predictions").with(csrf()).contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"round_id\": 1, \"direction\": \"higher\", \"stake\": 10}"))
-                .andExpect(status().isUnauthorized());
-        mockMvc.perform(post("/wallet/topup").with(csrf())).andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/wallet/topup").with(csrf()).accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isUnauthorized())
+                .andExpect(header().doesNotExist("HX-Redirect"));
     }
 
     @Test
     void anonymousHtmxCallsAreSentToTheLoginPage() throws Exception {
-        mockMvc.perform(post("/topup").with(csrf()).header("HX-Request", "true"))
+        mockMvc.perform(post("/wallet/topup").with(csrf()).header("HX-Request", "true"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(header().string("HX-Redirect", "/auth/login"));
+        mockMvc.perform(post("/topup").with(csrf()).header("HX-Request", "true")) // the board's own top-up button
                 .andExpect(status().isUnauthorized())
                 .andExpect(header().string("HX-Redirect", "/auth/login"));
     }
 
     @Test
     void anonymousPageCallsRedirectToLogin() throws Exception {
-        mockMvc.perform(post("/topup").with(csrf()).accept(MediaType.TEXT_HTML, MediaType.ALL))
+        mockMvc.perform(post("/wallet/topup").with(csrf()).accept(MediaType.TEXT_HTML, MediaType.ALL))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/auth/login"));
     }

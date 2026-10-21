@@ -16,7 +16,7 @@ import org.springframework.security.web.util.matcher.MediaTypeRequestMatcher;
 import java.util.Set;
 
 /**
- * Form login with BCrypt and CSRF on (spec section 9). Watching the game is public; predicting
+ * Form login with BCrypt and CSRF on (spec section 9). Watching the game is public; betting
  * and topping up need a logged-in player.
  */
 @Configuration
@@ -32,7 +32,7 @@ public class SecurityConfig {
     SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers(HttpMethod.GET, "/", "/fragments/board", "/rounds/current", "/live", "/app.css", "/auth.css").permitAll()
+                .requestMatchers(HttpMethod.GET, "/", "/fragments/board", "/live", "/app.css", "/auth.css").permitAll()
                 .requestMatchers("/auth/signup", "/error").permitAll()
                 .anyRequest().authenticated())
             .formLogin(form -> form

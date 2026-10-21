@@ -10,7 +10,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 
-/** Every wallet change, each with its ledger row (spec section 7): signup bonus, stakes, payouts and the daily top-up. */
+/** Every wallet change, each with its ledger row (spec section 7): signup bonus, stakes and the daily top-up. */
 @Service
 public class WalletService {
     private final WalletRepository walletRepository;
@@ -41,21 +41,15 @@ public class WalletService {
     }
 
     /**
-     * Takes a prediction's stake, with its ledger row. Joins the caller's transaction, so if this
-     * fails the prediction it pays for is rolled back too.
+     * Takes a bet's stake, with its ledger row. Joins the caller's transaction, so if this fails
+     * the bet it pays for is rolled back too.
      */
     @Transactional
-    public void debitStake(long userId, long stake, long predictionId, Instant now) {
+    public void debitStake(long userId, long stake, long betId, Instant now) {
         if (walletRepository.deductStake(userId, stake, now) == 0) {
             throw GameRuleException.conflict("Insufficient funds in wallet");
         }
-        ledgerRepository.save(new LedgerEntry(null, userId, -stake, LedgerEntry.Reason.STAKE, predictionId, now));
-    }
-
-    /** Pays out a round Settlement has just settled: wins and pushes, each with its ledger row. */
-    @Transactional
-    public void creditRoundPayouts(long roundId, Instant now) {
-        walletRepository.creditRoundPayouts(roundId, now);
+        ledgerRepository.save(new LedgerEntry(null, userId, -stake, LedgerEntry.Reason.STAKE, betId, now));
     }
 
     /** Whether the daily top-up can be claimed now: balance below the target, not yet claimed today (UTC). */

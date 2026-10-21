@@ -46,7 +46,7 @@ public class LiveStreams {
         }
     }
 
-    /** A comment line, so proxies don't close a stream that is idle between rounds. */
+    /** A comment line, so proxies don't close a stream that is idle between fights. */
     public void heartbeat() {
         for (Stream stream : streams) {
             send(stream, SseEmitter.event().comment("keepalive"));

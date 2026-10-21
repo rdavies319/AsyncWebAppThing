@@ -9,8 +9,8 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 
 /**
  * Turns game rule failures into ProblemDetails for the JSON API only: a bad request (stake out of
- * range, impossible direction) is 400; a request that conflicts with the game's state (round closed,
- * already predicted, not enough points) is 409. Malformed JSON gets Spring's standard 400, and any
+ * range) is 400; a request that conflicts with the game's state (top-up already claimed, not
+ * enough points) is 409. Malformed JSON gets Spring's standard 400, and any
  * other exception is a bug and gets a 500 without its message.
  */
 @RestControllerAdvice(assignableTypes = GameApiController.class)
