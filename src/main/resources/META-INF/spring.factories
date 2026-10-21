@@ -1,2 +1,2 @@
 # Lets an imported .env file bind like environment variables (see DotEnvFiles)
-org.springframework.boot.EnvironmentPostProcessor=com.rdavies.api.DotEnvFiles
+org.springframework.boot.EnvironmentPostProcessor=com.rdavies.arena.DotEnvFiles

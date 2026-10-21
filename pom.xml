@@ -9,10 +9,10 @@
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
     <groupId>com.rdavies</groupId>
-    <artifactId>api</artifactId>
+    <artifactId>arena</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <name>api</name>
-    <description>api</description>
+    <name>arena</name>
+    <description>The gladiator arena</description>
     <url/>
     <licenses>
         <license/>
