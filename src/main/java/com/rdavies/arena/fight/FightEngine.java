@@ -24,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.Map;
@@ -83,6 +84,8 @@ public class FightEngine {
             if (!next.startsAt().isAfter(now)) {
                 if (fighting) {
                     postpone(next);
+                } else if (next.startsAt().plus(game.roundInterval()).isBefore(now)) {
+                    moveMissedStart(next, now);
                 } else {
                     Fight started = start(next);
                     announce(nextSlot(started.startsAt()), started);
@@ -97,6 +100,8 @@ public class FightEngine {
     private Fight runDueRounds(Fight fight, Instant now) {
         Stats red = gladiators.stats(fight.redId());
         Stats blue = gladiators.stats(fight.blueId());
+        int firstRound = fight.roundsDone() + 1;
+        Instant firstDue = fight.nextRoundAt();
         while (fight.status() == FightStatus.LIVE && !fight.nextRoundAt().isAfter(now)) {
             int n = fight.roundsDone() + 1;
             RoundResult round = Combat.round(fight.seed(), fight.id(), n, red, blue, fight.redHp(), fight.blueHp());
@@ -108,6 +113,11 @@ public class FightEngine {
                     ? fight.settle(round, outcome.get(), now)
                     : fight.afterRound(round, dueAt(fight, n + 1));
             fights.save(fight);
+        }
+        int ran = fight.roundsDone() - firstRound + 1;
+        if (ran > 1) { // the app was down: the overdue rounds ran at once, from the seed
+            log.warn("Fight {} resumed {} rounds late, {} behind: ran rounds {} to {} at once",
+                    fight.id(), ran, Duration.between(firstDue, now), firstRound, fight.roundsDone());
         }
         if (fight.status() == FightStatus.SETTLED) {
             settle(fight);
@@ -136,6 +146,18 @@ public class FightEngine {
         Instant slot = nextSlot(fight.startsAt());
         fights.save(fight.postpone(slot));
         log.warn("Fight {} postponed from {} to {}: the last fight is still live", fight.id(), fight.startsAt(), slot);
+    }
+
+    /**
+     * The app was down when this fight was due to start, by more than one round interval, so it moves
+     * to the next slot after now rather than starting late. Betting reopens until the new cutoff, and
+     * bets already placed stand.
+     */
+    private void moveMissedStart(Fight fight, Instant now) {
+        Instant slot = nextSlot(now);
+        fights.save(fight.postpone(slot));
+        log.warn("Fight {} missed its start at {} by {}; moved to {}",
+                fight.id(), fight.startsAt(), Duration.between(fight.startsAt(), now), slot);
     }
 
     /**

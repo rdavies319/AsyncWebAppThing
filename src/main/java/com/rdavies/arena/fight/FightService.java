@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
+import java.util.List;
 import java.util.Optional;
 
 /** The public face of the fights: views built from the rows, never carrying the seed, stats or rolls. */
@@ -61,11 +62,17 @@ public class FightService {
         return new FightResult(fight.id(), fight.winner(), fight.endedBy(), fight.roundsDone(), fight.redHp(), fight.blueHp());
     }
 
+    /** A fight's public round log so far, oldest first: no raw rolls. */
+    @Transactional(readOnly = true)
+    public List<RoundView> rounds(long fightId) {
+        return rounds.findByFight(fightId).stream().map(e -> RoundView.of(e.result())).toList();
+    }
+
     private LiveFight live(Fight fight) {
         return new LiveFight(fight.id(), fight.startsAt(),
                 liveFighter(fight.redId(), fight.redHp()), liveFighter(fight.blueId(), fight.blueHp()),
                 fight.roundsDone(), fight.nextRoundAt(),
-                rounds.findByFight(fight.id()).stream().map(e -> RoundView.of(e.result())).toList());
+                rounds(fight.id()));
     }
 
     public boolean exists(long fightId) {

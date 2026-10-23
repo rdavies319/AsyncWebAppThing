@@ -4,12 +4,14 @@ import com.rdavies.arena.GameProperties;
 import com.rdavies.arena.fight.enums.EndedBy;
 import com.rdavies.arena.fight.enums.Winner;
 import com.rdavies.arena.fight.records.Outcome;
+import com.rdavies.arena.fight.records.SimulatedFight;
 import com.rdavies.arena.gladiator.GladiatorService;
 import com.rdavies.arena.gladiator.records.Stats;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.security.SecureRandom;
 import java.util.Map;
+import java.util.function.Predicate;
 
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -36,15 +38,24 @@ public class TestFights {
      * by search. Stands in for chance: the engine still plays the fight out from its seed.
      */
     public void plant(Winner winner, EndedBy endedBy) {
+        Outcome wanted = new Outcome(winner, endedBy);
+        plant(simulated -> simulated.outcome().equals(wanted), String.valueOf(wanted));
+    }
+
+    /** As {@link #plant(Winner, EndedBy)}, for a fight lasting at least {@code rounds} rounds. */
+    public void plantLasting(int rounds) {
+        plant(simulated -> simulated.rounds().size() >= rounds, "a fight of " + rounds + "+ rounds");
+    }
+
+    private void plant(Predicate<SimulatedFight> wanted, String description) {
         Map<String, Object> fight = jdbc.queryForMap("SELECT * FROM fights WHERE status = 'ANNOUNCED'");
         long id = (Long) fight.get("id");
         Stats red = gladiators.stats((Long) fight.get("red_id"));
         Stats blue = gladiators.stats((Long) fight.get("blue_id"));
-        Outcome wanted = new Outcome(winner, endedBy);
         byte[] seed = new byte[32];
         for (int i = 0; i < SEARCH_LIMIT; i++) {
             RANDOM.nextBytes(seed);
-            if (Combat.simulate(seed, id, red, blue, game.maxRounds()).outcome().equals(wanted)) {
+            if (wanted.test(Combat.simulate(seed, id, red, blue, game.maxRounds()))) {
                 // The seed is immutable, so the row is replaced rather than updated
                 jdbc.update("DELETE FROM fights WHERE id = ?", id);
                 jdbc.update("""
@@ -57,7 +68,7 @@ public class TestFights {
                 return;
             }
         }
-        fail("no seed in " + SEARCH_LIMIT + " tries gives " + wanted);
+        fail("no seed in " + SEARCH_LIMIT + " tries gives " + description);
     }
 
     /**
