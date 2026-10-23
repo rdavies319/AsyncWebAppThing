@@ -97,7 +97,12 @@ public class WalletService {
             return;
         }
         long wallets = credits.stream().map(Credit::userId).distinct().count();
-        int credited = walletRepository.creditAll(credits, clock.instant());
+        int credited = walletRepository.creditAll(
+                credits.stream().map(Credit::userId).toArray(Long[]::new),
+                credits.stream().map(Credit::amount).toArray(Long[]::new),
+                credits.stream().map(c -> c.reason().name()).toArray(String[]::new),
+                credits.stream().map(Credit::refId).toArray(Long[]::new),
+                clock.instant());
         if (credited != wallets) {
             throw new IllegalStateException("Credited " + credited + " of " + wallets + " wallets");
         }

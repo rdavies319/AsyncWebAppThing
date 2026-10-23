@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.Optional;
 
 /** Package-private: balances change only through WalletService, which writes each change's ledger row with it. */
-interface WalletRepository extends CrudRepository<Wallet, Long>, WalletCredits {
+interface WalletRepository extends CrudRepository<Wallet, Long> {
 
     /** save() would treat a wallet with its user id already set as an update, so inserts go through here. */
     @Modifying
@@ -22,6 +22,29 @@ interface WalletRepository extends CrudRepository<Wallet, Long>, WalletCredits {
 
     /** Highest balance first; equal balances by user id, so whoever joined first ranks first. */
     List<Wallet> findAllByOrderByBalanceDescUserIdAsc(Limit limit);
+
+    /**
+     * Writes each credit's ledger row and adds it to its wallet, in one statement, so the credits and
+     * their ledger rows can't disagree. The credits come as parallel arrays (index i is one credit),
+     * which Postgres unnests into rows. A wallet may take several credits: they are summed first,
+     * because UPDATE ... FROM would apply only one matching row per wallet.
+     *
+     * @param reasons each credit's LedgerEntry.Reason name
+     * @return how many wallets were credited
+     */
+    @Modifying
+    @Query("""
+            WITH credited AS (
+                INSERT INTO ledger (user_id, delta, reason, ref_id, created_at)
+                SELECT user_id, delta, reason, ref_id, :now
+                FROM unnest(CAST(:userIds AS bigint[]), CAST(:amounts AS bigint[]), CAST(:reasons AS varchar[]),
+                            CAST(:refIds AS bigint[])) AS c (user_id, delta, reason, ref_id)
+                RETURNING user_id, delta)
+            UPDATE wallets w SET balance = w.balance + c.delta, updated_at = :now
+            FROM (SELECT user_id, SUM(delta) AS delta FROM credited GROUP BY user_id) AS c
+            WHERE w.user_id = c.user_id""")
+    int creditAll(@Param("userIds") Long[] userIds, @Param("amounts") Long[] amounts,
+                  @Param("reasons") String[] reasons, @Param("refIds") Long[] refIds, @Param("now") Instant now);
 
     /** Row-locks the wallet until the caller's transaction ends. */
     @Query("SELECT * FROM wallets WHERE user_id = :userId FOR UPDATE")
