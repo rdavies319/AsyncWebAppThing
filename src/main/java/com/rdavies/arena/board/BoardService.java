@@ -121,6 +121,11 @@ public class BoardService {
             fightBet = betService.bet(viewer.id(), live.fightId())
                     .map(b -> pendingBet(b, (b.corner() == Corner.RED ? live.red() : live.blue()).name()))
                     .orElse(null);
+        } else if (lastSettled.isPresent()) {
+            SettledFight settled = lastSettled.get();
+            fightBet = betService.bet(viewer.id(), settled.fightId())
+                    .map(b -> settledBet(b, (b.corner() == Corner.RED ? settled.red() : settled.blue()).name()))
+                    .orElse(null);
         }
         return new Board.PlayerBoard(viewer.displayName(), wallet.balance(), topUpTarget, betForm, nextBet, fightBet);
     }
@@ -129,6 +134,16 @@ public class BoardService {
     private List<Long> affordable(long balance, AnnouncedFight.Fighter fighter) {
         long most = Math.min(balance, fighter.maxStake());
         return game.stakeOptions().stream().filter(stake -> stake <= most).toList();
+    }
+
+    /** "You won 196 on Vex", "You lost 100 on Vex" or "Draw: your 100 on Vex is refunded" */
+    private static String settledBet(Bet bet, String gladiator) {
+        return switch (bet.status()) {
+            case WON -> "You won " + bet.payout() + " on " + gladiator;
+            case LOST -> "You lost " + bet.stake() + " on " + gladiator;
+            case PUSH -> "Draw: your " + bet.stake() + " on " + gladiator + " is refunded";
+            case PENDING -> throw new IllegalStateException("Bet " + bet.id() + " on a settled fight is still pending");
+        };
     }
 
     /** "Your bet: 100 on Vex at 1.96x" */

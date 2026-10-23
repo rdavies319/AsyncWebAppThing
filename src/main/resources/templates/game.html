@@ -74,7 +74,7 @@
     <div id="board" th:fragment="board" th:with="me=${board.player()}"
          th:data-server-time="${board.serverTime()}"
          hx-get="/fragments/board" hx-swap="outerHTML"
-         hx-trigger="sse:snapshot, sse:matchup_announced, sse:fight_started, sse:round, sse:fight_settled">
+         hx-trigger="sse:snapshot, sse:matchup_announced, sse:fight_started, sse:round, sse:fight_settled, sse:bet_settled">
 
         <p class="soon" th:if="${board.openingSoon()}">Arena opening soon</p>
 

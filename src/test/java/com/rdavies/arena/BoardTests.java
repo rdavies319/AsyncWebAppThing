@@ -245,11 +245,51 @@ class BoardTests {
     }
 
     @Test
+    void duringTheFightAPlayerSeesTheirBetAndAfterItTheResult() {
+        game.plantFight(Winner.RED, EndedBy.KO);
+        AnnouncedFight announced = game.boot().announced();
+        clock.now = Instant.parse("2026-01-01T00:30:00Z");
+        betService.place(alice.id(), announced.fightId(), Corner.RED, 100L);
+
+        game.startFight();
+        assertEquals("Your bet: 100 on " + announced.red().name() + " at 1.96x",
+                boardService.board(Optional.of(alice)).player().fightBet());
+
+        game.finishFight();
+        assertEquals("You won 196 on " + announced.red().name(), boardService.board(Optional.of(alice)).player().fightBet());
+    }
+
+    @Test
+    void aLosingBetShowsWhatWasLost() {
+        game.plantFight(Winner.RED, EndedBy.KO);
+        AnnouncedFight announced = game.boot().announced();
+        clock.now = Instant.parse("2026-01-01T00:30:00Z");
+        betService.place(alice.id(), announced.fightId(), Corner.BLUE, 100L);
+
+        game.finishFight();
+
+        assertEquals("You lost 100 on " + announced.blue().name(), boardService.board(Optional.of(alice)).player().fightBet());
+    }
+
+    @Test
+    void aDrawShowsTheRefund() {
+        game.plantFight(Winner.DRAW, EndedBy.DOUBLE_KO);
+        AnnouncedFight announced = game.boot().announced();
+        clock.now = Instant.parse("2026-01-01T00:30:00Z");
+        betService.place(alice.id(), announced.fightId(), Corner.BLUE, 100L);
+
+        game.finishFight();
+
+        assertEquals("Draw: your 100 on " + announced.blue().name() + " is refunded",
+                boardService.board(Optional.of(alice)).player().fightBet());
+    }
+
+    @Test
     void theBoardRefetchesOnEveryArenaEvent() throws Exception {
         String page = mockMvc.perform(get("/").with(user(alice))).andReturn().getResponse().getContentAsString();
 
         assertTrue(page.contains(
-                "hx-trigger=\"sse:snapshot, sse:matchup_announced, sse:fight_started, sse:round, sse:fight_settled\""),
+                "hx-trigger=\"sse:snapshot, sse:matchup_announced, sse:fight_started, sse:round, sse:fight_settled, sse:bet_settled\""),
                 page);
     }
 

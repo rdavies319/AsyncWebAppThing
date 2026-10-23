@@ -4,7 +4,7 @@ These tasks replace Higher or Lower with the gladiator arena in [spec-arena.md](
 
 The full ticket for each task, with acceptance criteria, is in `.scratch/arena/issues/NN-*.md`. Keep this file and the tickets in step as tasks land.
 
-**Status:** 01–06 done.
+**Status:** 01–07 done.
 
 ## Order
 
@@ -16,7 +16,7 @@ The full ticket for each task, with acceptance criteria, is in `.scratch/arena/i
 | 04 | Full fight engine | 03 |
 | 05 | Watch the fight live, with dev cadence and forcing | 04 |
 | 06 | Elo ratings and odds | 05 |
-| 07 | Bet on the next fight ⚠️ may need splitting | 06 |
+| 07 | Bet on the next fight | 06 |
 | 08 | Crash resume and missed starts | 04 |
 | 09 | Bet history | 07 |
 | 10 | Gladiator pages | 06 |
@@ -60,7 +60,7 @@ Elo maths and odds maths, both pure. Both ratings and both multipliers are store
 
 ## 07. Bet on the next fight
 
-⚠️ The largest task. Split it before starting if it's too big, for example into (a) the wallet batch-credit prefactor, (b) placing a bet, (c) settlement and `bet_settled`.
+Landed in three parts: (a) the wallet batch-credit prefactor, (b) placing a bet, (c) settlement and `bet_settled`.
 
 The parts:
 - The wallet batch-credit prefactor.

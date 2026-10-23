@@ -35,6 +35,18 @@ public class TestWallets {
                 SELECT id, ?, 'SIGNUP_BONUS', now() FROM users WHERE email LIKE ?""", signupBonus, emailPattern);
     }
 
+    /**
+     * Takes {@code points} from every wallet whose user's email matches {@code emailPattern} (SQL
+     * LIKE), each with a STAKE row, in two statements: for load tests that place bets in bulk.
+     */
+    public void spendForUsers(String emailPattern, long points) {
+        jdbc.update("UPDATE wallets SET balance = balance - ? WHERE user_id IN (SELECT id FROM users WHERE email LIKE ?)",
+                points, emailPattern);
+        jdbc.update("""
+                INSERT INTO ledger (user_id, delta, reason, created_at)
+                SELECT id, ?, 'STAKE', now() FROM users WHERE email LIKE ?""", -points, emailPattern);
+    }
+
     /** The ledger invariant for every wallet: balance = SUM(ledger.delta). */
     public void assertEveryWalletMatchesItsLedger() {
         assertEquals(0, jdbc.queryForObject("""
