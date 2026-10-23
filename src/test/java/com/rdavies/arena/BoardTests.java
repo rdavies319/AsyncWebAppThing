@@ -258,6 +258,20 @@ class BoardTests {
     }
 
     @Test
+    void theBoardAndABetAgreeOnTheCutoff() {
+        long fightId = game.boot().announced().fightId();
+
+        clock.now = Instant.parse("2026-01-01T00:59:49.999Z");
+        assertNotNull(boardService.board(Optional.of(alice)).player().betForm());
+
+        clock.now = Instant.parse("2026-01-01T00:59:50Z");
+        assertNull(boardService.board(Optional.of(alice)).player().betForm());
+        GameRuleException refused = assertThrows(GameRuleException.class,
+                () -> betService.place(alice.id(), fightId, Corner.RED, 100L));
+        assertEquals(GameRuleException.Kind.CONFLICT, refused.kind());
+    }
+
+    @Test
     void duringTheFightAPlayerSeesTheirBetAndAfterItTheResult() {
         game.plantFight(Winner.RED, EndedBy.KO);
         AnnouncedFight announced = game.boot().announced();

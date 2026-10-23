@@ -24,7 +24,6 @@ import java.util.Optional;
 /** Bets on the announced fight (spec section 5): one final bet per player per fight, at the odds of the moment. */
 @Service
 public class BetService {
-    private static final String CLOSED = "Betting on this fight has closed";
     private static final String ALREADY_BET = "You have already bet on this fight";
 
     private final BetRepository bets;
@@ -73,12 +72,8 @@ public class BetService {
         if (stake == null) {
             throw GameRuleException.invalid("Enter a stake");
         }
+        AnnouncedFight fight = fights.lockForBetting(fightId);
         Instant now = clock.instant();
-        AnnouncedFight fight = fights.lockForBetting(fightId)
-                .filter(f -> now.isBefore(f.cutoffAt()))
-                .orElseThrow(() -> fights.exists(fightId)
-                        ? GameRuleException.conflict(CLOSED)
-                        : GameRuleException.invalid("There is no such fight"));
         AnnouncedFight.Fighter fighter = fight.fighter(corner);
         if (stake < game.minStake() || stake > fighter.maxStake()) {
             throw GameRuleException.invalid("Stake must be between " + game.minStake() + " and "

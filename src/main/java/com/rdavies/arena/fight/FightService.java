@@ -1,6 +1,7 @@
 package com.rdavies.arena.fight;
 
 import com.rdavies.arena.GameProperties;
+import com.rdavies.arena.GameRuleException;
 import com.rdavies.arena.fight.enums.FightStatus;
 import com.rdavies.arena.fight.records.AnnouncedFight;
 import com.rdavies.arena.fight.records.CurrentFights;
@@ -19,6 +20,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
+import java.time.Instant;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -29,6 +31,8 @@ import java.util.stream.Collectors;
 /** The public face of the fights: views built from the rows, never carrying the seed, stats or rolls. */
 @Service
 public class FightService {
+    private static final String BETTING_CLOSED = "Betting on this fight has closed";
+
     private final FightRepository fights;
     private final FightRoundRepository rounds;
     private final GladiatorService gladiators;
@@ -47,9 +51,10 @@ public class FightService {
     /** The live and announced fights, stamped with the server time. */
     @Transactional(readOnly = true)
     public CurrentFights current() {
-        return new CurrentFights(clock.instant(),
+        Instant now = clock.instant();
+        return new CurrentFights(now,
                 fights.findLive().map(this::live).orElse(null),
-                fights.findAnnounced().map(this::announced).orElse(null));
+                fights.findAnnounced().map(fight -> announced(fight, now)).orElse(null));
     }
 
     /** The most recently settled fight; empty before the first one settles. */
@@ -121,17 +126,21 @@ public class FightService {
                 rounds(fight.id()));
     }
 
-    public boolean exists(long fightId) {
-        return fights.existsById(fightId);
-    }
-
     /**
-     * The fight a bet is placed on, if it is still announced, share-locked until the caller's
-     * transaction ends: the engine can't start it while a bet on it is being placed (spec section 7).
+     * The fight a bet is placed on, share-locked until the caller's transaction ends: the engine
+     * can't start it while a bet on it is being placed (spec section 7). Refuses with a conflict
+     * once betting has closed (the cutoff has passed, or the fight has started) and as invalid if
+     * there is no such fight.
      */
     @Transactional(propagation = Propagation.MANDATORY)
-    public Optional<AnnouncedFight> lockForBetting(long fightId) {
-        return fights.findSharedByIdAndStatus(fightId, FightStatus.ANNOUNCED).map(this::announced);
+    public AnnouncedFight lockForBetting(long fightId) {
+        Instant now = clock.instant();
+        return fights.findSharedByIdAndStatus(fightId, FightStatus.ANNOUNCED)
+                .map(fight -> announced(fight, now))
+                .filter(AnnouncedFight::bettingOpen)
+                .orElseThrow(() -> fights.existsById(fightId)
+                        ? GameRuleException.conflict(BETTING_CLOSED)
+                        : GameRuleException.invalid("There is no such fight"));
     }
 
     LiveFight.Fighter liveFighter(long gladiatorId, int currentHp) {
@@ -139,8 +148,10 @@ public class FightService {
         return new LiveFight.Fighter(g.slug(), g.name(), g.epithet(), gladiators.stats(gladiatorId).hp(), currentHp);
     }
 
-    AnnouncedFight announced(Fight fight) {
-        return new AnnouncedFight(fight.id(), fight.startsAt(), fight.startsAt().minus(game.cutoff()),
+    /** The announced fight as it stands at {@code now}: betting is open until game.cutoff before the start. */
+    AnnouncedFight announced(Fight fight, Instant now) {
+        Instant cutoffAt = fight.startsAt().minus(game.cutoff());
+        return new AnnouncedFight(fight.id(), fight.startsAt(), cutoffAt, now.isBefore(cutoffAt),
                 announcedFighter(fight.redId(), fight.redElo(), fight.redMultiplierBps()),
                 announcedFighter(fight.blueId(), fight.blueElo(), fight.blueMultiplierBps()));
     }

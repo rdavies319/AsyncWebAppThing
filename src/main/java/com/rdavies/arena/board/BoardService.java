@@ -18,7 +18,6 @@ import org.springframework.core.env.Environment;
 import org.springframework.data.domain.Limit;
 import org.springframework.stereotype.Service;
 
-import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -46,7 +45,7 @@ public class BoardService {
     public Board board(Optional<GamePrincipal> viewer) {
         CurrentFights current = fightService.current();
         Optional<SettledFight> lastSettled = current.live() == null ? fightService.lastSettled() : Optional.empty();
-        Board.Next next = current.announced() == null ? null : next(current.announced(), current.serverTime());
+        Board.Next next = current.announced() == null ? null : next(current.announced());
         return new Board(current.serverTime(),
                 current.live() == null ? null : live(current.live()),
                 lastSettled.map(BoardService::result).orElse(null), // between fights
@@ -71,9 +70,9 @@ public class BoardService {
                 fight.winner(), fight.endedBy(), fight.roundsDone()));
     }
 
-    private static Board.Next next(AnnouncedFight fight, Instant now) {
+    private static Board.Next next(AnnouncedFight fight) {
         return new Board.Next(fight.fightId(), contender(fight.red()), contender(fight.blue()), fight.startsAt(),
-                fight.cutoffAt(), now.isBefore(fight.cutoffAt()));
+                fight.cutoffAt(), fight.bettingOpen());
     }
 
     private static Board.Contender contender(AnnouncedFight.Fighter fighter) {

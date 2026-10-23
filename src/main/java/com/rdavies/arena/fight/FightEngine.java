@@ -184,7 +184,7 @@ public class FightEngine {
                 Odds.multiplierBps(redChance), Odds.multiplierBps(10_000 - redChance), seed,
                 gladiators.stats(red.id()).hp(), gladiators.stats(blue.id()).hp());
         Fight fight = fights.findById(id).orElseThrow();
-        events.publishEvent(new MatchupAnnounced(views.announced(fight)));
+        events.publishEvent(new MatchupAnnounced(views.announced(fight, clock.instant())));
         log.info("Fight {} announced for {}: {} v {}", id, slot, red.slug(), blue.slug());
     }
 
