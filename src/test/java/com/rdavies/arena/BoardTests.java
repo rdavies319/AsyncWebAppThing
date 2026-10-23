@@ -285,11 +285,19 @@ class BoardTests {
     }
 
     @Test
+    void theBoardRefetchesItselfWhenBettingCloses() throws Exception {
+        game.boot();
+        String board = mockMvc.perform(get("/fragments/board")).andReturn().getResponse().getContentAsString();
+        // The page's script fires "cutoff" on the board when this countdown reaches zero
+        assertTrue(board.contains("data-until=\"2026-01-01T00:59:50Z\" data-fire=\"cutoff\""), board);
+    }
+
+    @Test
     void theBoardRefetchesOnEveryArenaEvent() throws Exception {
         String page = mockMvc.perform(get("/").with(user(alice))).andReturn().getResponse().getContentAsString();
 
         assertTrue(page.contains(
-                "hx-trigger=\"sse:snapshot, sse:matchup_announced, sse:fight_started, sse:round, sse:fight_settled, sse:bet_settled\""),
+                "hx-trigger=\"sse:snapshot, sse:matchup_announced, sse:fight_started, sse:round, sse:fight_settled, sse:bet_settled, cutoff\""),
                 page);
     }
 

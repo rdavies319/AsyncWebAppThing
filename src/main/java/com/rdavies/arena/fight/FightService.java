@@ -68,6 +68,10 @@ public class FightService {
                 rounds.findByFight(fight.id()).stream().map(e -> RoundView.of(e.result())).toList());
     }
 
+    public boolean exists(long fightId) {
+        return fights.existsById(fightId);
+    }
+
     /**
      * The fight a bet is placed on, if it is still announced, share-locked until the caller's
      * transaction ends: the engine can't start it while a bet on it is being placed (spec section 7).

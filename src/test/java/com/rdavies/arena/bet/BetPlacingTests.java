@@ -96,7 +96,7 @@ class BetPlacingTests {
 
     @Test
     void aFightThatDoesNotExistTakesNoBets() {
-        assertRefused(GameRuleException.Kind.CONFLICT, "Betting on this fight has closed",
+        assertRefused(GameRuleException.Kind.INVALID, "There is no such fight",
                 () -> betService.place(playerId, fight.fightId() + 1_000, Corner.RED, 10L));
     }
 

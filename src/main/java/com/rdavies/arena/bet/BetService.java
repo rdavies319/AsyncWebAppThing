@@ -60,7 +60,9 @@ public class BetService {
         Instant now = clock.instant();
         AnnouncedFight fight = fights.lockForBetting(fightId)
                 .filter(f -> now.isBefore(f.cutoffAt()))
-                .orElseThrow(() -> GameRuleException.conflict(CLOSED));
+                .orElseThrow(() -> fights.exists(fightId)
+                        ? GameRuleException.conflict(CLOSED)
+                        : GameRuleException.invalid("There is no such fight"));
         AnnouncedFight.Fighter fighter = fight.fighter(corner);
         if (stake < game.minStake() || stake > fighter.maxStake()) {
             throw GameRuleException.invalid("Stake must be between " + game.minStake() + " and "

@@ -74,7 +74,7 @@
     <div id="board" th:fragment="board" th:with="me=${board.player()}"
          th:data-server-time="${board.serverTime()}"
          hx-get="/fragments/board" hx-swap="outerHTML"
-         hx-trigger="sse:snapshot, sse:matchup_announced, sse:fight_started, sse:round, sse:fight_settled, sse:bet_settled">
+         hx-trigger="sse:snapshot, sse:matchup_announced, sse:fight_started, sse:round, sse:fight_settled, sse:bet_settled, cutoff">
 
         <p class="soon" th:if="${board.openingSoon()}">Arena opening soon</p>
 
@@ -114,7 +114,7 @@
                     <div class="hp-text" th:text="'Max stake ' + ${c.maxStake()}">Max stake 500</div>
                 </div>
             </div>
-            <p class="countdown" th:if="${next.bettingOpen()}">Betting closes in <span th:data-until="${next.cutoffAt()}">…</span></p>
+            <p class="countdown" th:if="${next.bettingOpen()}">Betting closes in <span th:data-until="${next.cutoffAt()}" data-fire="cutoff">…</span></p>
             <p class="countdown" th:unless="${next.bettingOpen()}">Betting has closed</p>
             <p class="countdown">Starts in <span th:data-until="${next.startsAt()}">…</span></p>
             <th:block th:if="${me}">
@@ -177,10 +177,17 @@
     function formatRemaining(seconds) {
         return seconds >= 60 ? Math.floor(seconds / 60) + 'm ' + String(seconds % 60).padStart(2, '0') + 's' : seconds + 's';
     }
+    // A countdown with data-fire triggers that event on the board once it reaches zero, so the board
+    // refetches itself (betting closes with no SSE event). Once per countdown: the refetched board has new ones.
     function tickCountdowns() {
         const now = Date.now() + serverOffset;
         document.querySelectorAll('[data-until]').forEach((el) => {
-            el.textContent = formatRemaining(Math.max(0, Math.ceil((Date.parse(el.dataset.until) - now) / 1000)));
+            const remaining = Date.parse(el.dataset.until) - now;
+            el.textContent = formatRemaining(Math.max(0, Math.ceil(remaining / 1000)));
+            if (el.dataset.fire && remaining <= 0 && !el.dataset.fired) {
+                el.dataset.fired = 'true';
+                htmx.trigger('#board', el.dataset.fire);
+            }
         });
     }
     document.body.addEventListener('htmx:afterSettle', () => { syncServerClock(); tickCountdowns(); });
