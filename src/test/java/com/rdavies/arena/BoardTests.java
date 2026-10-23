@@ -83,16 +83,16 @@ class BoardTests {
         assertNull(board.live());
         assertNull(board.lastResult());
         assertEquals(new Board.Next(announced.fightId(),
-                new Board.Contender(announced.red().name(), announced.red().epithet(), 1000, 19600, 500),
-                new Board.Contender(announced.blue().name(), announced.blue().epithet(), 1000, 19600, 500),
+                new Board.Contender(announced.red().slug(), announced.red().name(), announced.red().epithet(), 1000, 19600, 500),
+                new Board.Contender(announced.blue().slug(), announced.blue().name(), announced.blue().epithet(), 1000, 19600, 500),
                 ONE_AM, Instant.parse("2026-01-01T00:59:50Z"), true), board.next());
     }
 
     @Test
     void oddsShowAsAMultiplierRoundedDown() {
-        assertEquals("1.96x", new Board.Contender("Vex", "the Quick", 1000, 19600, 500).odds());
-        assertEquals("1.08x", new Board.Contender("Vex", "the Quick", 1383, 10888, 500).odds()); // pays 1.0888x
-        assertEquals("9.80x", new Board.Contender("Vex", "the Quick", 617, 98000, 500).odds());
+        assertEquals("1.96x", new Board.Contender("vex", "Vex", "the Quick", 1000, 19600, 500).odds());
+        assertEquals("1.08x", new Board.Contender("vex", "Vex", "the Quick", 1383, 10888, 500).odds()); // pays 1.0888x
+        assertEquals("9.80x", new Board.Contender("vex", "Vex", "the Quick", 617, 98000, 500).odds());
     }
 
     @Test
@@ -104,9 +104,9 @@ class BoardTests {
 
         assertEquals(Instant.parse("2026-01-01T01:01:00Z"), board.serverTime()); // when the first round ran
         assertEquals(started.fightId(), board.live().fightId());
-        assertEquals(new Board.Corner(live.red().name(), live.red().epithet(), live.red().startingHp(), live.red().currentHp()),
+        assertEquals(new Board.Corner(live.red().slug(), live.red().name(), live.red().epithet(), live.red().startingHp(), live.red().currentHp()),
                 board.live().red());
-        assertEquals(new Board.Corner(live.blue().name(), live.blue().epithet(), live.blue().startingHp(), live.blue().currentHp()),
+        assertEquals(new Board.Corner(live.blue().slug(), live.blue().name(), live.blue().epithet(), live.blue().startingHp(), live.blue().currentHp()),
                 board.live().blue());
         assertEquals(ONE_AM.plusSeconds(120), board.live().nextRoundAt());
         assertNull(board.lastResult());
@@ -131,11 +131,11 @@ class BoardTests {
 
     @Test
     void hpBarsAreAShareOfStartingHpAndNeverNegative() {
-        assertEquals(50, new Board.Corner("Brutus", "the Anvil", 120, 60).hpPercent());
-        assertEquals(0, new Board.Corner("Brutus", "the Anvil", 120, 0).hpPercent());
-        assertEquals(100, new Board.Corner("Brutus", "the Anvil", 120, 120).hpPercent());
-        assertEquals(0, new Board.Corner("Brutus", "the Anvil", 120, -7).hpPercent()); // knocked out
-        assertEquals(0, new Board.Corner("Brutus", "the Anvil", 120, -7).shownHp());
+        assertEquals(50, new Board.Corner("brutus", "Brutus", "the Anvil", 120, 60).hpPercent());
+        assertEquals(0, new Board.Corner("brutus", "Brutus", "the Anvil", 120, 0).hpPercent());
+        assertEquals(100, new Board.Corner("brutus", "Brutus", "the Anvil", 120, 120).hpPercent());
+        assertEquals(0, new Board.Corner("brutus", "Brutus", "the Anvil", 120, -7).hpPercent()); // knocked out
+        assertEquals(0, new Board.Corner("brutus", "Brutus", "the Anvil", 120, -7).shownHp());
     }
 
     @Test

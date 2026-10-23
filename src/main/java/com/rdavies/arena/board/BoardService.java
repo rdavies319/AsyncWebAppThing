@@ -63,7 +63,7 @@ public class BoardService {
     }
 
     private static Board.Corner corner(LiveFight.Fighter fighter) {
-        return new Board.Corner(fighter.name(), fighter.epithet(), fighter.startingHp(), fighter.currentHp());
+        return new Board.Corner(fighter.slug(), fighter.name(), fighter.epithet(), fighter.startingHp(), fighter.currentHp());
     }
 
     private static Board.Result result(SettledFight fight) {
@@ -77,7 +77,8 @@ public class BoardService {
     }
 
     private static Board.Contender contender(AnnouncedFight.Fighter fighter) {
-        return new Board.Contender(fighter.name(), fighter.epithet(), fighter.elo(), fighter.multiplierBps(), fighter.maxStake());
+        return new Board.Contender(fighter.slug(), fighter.name(), fighter.epithet(), fighter.elo(), fighter.multiplierBps(),
+                fighter.maxStake());
     }
 
     private Board.PlayerBoard playerBoard(GamePrincipal viewer, CurrentFights current,

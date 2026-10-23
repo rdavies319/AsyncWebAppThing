@@ -31,7 +31,7 @@
         .corner { flex: 1; padding: 0.5rem; border-radius: 0.5rem; }
         .corner.red { background: #fce8e6; }
         .corner.blue { background: #e8f0fe; }
-        .corner .name { font-weight: bold; }
+        .corner .name { display: block; font-weight: bold; color: inherit; }
         .corner .epithet, .hp-text { font-size: 0.8rem; color: #666; }
         .hp-bar { height: 0.5rem; background: #ddd; border-radius: 0.25rem; overflow: hidden; margin-top: 0.25rem; }
         .hp-bar span { display: block; height: 100%; }
@@ -61,7 +61,7 @@
 <!-- One SSE connection for the page; every connect starts with a snapshot -->
 <main class="card" hx-ext="sse" sse-connect="/live">
     <h2>The Arena</h2>
-    <nav class="links"><a th:href="@{/fights}">Past fights</a> · <a th:href="@{/leaderboard}">Leaderboard</a></nav>
+    <nav class="links"><a th:href="@{/gladiators}">Gladiators</a> · <a th:href="@{/fights}">Past fights</a> · <a th:href="@{/leaderboard}">Leaderboard</a></nav>
     <form class="account" th:if="${board.player()}" method="post" th:action="@{/auth/logout}">
         <span th:text="${board.player().name()}">player</span> · <button type="submit" class="link">Log out</button>
     </form>
@@ -87,7 +87,7 @@
             <div class="corners">
                 <div th:each="side : ${ {'red', 'blue'} }" th:with="c=${side == 'red' ? live.red() : live.blue()}"
                      th:class="'corner ' + ${side}">
-                    <div class="name" th:text="${c.name()}">Brutus</div>
+                    <a class="name" th:href="@{/gladiators/{slug}(slug=${c.slug()})}" th:text="${c.name()}">Brutus</a>
                     <div class="epithet" th:text="${c.epithet()}">the Anvil</div>
                     <div class="hp-bar"><span th:style="'width: ' + ${c.hpPercent()} + '%'"></span></div>
                     <div class="hp-text" th:text="${c.shownHp()} + ' / ' + ${c.startingHp()} + ' HP'">120 / 120 HP</div>
@@ -112,7 +112,7 @@
             <div class="corners">
                 <div th:each="side : ${ {'red', 'blue'} }" th:with="c=${side == 'red' ? next.red() : next.blue()}"
                      th:class="'corner ' + ${side}">
-                    <div class="name" th:text="${c.name()}">Vex</div>
+                    <a class="name" th:href="@{/gladiators/{slug}(slug=${c.slug()})}" th:text="${c.name()}">Vex</a>
                     <div class="epithet" th:text="${c.epithet()}">the Quick</div>
                     <div class="hp-text" th:text="'Elo ' + ${c.elo()}">Elo 1000</div>
                     <div class="odds" th:text="${c.odds()}">1.96x</div>

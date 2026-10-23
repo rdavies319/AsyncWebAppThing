@@ -9,6 +9,16 @@ import com.rdavies.arena.fight.records.RoundView;
 public final class Wording {
     private Wording() {}
 
+    /** A rate in basis points as a percentage to one place, rounded down: 5234 is "52.3%". "–" for none. */
+    public static String percent(Integer bps) {
+        return bps == null ? "–" : bps / 100 + "." + bps % 100 / 10 + "%";
+    }
+
+    /** A value in hundredths, to two places: 1234 is "12.34". "–" for none. */
+    public static String hundredths(Integer x100) {
+        return x100 == null ? "–" : x100 / 100 + "." + String.format("%02d", x100 % 100);
+    }
+
     /** "2. Brutus hits Vex for 14 · Brutus dodges": red's attack on blue, then blue's on red. */
     public static String logLine(RoundView round, String red, String blue) {
         String redAttack = round.redHit() ? red + " hits " + blue + " for " + round.redDamage() : blue + " dodges";

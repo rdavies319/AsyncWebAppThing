@@ -34,7 +34,7 @@ public record Board(Instant serverTime, Live live, Result lastResult, Next next,
     }
 
     /** @param currentHp may be below 0 after the knockout blow; {@link #shownHp()} is what to display */
-    public record Corner(String name, String epithet, int startingHp, int currentHp) {
+    public record Corner(String slug, String name, String epithet, int startingHp, int currentHp) {
         /** Current HP as shown: never below 0. */
         public int shownHp() {
             return Math.max(0, currentHp);
@@ -60,7 +60,7 @@ public record Board(Instant serverTime, Live live, Result lastResult, Next next,
      * @param multiplierBps what a winning bet on this corner pays per point staked, in basis points
      * @param maxStake      the largest stake on this corner
      */
-    public record Contender(String name, String epithet, int elo, int multiplierBps, long maxStake) {
+    public record Contender(String slug, String name, String epithet, int elo, int multiplierBps, long maxStake) {
         /** The multiplier as shown, e.g. "1.96x": rounded down, so it never promises more than a win pays. */
         public String odds() {
             return Board.odds(multiplierBps);
