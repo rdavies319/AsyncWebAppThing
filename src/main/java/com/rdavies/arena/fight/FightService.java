@@ -6,18 +6,23 @@ import com.rdavies.arena.fight.records.AnnouncedFight;
 import com.rdavies.arena.fight.records.CurrentFights;
 import com.rdavies.arena.fight.records.RoundView;
 import com.rdavies.arena.fight.records.Fight;
+import com.rdavies.arena.fight.records.FightPage;
+import com.rdavies.arena.fight.records.FightRecord;
 import com.rdavies.arena.fight.records.FightResult;
 import com.rdavies.arena.fight.records.LiveFight;
 import com.rdavies.arena.fight.records.SettledFight;
 import com.rdavies.arena.gladiator.GladiatorService;
 import com.rdavies.arena.gladiator.records.Gladiator;
+import org.springframework.data.domain.Limit;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 /** The public face of the fights: views built from the rows, never carrying the seed, stats or rolls. */
 @Service
@@ -60,6 +65,36 @@ public class FightService {
             throw new IllegalStateException("Fight " + fightId + " hasn't settled");
         }
         return new FightResult(fight.id(), fight.winner(), fight.endedBy(), fight.roundsDone(), fight.redHp(), fight.blueHp());
+    }
+
+    /** The most recent settled fights, newest first. */
+    @Transactional(readOnly = true)
+    public List<FightRecord> history(int limit) {
+        Map<Long, Gladiator> roster = roster();
+        return fights.findByStatusOrderByStartsAtDesc(FightStatus.SETTLED, Limit.of(limit)).stream()
+                .map(fight -> record(fight, roster))
+                .toList();
+    }
+
+    /** One fight in any status, with what has happened so far; empty if there is no such fight. */
+    @Transactional(readOnly = true)
+    public Optional<FightPage> page(long fightId) {
+        return fights.findById(fightId).map(fight -> new FightPage(record(fight, roster()), rounds(fightId)));
+    }
+
+    private Map<Long, Gladiator> roster() {
+        return gladiators.roster().stream().collect(Collectors.toMap(Gladiator::id, g -> g));
+    }
+
+    private static FightRecord record(Fight fight, Map<Long, Gladiator> roster) {
+        return new FightRecord(fight.id(), fight.startsAt(), fight.status(),
+                side(roster.get(fight.redId()), fight.redElo(), fight.redMultiplierBps()),
+                side(roster.get(fight.blueId()), fight.blueElo(), fight.blueMultiplierBps()),
+                fight.winner(), fight.endedBy(), fight.roundsDone());
+    }
+
+    private static FightRecord.Side side(Gladiator g, int elo, int multiplierBps) {
+        return new FightRecord.Side(g.slug(), g.name(), g.epithet(), elo, multiplierBps);
     }
 
     /** A fight's public round log so far, oldest first: no raw rolls. */

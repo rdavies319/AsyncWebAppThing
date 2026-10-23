@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title th:text="${fight.red().name()} + ' v ' + ${fight.blue().name()} + ' · The Arena'">Fight · The Arena</title>
+    <link rel="stylesheet" th:href="@{/app.css}">
+    <link rel="stylesheet" th:href="@{/pages.css}">
+</head>
+<body>
+<main class="card page">
+    <nav><a th:href="@{/}">The Arena</a> · <a th:href="@{/fights}">Past fights</a></nav>
+    <h2><span class="red" th:text="${fight.red().name()}">Brutus</span> v <span class="blue" th:text="${fight.blue().name()}">Vex</span></h2>
+    <p class="muted" th:text="${fight.startsAt()}">2026-01-01T01:00:00Z</p>
+    <p class="result" th:text="${summary}">Brutus beat Vex by KO</p>
+    <table>
+        <thead><tr><th>Corner</th><th>Gladiator</th><th class="num">Elo</th><th class="num">Odds</th></tr></thead>
+        <tbody>
+        <tr>
+            <td class="red">Red</td>
+            <td><span th:text="${fight.red().name()}">Brutus</span> <span class="muted" th:text="${fight.red().epithet()}">the Anvil</span></td>
+            <td class="num" th:text="${fight.red().elo()}">1000</td>
+            <td class="num" th:text="${redOdds}">1.96x</td>
+        </tr>
+        <tr>
+            <td class="blue">Blue</td>
+            <td><span th:text="${fight.blue().name()}">Vex</span> <span class="muted" th:text="${fight.blue().epithet()}">the Quick</span></td>
+            <td class="num" th:text="${fight.blue().elo()}">1000</td>
+            <td class="num" th:text="${blueOdds}">1.96x</td>
+        </tr>
+        </tbody>
+    </table>
+    <h3>Rounds</h3>
+    <p class="muted" th:if="${log.isEmpty()}">No rounds fought yet.</p>
+    <ol class="log">
+        <li th:each="line : ${log}" th:text="${line}">1. Brutus hits Vex for 14 · Brutus dodges</li>
+    </ol>
+</main>
+</body>
+</html>

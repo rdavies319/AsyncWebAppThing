@@ -6,10 +6,8 @@ import com.rdavies.arena.bet.records.Bet;
 import com.rdavies.arena.board.records.Board;
 import com.rdavies.arena.fight.FightService;
 import com.rdavies.arena.fight.enums.Corner;
-import com.rdavies.arena.fight.enums.Winner;
 import com.rdavies.arena.fight.records.AnnouncedFight;
 import com.rdavies.arena.fight.records.CurrentFights;
-import com.rdavies.arena.fight.records.RoundView;
 import com.rdavies.arena.fight.records.LiveFight;
 import com.rdavies.arena.fight.records.SettledFight;
 import com.rdavies.arena.user.records.GamePrincipal;
@@ -57,36 +55,16 @@ public class BoardService {
         String red = fight.red().name();
         String blue = fight.blue().name();
         return new Board.Live(fight.fightId(), corner(fight.red()), corner(fight.blue()), fight.nextRoundAt(),
-                fight.rounds().reversed().stream().map(e -> logLine(e, red, blue)).toList());
+                fight.rounds().reversed().stream().map(e -> Wording.logLine(e, red, blue)).toList());
     }
 
     private static Board.Corner corner(LiveFight.Fighter fighter) {
         return new Board.Corner(fighter.name(), fighter.epithet(), fighter.startingHp(), fighter.currentHp());
     }
 
-    /** "2. Brutus hits Vex for 14 · Brutus dodges": red's attack on blue, then blue's on red. */
-    private static String logLine(RoundView e, String red, String blue) {
-        String redAttack = e.redHit() ? red + " hits " + blue + " for " + e.redDamage() : blue + " dodges";
-        String blueAttack = e.blueHit() ? blue + " hits " + red + " for " + e.blueDamage() : red + " dodges";
-        return e.n() + ". " + redAttack + " · " + blueAttack;
-    }
-
     private static Board.Result result(SettledFight fight) {
-        String red = fight.red().name();
-        String blue = fight.blue().name();
-        String summary = switch (fight.endedBy()) {
-            case DOUBLE_KO -> "Draw: " + red + " and " + blue + " knocked each other out";
-            case KO -> winner(fight, red, blue) + " by KO";
-            case DECISION -> fight.winner() == Winner.DRAW
-                    ? "Draw: level on HP after " + fight.roundsDone() + " rounds"
-                    : winner(fight, red, blue) + " on HP after " + fight.roundsDone() + " rounds";
-        };
-        return new Board.Result(fight.fightId(), summary);
-    }
-
-    /** "Brutus beat Vex", for a fight with a winner. */
-    private static String winner(SettledFight fight, String red, String blue) {
-        return fight.winner() == Winner.RED ? red + " beat " + blue : blue + " beat " + red;
+        return new Board.Result(fight.fightId(), Wording.result(fight.red().name(), fight.blue().name(),
+                fight.winner(), fight.endedBy(), fight.roundsDone()));
     }
 
     private static Board.Next next(AnnouncedFight fight, Instant now) {

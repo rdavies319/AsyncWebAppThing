@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Fights · The Arena</title>
+    <link rel="stylesheet" th:href="@{/app.css}">
+    <link rel="stylesheet" th:href="@{/pages.css}">
+</head>
+<body>
+<main class="card page">
+    <nav><a th:href="@{/}">The Arena</a></nav>
+    <h2>Past fights</h2>
+    <p class="muted" th:if="${rows.isEmpty()}">No fight has finished yet.</p>
+    <table th:unless="${rows.isEmpty()}">
+        <thead><tr><th>Started</th><th>Matchup</th><th>Result</th></tr></thead>
+        <tbody>
+        <tr th:each="row : ${rows}" th:with="f=${row.fight()}">
+            <td><a th:href="@{/fights/{id}(id=${f.fightId()})}" th:text="${f.startsAt()}">2026-01-01T01:00:00Z</a></td>
+            <td><span class="red" th:text="${f.red().name()}">Brutus</span> v <span class="blue" th:text="${f.blue().name()}">Vex</span></td>
+            <td th:text="${row.summary()}">Brutus beat Vex by KO</td>
+        </tr>
+        </tbody>
+    </table>
+</main>
+</body>
+</html>

@@ -3,6 +3,7 @@ package com.rdavies.arena.fight;
 import com.rdavies.arena.fight.enums.FightStatus;
 import com.rdavies.arena.fight.records.Fight;
 import com.rdavies.arena.fight.records.LastFought;
+import org.springframework.data.domain.Limit;
 import org.springframework.data.jdbc.repository.query.Modifying;
 import org.springframework.data.relational.core.sql.LockMode;
 import org.springframework.data.relational.repository.Lock;
@@ -34,6 +35,8 @@ interface FightRepository extends CrudRepository<Fight, Long> {
     /** Share-locks the fight until the transaction ends, if it has this status: a bet holds it while it is placed. */
     @Lock(LockMode.PESSIMISTIC_READ)
     Optional<Fight> findSharedByIdAndStatus(long id, FightStatus status);
+
+    List<Fight> findByStatusOrderByStartsAtDesc(FightStatus status, Limit limit);
 
     Optional<Fight> findFirstByStatusOrderByStartsAtDesc(FightStatus status);
 

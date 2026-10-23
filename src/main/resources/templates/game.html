@@ -98,7 +98,8 @@
 
         <section th:if="${board.lastResult()}">
             <h3>Last result</h3>
-            <p class="result" th:text="${board.lastResult().summary()}">Brutus beat Vex by KO</p>
+            <p class="result"><a th:href="@{/fights/{id}(id=${board.lastResult().fightId()})}"
+                                 th:text="${board.lastResult().summary()}">Brutus beat Vex by KO</a></p>
             <p class="your-bet" th:if="${me != null and me.fightBet() != null}" th:text="${me.fightBet()}">You won 196 on Brutus</p>
         </section>
 
