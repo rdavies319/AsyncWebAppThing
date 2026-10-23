@@ -9,7 +9,7 @@
 </head>
 <body>
 <main class="card page">
-    <nav><a th:href="@{/}">The Arena</a> · <a th:href="@{/gladiators}">Gladiators</a> · <a th:href="@{/fights}">Past fights</a></nav>
+    <header th:replace="~{header :: header('gladiators')}"></header>
     <h2 th:text="${gladiator.name()}">Brutus</h2>
     <p class="muted" th:text="${gladiator.epithet()}">the Anvil</p>
     <p th:text="${gladiator.bio()}">A retired legionary who never learned to step aside.</p>

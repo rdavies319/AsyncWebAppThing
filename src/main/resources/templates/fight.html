@@ -9,7 +9,7 @@
 </head>
 <body>
 <main class="card page">
-    <nav><a th:href="@{/}">The Arena</a> · <a th:href="@{/fights}">Past fights</a></nav>
+    <header th:replace="~{header :: header('fights')}"></header>
     <h2><span class="red" th:text="${fight.red().name()}">Brutus</span> v <span class="blue" th:text="${fight.blue().name()}">Vex</span></h2>
     <p class="muted" th:text="${fight.startsAt()}">2026-01-01T01:00:00Z</p>
     <p class="result" th:text="${summary}">Brutus beat Vex by KO</p>

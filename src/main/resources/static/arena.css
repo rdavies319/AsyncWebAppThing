@@ -50,9 +50,28 @@ h3 {
     font-family: var(--display); font-weight: 700; font-size: .72rem; letter-spacing: .25em; text-transform: uppercase; color: var(--gold);
 }
 h3::before, h3::after { content: ""; flex: 1; border-top: 1px solid var(--line); }
-nav { font-family: var(--display); font-weight: 700; font-size: .68rem; letter-spacing: .15em; text-transform: uppercase; text-align: center; }
-nav a { color: var(--ink); text-decoration: none; }
-nav a:hover { color: var(--gold); }
+
+/* ---------- The header every arena page shares (header.html) ---------- */
+.masthead { text-align: center; margin-bottom: 1.25rem; }
+/* Who is logged in, tucked in the corner so it doesn't compete with the plaques */
+.topbar { display: flex; justify-content: flex-end; align-items: center; gap: .6rem; min-height: 1.8rem; margin: -10px 0 6px; font-style: italic; color: var(--muted); }
+.topbar form { margin: 0; }
+.signup {
+    padding: .4rem .7rem; background: var(--gold); color: var(--paper); text-decoration: none;
+    font: normal 700 .62rem var(--display); letter-spacing: .12em; text-transform: uppercase;
+}
+.wordmark { display: inline-block; font-family: var(--display); font-weight: 900; font-size: 1.9rem; line-height: 1; letter-spacing: .08em; text-transform: uppercase; color: var(--ink); text-decoration: none; }
+.wordmark:hover { color: var(--gold); }
+/* One plaque per page, framed like the card, the current page's struck in gold. 2×2 on a phone, so none is left on its own. */
+.plaques { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; max-width: 640px; margin: 16px auto 0; padding: 0; list-style: none; }
+@media (min-width: 560px) { .plaques { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.plaques a {
+    display: flex; align-items: center; justify-content: center; min-height: 44px; padding: .4rem;
+    border: 1px solid var(--gold); box-shadow: inset 0 0 0 3px var(--paper), inset 0 0 0 4px #d4a94a55; background: #00000030;
+    font: 700 .76rem var(--display); letter-spacing: .12em; text-transform: uppercase; color: var(--gold); text-decoration: none;
+}
+.plaques a:hover { background: #d4a94a2e; color: var(--ink); }
+.plaques a[aria-current=page] { background: var(--gold); color: var(--paper); box-shadow: inset 0 0 0 3px var(--gold), inset 0 0 0 4px #20181080; }
 .meander { height: 14px; margin: 10px -4px 0; background: var(--meander) repeat-x center / 14px 14px; }
 /* Painted lettering, as on a Pompeii games notice; the filter is defined in game.html */
 .brush { filter: url(#brush); }
@@ -68,12 +87,7 @@ button {
 button:focus-visible, a:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
 
 /* ---------- Game page ---------- */
-.game header { text-align: center; }
-.account { margin: .4rem 0 0; font-style: italic; color: var(--muted); }
 .link { background: none; padding: 0; color: var(--gold); font: inherit; letter-spacing: 0; text-transform: none; text-decoration: underline; }
-.auth-links { display: flex; gap: .5rem; justify-content: center; margin-top: .75rem; }
-.auth-links a { padding: .45rem 1rem; border: 1px solid var(--gold); color: var(--gold); }
-.auth-links a.primary { background: var(--gold); color: var(--paper); }
 .soon { text-align: center; font-family: var(--display); font-weight: 900; font-size: 1.3rem; text-transform: uppercase; color: var(--gold); margin: 1.5rem 0; }
 #board section { margin-top: 1.25rem; }
 
@@ -128,6 +142,8 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--gold); outline-
     display: block; font-family: var(--display); font-weight: 900; text-transform: uppercase; letter-spacing: .05em;
     font-size: clamp(1.7rem, 8vw, 2.3rem); line-height: 1; text-decoration: none; text-shadow: 2px 2px 0 #000;
 }
+/* Painted names stay bare, but show they lead to the gladiator's record on hover */
+.corner .name:hover { text-decoration: underline; text-decoration-color: var(--gold); text-decoration-thickness: 2px; text-underline-offset: 6px; }
 .corner.red .name { color: var(--red); }
 .corner.blue .name { color: var(--blue); }
 .corner .epithet { font-style: italic; }
@@ -151,7 +167,9 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--gold); outline-
 .log li { padding: .25rem 0; border-bottom: 1px solid var(--line); }
 .recent-bets ul { list-style: none; padding: 0; margin: 0; font-size: .95rem; }
 .recent-bets li { padding: .25rem 0; border-bottom: 1px solid var(--line); }
-.recent-bets a { color: var(--ink); text-decoration: none; }
+.recent-bets a { display: flex; align-items: center; gap: .5rem; color: var(--ink); text-decoration: none; }
+.recent-bets a span { flex: 1; }
+.go { font-family: var(--display); font-size: 1.1rem; color: var(--gold); }
 .recent-bets a:hover { color: var(--gold); }
 .bet-form > p { text-align: center; }
 
@@ -187,7 +205,6 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--gold); outline-
 .dev button { margin: .15rem; }
 
 /* ---------- Public pages (fights, gladiators, leaderboard) ---------- */
-.page nav { margin-bottom: 1rem; }
 .page > p { text-align: center; }
 .page table { width: 100%; border-collapse: collapse; font-size: .98rem; margin-top: .5rem; }
 .page th, .page td { text-align: left; padding: .35rem .4rem; border-bottom: 1px solid var(--line); }

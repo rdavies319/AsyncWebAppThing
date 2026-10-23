@@ -9,7 +9,7 @@
 </head>
 <body>
 <main class="card page">
-    <nav><a th:href="@{/}">The Arena</a></nav>
+    <header th:replace="~{header :: header('fights')}"></header>
     <h2>Past fights</h2>
     <p class="muted" th:if="${rows.isEmpty()}">No fight has finished yet.</p>
     <table th:unless="${rows.isEmpty()}">

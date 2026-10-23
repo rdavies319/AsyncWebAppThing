@@ -9,7 +9,7 @@
 </head>
 <body>
 <main class="card page">
-    <nav><a th:href="@{/}">The Arena</a> · <a th:href="@{/fights}">Past fights</a></nav>
+    <header th:replace="~{header :: header('gladiators')}"></header>
     <h2>Gladiators</h2>
     <table>
         <thead><tr><th>Gladiator</th><th class="num">Elo</th><th class="num">W–L–D</th></tr></thead>

@@ -96,7 +96,7 @@ class AuthTests {
         mockMvc.perform(get("/"))
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("to play.")))
-                .andExpect(content().string(containsString("<nav class=\"auth-links\">")))
+                .andExpect(content().string(containsString("class=\"signup\"")))
                 .andExpect(content().string(not(containsString("Balance:"))));
         mockMvc.perform(get("/fragments/board")).andExpect(status().isOk());
         mockMvc.perform(get("/live")).andExpect(request().asyncStarted());
@@ -106,7 +106,7 @@ class AuthTests {
                 .andExpect(content().string(containsString("Balance:")))
                 .andExpect(content().string(containsString("frank")))
                 .andExpect(content().string(containsString("Log out")))
-                .andExpect(content().string(not(containsString("<nav class=\"auth-links\">"))));
+                .andExpect(content().string(not(containsString("class=\"signup\""))));
     }
 
     @Test

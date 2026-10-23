@@ -9,7 +9,7 @@
 </head>
 <body>
 <main class="card page">
-    <nav><a th:href="@{/}">The Arena</a></nav>
+    <header th:replace="~{header :: header('leaderboard')}"></header>
     <h2>Leaderboard</h2>
     <p class="muted" th:if="${entries.isEmpty()}">Nobody has signed up yet.</p>
     <table th:unless="${entries.isEmpty()}">

@@ -43,18 +43,7 @@
 
 <!-- One SSE connection for the page; every connect starts with a snapshot -->
 <main class="card wide" hx-ext="sse" sse-connect="/live">
-    <header>
-        <h1 class="brush">The Arena</h1>
-        <nav class="links"><a th:href="@{/gladiators}">Gladiators</a> · <a th:href="@{/fights}">Past fights</a> · <a th:href="@{/leaderboard}">Leaderboard</a></nav>
-        <form class="account" th:if="${board.player()}" method="post" th:action="@{/auth/logout}">
-            <span th:text="${board.player().name()}">player</span> · <button type="submit" class="link">Log out</button>
-        </form>
-        <nav class="auth-links" th:unless="${board.player()}">
-            <a th:href="@{/auth/login}">Log in</a>
-            <a class="primary" th:href="@{/auth/signup}">Sign up</a>
-        </nav>
-        <div class="meander"></div>
-    </header>
+    <header th:replace="~{header :: header('arena')}"></header>
 
     <!--
         Renders a board.Board (built by BoardService) and the last request's BoardFeedback. Refetched on
@@ -178,7 +167,7 @@
                 <h3>Your last bets</h3>
                 <ul>
                     <li th:each="bet : ${me.recentBets()}">
-                        <a th:href="@{/fights/{id}(id=${bet.fightId()})}" th:text="${bet.line()}">Brutus v Vex: 100 on Brutus at 1.96x · won 196</a>
+                        <a th:href="@{/fights/{id}(id=${bet.fightId()})}"><span th:text="${bet.line()}">Brutus v Vex: 100 on Brutus at 1.96x · won 196</span><b class="go" aria-hidden="true">›</b></a>
                     </li>
                 </ul>
             </section>
