@@ -4,16 +4,21 @@ import com.rdavies.arena.GameProperties;
 import com.rdavies.arena.GameRuleException;
 import com.rdavies.arena.bet.enums.BetStatus;
 import com.rdavies.arena.bet.records.Bet;
+import com.rdavies.arena.bet.records.BetRecord;
 import com.rdavies.arena.fight.FightService;
 import com.rdavies.arena.fight.enums.Corner;
 import com.rdavies.arena.fight.records.AnnouncedFight;
+import com.rdavies.arena.fight.records.FightRecord;
 import com.rdavies.arena.wallet.WalletService;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.data.domain.Limit;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /** Bets on the announced fight (spec section 5): one final bet per player per fight, at the odds of the moment. */
@@ -39,6 +44,17 @@ public class BetService {
     /** The player's bet on the fight, if they placed one. */
     public Optional<Bet> bet(long userId, long fightId) {
         return bets.findByUserIdAndFightId(userId, fightId);
+    }
+
+    /** The player's bets, newest first, each with its fight's matchup; all of them if {@code limit} is unlimited. */
+    public List<BetRecord> history(long userId, Limit limit) {
+        List<Bet> mine = bets.findByUserIdOrderByCreatedAtDescIdDesc(userId, limit);
+        Map<Long, FightRecord> fightsById = fights.records(mine.stream().map(Bet::fightId).toList());
+        return mine.stream().map(bet -> {
+            FightRecord fight = fightsById.get(bet.fightId());
+            return new BetRecord(bet.id(), bet.fightId(), fight.startsAt(), fight.red().name(), fight.blue().name(),
+                    bet.corner(), bet.stake(), bet.multiplierBps(), bet.status(), bet.payout(), bet.createdAt());
+        }).toList();
     }
 
     /**

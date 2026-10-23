@@ -4,7 +4,7 @@ These tasks replace Higher or Lower with the gladiator arena in [spec-arena.md](
 
 The full ticket for each task, with acceptance criteria, is in `.scratch/arena/issues/NN-*.md`. Keep this file and the tickets in step as tasks land.
 
-**Status:** 01–08 and 11 done.
+**Status:** 01–09 and 11 done.
 
 ## Order
 

@@ -192,17 +192,17 @@ class BoardTests {
     void aPlayerSeesTheirBalance() {
         Board board = boardService.board(Optional.of(alice));
 
-        assertEquals(new Board.PlayerBoard("alice", 1000, null, null, null, null), board.player()); // at the top-up target already
+        assertEquals(new Board.PlayerBoard("alice", 1000, null, null, null, null, List.of()), board.player()); // at the top-up target already
     }
 
     @Test
     void aPlayerBelowTheTargetIsOfferedTheTopUpUntilTheyClaimIt() {
         wallets.spend(alice.id(), 400);
 
-        assertEquals(new Board.PlayerBoard("alice", 600, 1000L, null, null, null), boardService.board(Optional.of(alice)).player());
+        assertEquals(new Board.PlayerBoard("alice", 600, 1000L, null, null, null, List.of()), boardService.board(Optional.of(alice)).player());
 
         walletService.claimTopUp(alice.id());
-        assertEquals(new Board.PlayerBoard("alice", 1000, null, null, null, null), boardService.board(Optional.of(alice)).player());
+        assertEquals(new Board.PlayerBoard("alice", 1000, null, null, null, null, List.of()), boardService.board(Optional.of(alice)).player());
     }
 
     @Test

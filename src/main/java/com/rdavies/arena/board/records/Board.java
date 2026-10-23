@@ -72,9 +72,17 @@ public record Board(Instant serverTime, Live live, Result lastResult, Next next,
      * @param betForm     the stakes the player can bet on the next fight; null once they have bet, or betting has closed
      * @param nextBet     the player's bet on the next fight, e.g. "Your bet: 100 on Vex at 1.96x"; null if none
      * @param fightBet    the player's bet on the fight now showing (live, or the last result); null if none
+     * @param recentBets  the player's last 5 bets, newest first
      */
     public record PlayerBoard(String name, long balance, Long topUpTarget, BetForm betForm, String nextBet,
-                              String fightBet) {}
+                              String fightBet, List<PastBet> recentBets) {
+        public PlayerBoard {
+            recentBets = List.copyOf(recentBets);
+        }
+    }
+
+    /** @param line e.g. "Brutus v Vex: 100 on Brutus at 1.96x · won 196" */
+    public record PastBet(long fightId, String line) {}
 
     /** The stake buttons for each corner: the stake options the player can afford, within the corner's max stake. */
     public record BetForm(long fightId, List<Long> redStakes, List<Long> blueStakes) {

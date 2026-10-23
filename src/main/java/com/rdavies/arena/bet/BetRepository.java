@@ -1,6 +1,7 @@
 package com.rdavies.arena.bet;
 
 import com.rdavies.arena.bet.records.Bet;
+import org.springframework.data.domain.Limit;
 import org.springframework.data.jdbc.repository.query.Modifying;
 import org.springframework.data.jdbc.repository.query.Query;
 import org.springframework.data.repository.CrudRepository;
@@ -18,6 +19,8 @@ interface BetRepository extends CrudRepository<Bet, Long> {
     Optional<Bet> findByUserIdAndFightId(long userId, long fightId);
 
     List<Bet> findByFightIdOrderById(long fightId);
+
+    List<Bet> findByUserIdOrderByCreatedAtDescIdDesc(long userId, Limit limit);
 
     /**
      * Settles every pending bet on the fight in one statement (spec section 5, Rules). A win pays

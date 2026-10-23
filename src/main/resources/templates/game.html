@@ -48,6 +48,8 @@
         .stakes.red button { background: #c5221f; }
         .stakes.blue button { background: #1a73e8; }
         .stakes-label { font-size: 0.85rem; }
+        .recent-bets ul { list-style: none; padding: 0; margin: 0; font-size: 0.8rem; text-align: left; }
+        .recent-bets li { padding: 0.15rem 0; border-bottom: 1px solid #eee; }
         .dev { border: 1px dashed #b06000; border-radius: 0.5rem; padding: 0.5rem; }
         .dev h3 { color: #b06000; }
         .dev button { margin: 0.15rem; }
@@ -148,6 +150,15 @@
                     th:text="'Daily top-up to ' + ${me.topUpTarget()}">Daily top-up</button>
             <p class="error" th:if="${feedback.topUpError()}" th:text="${feedback.topUpError()}" role="alert"></p>
         </div>
+
+        <section class="recent-bets" th:if="${me != null and !me.recentBets().isEmpty()}">
+            <h3>Your last bets</h3>
+            <ul>
+                <li th:each="bet : ${me.recentBets()}">
+                    <a th:href="@{/fights/{id}(id=${bet.fightId()})}" th:text="${bet.line()}">Brutus v Vex: 100 on Brutus at 1.96x · won 196</a>
+                </li>
+            </ul>
+        </section>
 
         <!-- Dev profile only. Each button pulls a due time forward and ticks the real engine; the events refetch the board. -->
         <section class="dev" th:if="${board.devPanel()}">

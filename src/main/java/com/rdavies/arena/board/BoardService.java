@@ -3,6 +3,7 @@ package com.rdavies.arena.board;
 import com.rdavies.arena.GameProperties;
 import com.rdavies.arena.bet.BetService;
 import com.rdavies.arena.bet.records.Bet;
+import com.rdavies.arena.bet.records.BetRecord;
 import com.rdavies.arena.board.records.Board;
 import com.rdavies.arena.fight.FightService;
 import com.rdavies.arena.fight.enums.Corner;
@@ -14,6 +15,7 @@ import com.rdavies.arena.user.records.GamePrincipal;
 import com.rdavies.arena.wallet.WalletService;
 import com.rdavies.arena.wallet.records.Wallet;
 import org.springframework.core.env.Environment;
+import org.springframework.data.domain.Limit;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -23,6 +25,8 @@ import java.util.Optional;
 /** Builds the game page's board: anyone can watch, and a logged-in player also sees their own part. */
 @Service
 public class BoardService {
+    private static final int RECENT_BETS = 5;
+
     private final FightService fightService;
     private final WalletService walletService;
     private final BetService betService;
@@ -105,7 +109,11 @@ public class BoardService {
                     .map(b -> settledBet(b, (b.corner() == Corner.RED ? settled.red() : settled.blue()).name()))
                     .orElse(null);
         }
-        return new Board.PlayerBoard(viewer.displayName(), wallet.balance(), topUpTarget, betForm, nextBet, fightBet);
+        List<Board.PastBet> recentBets = betService.history(viewer.id(), Limit.of(RECENT_BETS)).stream()
+                .map(bet -> new Board.PastBet(bet.fightId(), pastBet(bet)))
+                .toList();
+        return new Board.PlayerBoard(viewer.displayName(), wallet.balance(), topUpTarget, betForm, nextBet, fightBet,
+                recentBets);
     }
 
     /** The stake options this balance covers, up to the corner's max stake. */
@@ -122,6 +130,18 @@ public class BoardService {
             case PUSH -> "Draw: your " + bet.stake() + " on " + gladiator + " is refunded";
             case PENDING -> throw new IllegalStateException("Bet " + bet.id() + " on a settled fight is still pending");
         };
+    }
+
+    /** "Brutus v Vex: 100 on Brutus at 1.96x · won 196", then lost, refunded 100 or pending. */
+    private static String pastBet(BetRecord bet) {
+        String outcome = switch (bet.status()) {
+            case PENDING -> "pending";
+            case WON -> "won " + bet.payout();
+            case LOST -> "lost";
+            case PUSH -> "refunded " + bet.payout();
+        };
+        return bet.red() + " v " + bet.blue() + ": " + bet.stake() + " on " + bet.backed() + " at "
+                + Board.odds(bet.multiplierBps()) + " · " + outcome;
     }
 
     /** "Your bet: 100 on Vex at 1.96x" */

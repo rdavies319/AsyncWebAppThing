@@ -19,6 +19,8 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -80,6 +82,15 @@ public class FightService {
     @Transactional(readOnly = true)
     public Optional<FightPage> page(long fightId) {
         return fights.findById(fightId).map(fight -> new FightPage(record(fight, roster()), rounds(fightId)));
+    }
+
+    /** The public records of these fights, by id. */
+    @Transactional(readOnly = true)
+    public Map<Long, FightRecord> records(Collection<Long> fightIds) {
+        Map<Long, Gladiator> roster = roster();
+        Map<Long, FightRecord> byId = new HashMap<>();
+        fights.findAllById(fightIds).forEach(fight -> byId.put(fight.id(), record(fight, roster)));
+        return byId;
     }
 
     private Map<Long, Gladiator> roster() {
