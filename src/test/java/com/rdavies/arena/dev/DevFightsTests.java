@@ -6,6 +6,7 @@ import com.rdavies.arena.TestGame;
 import com.rdavies.arena.TestPlayers;
 import com.rdavies.arena.board.BoardService;
 import com.rdavies.arena.fight.FightService;
+import com.rdavies.arena.fight.TestFights;
 import com.rdavies.arena.fight.records.CurrentFights;
 import com.rdavies.arena.fight.records.LiveFight;
 import com.rdavies.arena.user.UserService;
@@ -39,6 +40,7 @@ class DevFightsTests {
     @Autowired TestGame game;
     @Autowired MutableClock clock;
     @Autowired FightService fightService;
+    @Autowired TestFights testFights;
     @Autowired BoardService boardService;
     @Autowired UserService userService;
 
@@ -102,7 +104,7 @@ class DevFightsTests {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.live").doesNotExist());
 
-        assertNotNull(fightService.result(live.fightId()).winner());
+        assertNotNull(testFights.result(live.fightId()).winner());
     }
 
     @Test

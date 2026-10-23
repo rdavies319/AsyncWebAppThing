@@ -9,7 +9,6 @@ import com.rdavies.arena.fight.records.RoundView;
 import com.rdavies.arena.fight.records.Fight;
 import com.rdavies.arena.fight.records.FightPage;
 import com.rdavies.arena.fight.records.FightRecord;
-import com.rdavies.arena.fight.records.FightResult;
 import com.rdavies.arena.fight.records.LiveFight;
 import com.rdavies.arena.fight.records.SettledFight;
 import com.rdavies.arena.gladiator.GladiatorService;
@@ -68,15 +67,6 @@ public class FightService {
         return fights.findLastSettled().map(fight -> new SettledFight(fight.id(),
                 liveFighter(fight.redId(), fight.redHp()), liveFighter(fight.blueId(), fight.blueHp()),
                 fight.winner(), fight.endedBy(), fight.roundsDone()));
-    }
-
-    /** A settled fight's result. */
-    public FightResult result(long fightId) {
-        Fight fight = fights.findById(fightId).orElseThrow(() -> new IllegalStateException("No fight " + fightId));
-        if (fight.winner() == null) {
-            throw new IllegalStateException("Fight " + fightId + " hasn't settled");
-        }
-        return new FightResult(fight.id(), fight.winner(), fight.endedBy(), fight.roundsDone(), fight.redHp(), fight.blueHp());
     }
 
     /** The most recent settled fights, newest first. */

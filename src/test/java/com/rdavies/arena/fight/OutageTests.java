@@ -96,7 +96,7 @@ class OutageTests {
         CurrentFights after = game.tickAt(ONE_AM.plusSeconds(45 * 60)); // past the round cap
 
         assertNull(after.live());
-        FightResult result = fightService.result(live.fightId());
+        FightResult result = testFights.result(live.fightId());
         SimulatedFight uninterrupted = simulate(live.fightId());
         assertEquals(Winner.BLUE, result.winner());
         assertEquals(EndedBy.KO, result.endedBy());

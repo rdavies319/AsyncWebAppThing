@@ -3,6 +3,8 @@ package com.rdavies.arena.fight;
 import com.rdavies.arena.GameProperties;
 import com.rdavies.arena.fight.enums.EndedBy;
 import com.rdavies.arena.fight.enums.Winner;
+import com.rdavies.arena.fight.records.Fight;
+import com.rdavies.arena.fight.records.FightResult;
 import com.rdavies.arena.fight.records.Outcome;
 import com.rdavies.arena.fight.records.SimulatedFight;
 import com.rdavies.arena.gladiator.GladiatorService;
@@ -13,6 +15,7 @@ import java.security.SecureRandom;
 import java.util.Map;
 import java.util.function.Predicate;
 
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.fail;
 
 /**
@@ -24,13 +27,22 @@ public class TestFights {
     private static final SecureRandom RANDOM = new SecureRandom();
 
     private final JdbcTemplate jdbc;
+    private final FightRepository fights;
     private final GladiatorService gladiators;
     private final GameProperties game;
 
-    TestFights(JdbcTemplate jdbc, GladiatorService gladiators, GameProperties game) {
+    TestFights(JdbcTemplate jdbc, FightRepository fights, GladiatorService gladiators, GameProperties game) {
         this.jdbc = jdbc;
+        this.fights = fights;
         this.gladiators = gladiators;
         this.game = game;
+    }
+
+    /** A settled fight's result, with the HP each side finished on. */
+    public FightResult result(long fightId) {
+        Fight fight = fights.findById(fightId).orElseThrow(() -> new AssertionError("No fight " + fightId));
+        assertNotNull(fight.winner(), "fight " + fightId + " hasn't settled");
+        return new FightResult(fight.id(), fight.winner(), fight.endedBy(), fight.roundsDone(), fight.redHp(), fight.blueHp());
     }
 
     /**

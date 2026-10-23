@@ -78,7 +78,7 @@ public class TestGame {
         while (fights.current().live() != null) {
             nextRound();
         }
-        return fights.result(live.fightId());
+        return testFights.result(live.fightId());
     }
 
     /**

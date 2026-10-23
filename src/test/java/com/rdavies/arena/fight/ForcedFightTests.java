@@ -37,7 +37,7 @@ class ForcedFightTests {
     @Autowired TestGame game;
     @Autowired GameProperties gameProperties;
     @Autowired MutableClock clock;
-    @Autowired FightService fightService;
+    @Autowired TestFights testFights;
     @Autowired FightRepository fights;
     @Autowired FightRoundRepository rounds;
     @Autowired GladiatorService gladiators;
@@ -53,7 +53,7 @@ class ForcedFightTests {
         mockMvc.perform(post("/dev/fights/round").with(user(dev)).with(csrf())).andExpect(status().isOk());
         mockMvc.perform(post("/dev/fights/finish").with(user(dev)).with(csrf())).andExpect(status().isOk());
 
-        FightResult result = fightService.result(id);
+        FightResult result = testFights.result(id);
         Fight fight = fights.findById(id).orElseThrow();
         SimulatedFight simulated = Combat.simulate(fight.seed(), id,
                 gladiators.stats(fight.redId()), gladiators.stats(fight.blueId()), gameProperties.maxRounds());
