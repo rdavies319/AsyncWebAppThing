@@ -23,6 +23,13 @@ public class TestWallets {
                 userId, -points);
     }
 
+    /** Adds {@code points} to the player's wallet with a matching PAYOUT row, as a big win would. */
+    public void grant(long userId, long points) {
+        jdbc.update("UPDATE wallets SET balance = balance + ? WHERE user_id = ?", points, userId);
+        jdbc.update("INSERT INTO ledger (user_id, delta, reason, created_at) VALUES (?, ?, 'PAYOUT', now())",
+                userId, points);
+    }
+
     /**
      * Opens a wallet with the signup bonus for every user whose email matches {@code emailPattern}
      * (SQL LIKE), in two statements: for load tests that create users in bulk.

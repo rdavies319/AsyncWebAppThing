@@ -50,6 +50,7 @@
         .stakes-label { font-size: 0.85rem; }
         .recent-bets ul { list-style: none; padding: 0; margin: 0; font-size: 0.8rem; text-align: left; }
         .recent-bets li { padding: 0.15rem 0; border-bottom: 1px solid #eee; }
+        .links { font-size: 0.85rem; margin: -0.5rem 0 0.75rem; }
         .dev { border: 1px dashed #b06000; border-radius: 0.5rem; padding: 0.5rem; }
         .dev h3 { color: #b06000; }
         .dev button { margin: 0.15rem; }
@@ -60,6 +61,7 @@
 <!-- One SSE connection for the page; every connect starts with a snapshot -->
 <main class="card" hx-ext="sse" sse-connect="/live">
     <h2>The Arena</h2>
+    <nav class="links"><a th:href="@{/fights}">Past fights</a> · <a th:href="@{/leaderboard}">Leaderboard</a></nav>
     <form class="account" th:if="${board.player()}" method="post" th:action="@{/auth/logout}">
         <span th:text="${board.player().name()}">player</span> · <button type="submit" class="link">Log out</button>
     </form>

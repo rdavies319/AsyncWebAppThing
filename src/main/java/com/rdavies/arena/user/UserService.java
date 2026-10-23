@@ -13,7 +13,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.Locale;
+import java.util.Map;
 import java.util.regex.Pattern;
 
 /** Signup, and the login lookup Spring Security's form login uses. */
@@ -69,6 +72,13 @@ public class UserService implements UserDetailsService {
         }
         walletService.createFor(user.id());
         return GamePrincipal.of(user);
+    }
+
+    /** Each player's public display name, by user id. */
+    public Map<Long, String> displayNames(Collection<Long> userIds) {
+        Map<Long, String> names = new HashMap<>();
+        userRepository.findAllById(userIds).forEach(user -> names.put(user.id(), user.displayName()));
+        return names;
     }
 
     @Override

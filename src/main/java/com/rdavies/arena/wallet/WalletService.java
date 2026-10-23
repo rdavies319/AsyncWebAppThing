@@ -2,9 +2,11 @@ package com.rdavies.arena.wallet;
 
 import com.rdavies.arena.GameProperties;
 import com.rdavies.arena.GameRuleException;
+import com.rdavies.arena.wallet.records.Balance;
 import com.rdavies.arena.wallet.records.Credit;
 import com.rdavies.arena.wallet.records.LedgerEntry;
 import com.rdavies.arena.wallet.records.Wallet;
+import org.springframework.data.domain.Limit;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -70,6 +72,13 @@ public class WalletService {
             throw GameRuleException.conflict(INSUFFICIENT);
         }
         ledgerRepository.save(new LedgerEntry(null, userId, -stake, LedgerEntry.Reason.STAKE, betId, now));
+    }
+
+    /** The {@code limit} highest balances, highest first; equal balances by user id, so whoever joined first ranks first. */
+    public List<Balance> highestBalances(int limit) {
+        return walletRepository.findAllByOrderByBalanceDescUserIdAsc(Limit.of(limit)).stream()
+                .map(wallet -> new Balance(wallet.userId(), wallet.balance()))
+                .toList();
     }
 
     /** Each player's balance now, by user id. */
