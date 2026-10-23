@@ -2,6 +2,7 @@ package com.rdavies.arena.wallet;
 
 import com.rdavies.arena.GameProperties;
 import com.rdavies.arena.GameRuleException;
+import com.rdavies.arena.wallet.records.Credit;
 import com.rdavies.arena.wallet.records.LedgerEntry;
 import com.rdavies.arena.wallet.records.Wallet;
 import org.springframework.stereotype.Service;
@@ -11,8 +12,13 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
-/** Every wallet change, each with its ledger row (spec section 7): signup bonus, stakes and the daily top-up. */
+/** Every wallet change, each with its ledger row (spec section 7): signup bonus, stakes, payouts and refunds, and the daily top-up. */
 @Service
 public class WalletService {
     private final WalletRepository walletRepository;
@@ -52,6 +58,28 @@ public class WalletService {
             throw GameRuleException.conflict("Insufficient funds in wallet");
         }
         ledgerRepository.save(new LedgerEntry(null, userId, -stake, LedgerEntry.Reason.STAKE, betId, now));
+    }
+
+    /** Each player's balance now, by user id. */
+    public Map<Long, Long> balances(Collection<Long> userIds) {
+        return StreamSupport.stream(walletRepository.findAllById(userIds).spliterator(), false)
+                .collect(Collectors.toMap(Wallet::userId, Wallet::balance));
+    }
+
+    /**
+     * Pays every credit, each with its ledger row, in one statement: settlement's payouts and refunds.
+     * Joins the caller's transaction. The wallet never reads why: the caller says who gets what.
+     */
+    @Transactional
+    public void creditAll(List<Credit> credits) {
+        if (credits.isEmpty()) {
+            return;
+        }
+        long wallets = credits.stream().map(Credit::userId).distinct().count();
+        int credited = walletRepository.creditAll(credits, clock.instant());
+        if (credited != wallets) {
+            throw new IllegalStateException("Credited " + credited + " of " + wallets + " wallets");
+        }
     }
 
     /** Whether the daily top-up can be claimed now: balance below the target, not yet claimed today (UTC). */

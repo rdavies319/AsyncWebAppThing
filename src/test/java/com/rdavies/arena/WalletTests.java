@@ -4,6 +4,8 @@ import com.rdavies.arena.user.UserService;
 import com.rdavies.arena.user.records.GamePrincipal;
 import com.rdavies.arena.wallet.TestWallets;
 import com.rdavies.arena.wallet.WalletService;
+import com.rdavies.arena.wallet.records.Credit;
+import com.rdavies.arena.wallet.records.LedgerEntry;
 import com.rdavies.arena.wallet.records.Wallet;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.AfterEach;
@@ -14,6 +16,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -107,6 +111,39 @@ class WalletTests {
         walletService.claimTopUp(playerId);
         spend(1);
         assertFalse(walletService.canTopUp(wallet()));
+    }
+
+    @Test
+    void creditAllCreditsEachWalletWithItsLedgerRow() {
+        long otherId = TestPlayers.signUp(userService, "other").id();
+        spend(300);
+
+        walletService.creditAll(List.of(
+                new Credit(playerId, 196, LedgerEntry.Reason.PAYOUT, 7L),
+                new Credit(otherId, 50, LedgerEntry.Reason.REFUND, 8L),
+                new Credit(playerId, 4, LedgerEntry.Reason.REFUND, 9L)));
+
+        assertEquals(900, balance());
+        assertEquals(1050, walletService.getWallet(otherId).balance());
+        assertEquals(List.of("PAYOUT:196:7", "REFUND:4:9"), jdbc.queryForList("""
+                SELECT reason || ':' || delta || ':' || ref_id FROM ledger
+                WHERE user_id = ? AND ref_id IS NOT NULL ORDER BY ref_id""", String.class, playerId));
+        assertEquals("REFUND:50:8", jdbc.queryForObject("""
+                SELECT reason || ':' || delta || ':' || ref_id FROM ledger
+                WHERE user_id = ? AND ref_id IS NOT NULL""", String.class, otherId));
+    }
+
+    @Test
+    void creditAllWithNothingToCreditChangesNothing() {
+        walletService.creditAll(List.of());
+        assertEquals(1000, balance());
+    }
+
+    @Test
+    void balancesReadsEachPlayersWallet() {
+        long otherId = TestPlayers.signUp(userService, "other").id();
+        spend(10);
+        assertEquals(Map.of(playerId, 990L, otherId, 1000L), walletService.balances(List.of(playerId, otherId)));
     }
 
     @Test

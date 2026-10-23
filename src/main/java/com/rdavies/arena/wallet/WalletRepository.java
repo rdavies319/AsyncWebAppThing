@@ -11,7 +11,7 @@ import java.time.LocalDate;
 import java.util.Optional;
 
 /** Package-private: balances change only through WalletService, which writes each change's ledger row with it. */
-interface WalletRepository extends CrudRepository<Wallet, Long> {
+interface WalletRepository extends CrudRepository<Wallet, Long>, WalletCredits {
 
     /** save() would treat a wallet with its user id already set as an update, so inserts go through here. */
     @Modifying
