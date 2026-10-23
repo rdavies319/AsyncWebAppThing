@@ -80,6 +80,9 @@ class GladiatorPagesTests {
         String page = html("/gladiators/" + fight.red().slug());
         assertTrue(page.contains("Win rate"), page);
         assertTrue(page.contains("100.0%"), page); // win rate and KO rate
+        assertTrue(page.contains("Won by KO"), page);
+        assertTrue(page.contains("<td class=\"num\">1–0–0</td>"), page); // head to head
+        assertTrue(roster.contains("<td class=\"num\">1–0–0</td>"), roster);
         assertTrue(page.contains("href=\"/fights/" + result.fightId() + "\""), page);
         assertTrue(page.contains("href=\"/gladiators/" + fight.blue().slug() + "\""), page); // head to head
     }

@@ -1,6 +1,7 @@
 package com.rdavies.arena.board;
 
 import com.rdavies.arena.fight.enums.EndedBy;
+import com.rdavies.arena.fight.enums.Result;
 import com.rdavies.arena.fight.enums.Winner;
 import com.rdavies.arena.fight.records.FightRecord;
 import com.rdavies.arena.fight.records.RoundView;
@@ -24,6 +25,33 @@ public final class Wording {
         String redAttack = round.redHit() ? red + " hits " + blue + " for " + round.redDamage() : blue + " dodges";
         String blueAttack = round.blueHit() ? blue + " hits " + red + " for " + round.blueDamage() : red + " dodges";
         return round.n() + ". " + redAttack + " · " + blueAttack;
+    }
+
+    /**
+     * A round for the fight page: the log line, then the HP both were left on, never below 0.
+     * "2. Brutus hits Vex for 14 · Brutus dodges (Brutus 106 HP, Vex 92 HP)"
+     */
+    public static String roundLine(RoundView round, String red, String blue) {
+        return logLine(round, red, blue) + " (" + red + " " + Math.max(0, round.redHpAfter()) + " HP, "
+                + blue + " " + Math.max(0, round.blueHpAfter()) + " HP)";
+    }
+
+    /** A W–L–D record: "3–1–0". */
+    public static String record(int wins, int losses, int draws) {
+        return wins + "–" + losses + "–" + draws;
+    }
+
+    /** One of a gladiator's results, from their side: "Won by KO", "Drew: double KO", "Lost on HP" and so on. */
+    public static String recentResult(Result result, EndedBy endedBy) {
+        if (endedBy == EndedBy.DOUBLE_KO) {
+            return "Drew: double KO";
+        }
+        String outcome = switch (result) {
+            case WON -> "Won";
+            case LOST -> "Lost";
+            case DREW -> "Drew";
+        };
+        return outcome + (endedBy == EndedBy.KO ? " by KO" : " on HP");
     }
 
     /** One line on a fight in any status: its result once settled, otherwise how far it has got. */

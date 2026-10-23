@@ -2,9 +2,11 @@ package com.rdavies.arena;
 
 import com.rdavies.arena.bet.BetService;
 import com.rdavies.arena.board.BoardService;
+import com.rdavies.arena.board.Wording;
 import com.rdavies.arena.board.records.Board;
 import com.rdavies.arena.fight.enums.Corner;
 import com.rdavies.arena.fight.enums.EndedBy;
+import com.rdavies.arena.fight.enums.Result;
 import com.rdavies.arena.fight.enums.Winner;
 import com.rdavies.arena.fight.records.AnnouncedFight;
 import com.rdavies.arena.fight.records.RoundView;
@@ -127,6 +129,17 @@ class BoardTests {
         assertEquals(2, board.live().log().size());
         assertEquals(logLine(afterTwo.rounds().get(1), red, blue), board.live().log().get(0));
         assertEquals(logLine(afterTwo.rounds().get(0), red, blue), board.live().log().get(1));
+    }
+
+    @Test
+    void eachWayAFightCanEndReadsForBothSides() {
+        assertEquals("Won by KO", Wording.recentResult(Result.WON, EndedBy.KO));
+        assertEquals("Lost by KO", Wording.recentResult(Result.LOST, EndedBy.KO));
+        assertEquals("Drew: double KO", Wording.recentResult(Result.DREW, EndedBy.DOUBLE_KO));
+        assertEquals("Won on HP", Wording.recentResult(Result.WON, EndedBy.DECISION));
+        assertEquals("Lost on HP", Wording.recentResult(Result.LOST, EndedBy.DECISION));
+        assertEquals("Drew on HP", Wording.recentResult(Result.DREW, EndedBy.DECISION));
+        assertEquals("3–1–0", Wording.record(3, 1, 0));
     }
 
     @Test

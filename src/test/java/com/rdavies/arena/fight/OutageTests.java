@@ -112,8 +112,25 @@ class OutageTests {
         game.tickAt(ONE_AM.plusSeconds(10 * 60 + 15));
 
         assertTrue(output.getOut().contains("WARN"), output.getOut());
-        assertTrue(output.getOut().contains("Fight " + live.fightId() + " resumed 10 rounds late, PT9M15S behind"),
+        assertTrue(output.getOut().contains("Fight " + live.fightId() + " resumed PT9M15S behind: ran rounds 1 to 10 at once"),
                 output.getOut());
+    }
+
+    @Test
+    void anOutageIsLoggedEvenWhenTheFirstOverdueRoundEndsTheFight(CapturedOutput output) {
+        game.plantFight(Winner.RED, EndedBy.KO);
+        LiveFight live = game.startFight();
+        int last = simulate(live.fightId()).rounds().size();
+        while (fightService.current().live().roundsDone() < last - 1) {
+            game.nextRound();
+        }
+        Instant due = fightService.current().live().nextRoundAt();
+
+        game.tickAt(due.plusSeconds(10 * 60)); // only the knockout round was left
+
+        assertNull(fightService.current().live());
+        assertTrue(output.getOut().contains("Fight " + live.fightId() + " resumed PT10M behind: ran rounds "
+                + last + " to " + last + " at once"), output.getOut());
     }
 
     @Test

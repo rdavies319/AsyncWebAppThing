@@ -24,26 +24,26 @@
     </table>
 
     <h3>Head to head</h3>
-    <p class="muted" th:if="${gladiator.headToHead().isEmpty()}">No fights yet.</p>
-    <table th:unless="${gladiator.headToHead().isEmpty()}">
+    <p class="muted" th:if="${opponents.isEmpty()}">No fights yet.</p>
+    <table th:unless="${opponents.isEmpty()}">
         <thead><tr><th>Opponent</th><th class="num">W–L–D</th></tr></thead>
         <tbody>
-        <tr th:each="h : ${gladiator.headToHead()}">
+        <tr th:each="row : ${opponents}" th:with="h=${row.opponent()}">
             <td><a th:href="@{/gladiators/{slug}(slug=${h.opponentSlug()})}" th:text="${h.opponentName()}">Vex</a></td>
-            <td class="num" th:text="${h.wins()} + '–' + ${h.losses()} + '–' + ${h.draws()}">1–0–0</td>
+            <td class="num" th:text="${row.record()}">1–0–0</td>
         </tr>
         </tbody>
     </table>
 
     <h3>Last results</h3>
-    <p class="muted" th:if="${gladiator.lastResults().isEmpty()}">No fights yet.</p>
-    <table th:unless="${gladiator.lastResults().isEmpty()}">
+    <p class="muted" th:if="${results.isEmpty()}">No fights yet.</p>
+    <table th:unless="${results.isEmpty()}">
         <thead><tr><th>Fight</th><th>Opponent</th><th>Result</th></tr></thead>
         <tbody>
-        <tr th:each="f : ${gladiator.lastResults()}">
+        <tr th:each="row : ${results}" th:with="f=${row.fight()}">
             <td><a th:href="@{/fights/{id}(id=${f.fightId()})}" th:text="${f.startsAt()}">2026-01-01T01:00:00Z</a></td>
             <td><a th:href="@{/gladiators/{slug}(slug=${f.opponentSlug()})}" th:text="${f.opponentName()}">Vex</a></td>
-            <td th:text="${f.result().label()} + ' by ' + ${f.endedBy().label()}">won by ko</td>
+            <td th:text="${row.result()}">Won by KO</td>
         </tr>
         </tbody>
     </table>

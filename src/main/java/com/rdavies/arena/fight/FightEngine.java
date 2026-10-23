@@ -115,9 +115,10 @@ public class FightEngine {
             fights.save(fight);
         }
         int ran = fight.roundsDone() - firstRound + 1;
-        if (ran > 1) { // the app was down: the overdue rounds ran at once, from the seed
-            log.warn("Fight {} resumed {} rounds late, {} behind: ran rounds {} to {} at once",
-                    fight.id(), ran, Duration.between(firstDue, now), firstRound, fight.roundsDone());
+        Duration behind = ran == 0 ? Duration.ZERO : Duration.between(firstDue, now);
+        if (ran > 1 || behind.compareTo(game.roundInterval()) > 0) { // the app was down: overdue rounds ran from the seed
+            log.warn("Fight {} resumed {} behind: ran rounds {} to {} at once",
+                    fight.id(), behind, firstRound, fight.roundsDone());
         }
         if (fight.status() == FightStatus.SETTLED) {
             settle(fight);

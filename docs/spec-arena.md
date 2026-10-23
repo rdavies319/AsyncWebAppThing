@@ -238,7 +238,7 @@ Watching stays public: `/`, `/fragments/board`, `/fights/**`, `/gladiators/**`, 
 
 **Public gladiator record:** W/L/D, win %, Elo, average damage dealt and taken per round (misses included), dodge rate (attacks dodged ÷ attacks received), KO rate (KO wins ÷ wins), average fight length, a head-to-head record against each opponent, and the last 5 results with links to `/fights/{id}`. All of it is computed from the public columns of `fights` and `fight_rounds` only.
 
-**Leaderboard:** players ranked by balance, from `WalletService.highestBalances(limit)` (display name and balance). The `leaderboard` feature never reads the wallet tables itself.
+**Leaderboard:** players ranked by balance, highest first, ties to whoever joined first. `WalletService.highestBalances(limit)` gives the user ids and balances, and the `leaderboard` feature adds each display name from `UserService`. It never reads the wallet or user tables itself, and the wallet never asks the user feature for names (the user feature already depends on the wallet).
 
 **`GET /live` (SSE):** each connect gets a snapshot (`server_time` plus the `/fights/current` payload). Then:
 

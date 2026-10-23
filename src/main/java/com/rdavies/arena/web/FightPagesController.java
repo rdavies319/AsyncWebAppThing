@@ -62,7 +62,7 @@ public class FightPagesController {
         model.addAttribute("redOdds", Board.odds(fight.red().multiplierBps()));
         model.addAttribute("blueOdds", Board.odds(fight.blue().multiplierBps()));
         model.addAttribute("log", page.rounds().stream()
-                .map(round -> Wording.logLine(round, fight.red().name(), fight.blue().name())).toList());
+                .map(round -> Wording.roundLine(round, fight.red().name(), fight.blue().name())).toList());
         return "fight";
     }
 }

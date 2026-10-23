@@ -122,6 +122,8 @@ class FightPagesTests {
                 ? live.red().name() + " hits " + live.blue().name() + " for " + first.redDamage()
                 : live.blue().name() + " dodges";
         assertTrue(page.contains("1. " + redAttack), page);
+        assertTrue(page.contains(live.red().name() + " " + Math.max(0, first.redHpAfter()) + " HP, "
+                + live.blue().name() + " " + Math.max(0, first.blueHpAfter()) + " HP"), page); // HP after the round
     }
 
     @Test
