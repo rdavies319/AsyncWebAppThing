@@ -42,7 +42,7 @@
 </svg>
 
 <!-- One SSE connection for the page; every connect starts with a snapshot -->
-<main class="card" hx-ext="sse" sse-connect="/live">
+<main class="card wide" hx-ext="sse" sse-connect="/live">
     <header>
         <h1 class="brush">The Arena</h1>
         <nav class="links"><a th:href="@{/gladiators}">Gladiators</a> · <a th:href="@{/fights}">Past fights</a> · <a th:href="@{/leaderboard}">Leaderboard</a></nav>
@@ -68,89 +68,121 @@
 
         <p class="soon" th:if="${board.openingSoon()}">Arena opening soon</p>
 
-        <section th:if="${board.live()}" th:with="live=${board.live()}">
-            <h3>Now fighting</h3>
-            <div class="corners">
-                <th:block th:each="side : ${ {'red', 'blue'} }" th:with="c=${side == 'red' ? live.red() : live.blue()}">
-                    <div th:class="'corner ' + ${side}">
-                        <a class="name brush" th:href="@{/gladiators/{slug}(slug=${c.slug()})}" th:text="${c.name()}">Brutus</a>
-                        <div class="epithet" th:text="${c.epithet()}">the Anvil</div>
-                        <div class="hp-bar"><span th:style="'width: ' + ${c.hpPercent()} + '%'"></span></div>
-                        <div class="hp-text" th:text="${c.shownHp()} + ' / ' + ${c.startingHp()} + ' HP'">120 / 120 HP</div>
-                    </div>
-                    <div class="vs" th:if="${side == 'red'}"><svg viewBox="0 0 100 100" aria-hidden="true"><use href="#laurel-branch"/><use href="#laurel-branch" transform="translate(100 0) scale(-1 1)"/></svg><span>VS</span></div>
-                </th:block>
-            </div>
-            <p class="countdown">Next round in <span th:data-until="${live.nextRoundAt()}">…</span></p>
-            <p class="your-bet" th:if="${me != null and me.fightBet() != null}" th:text="${me.fightBet()}">Your bet: 100 on Vex at 1.96x</p>
-            <ol class="log">
-                <li th:each="line : ${live.log()}" th:text="${line}">1. Brutus hits Vex for 14 · Brutus dodges</li>
-            </ol>
-        </section>
+        <!-- Two boxes of fixed height, so the page keeps its shape whatever the arena is doing:
+             the fight in the sand (live, or the last result) and the next fight's bill -->
+        <div class="panels" th:unless="${board.openingSoon()}">
 
-        <section th:if="${board.lastResult()}">
-            <h3>Last result</h3>
-            <p class="result"><a th:href="@{/fights/{id}(id=${board.lastResult().fightId()})}"
-                                 th:text="${board.lastResult().summary()}">Brutus beat Vex by KO</a></p>
-            <p class="your-bet" th:if="${me != null and me.fightBet() != null}" th:text="${me.fightBet()}">You won 196 on Brutus</p>
-        </section>
-
-        <section th:if="${board.next()}" th:with="next=${board.next()}">
-            <h3>Next fight</h3>
-            <div class="corners">
-                <th:block th:each="side : ${ {'red', 'blue'} }" th:with="c=${side == 'red' ? next.red() : next.blue()}">
-                    <div th:class="'corner ' + ${side}">
-                        <a class="name brush" th:href="@{/gladiators/{slug}(slug=${c.slug()})}" th:text="${c.name()}">Vex</a>
-                        <div class="epithet" th:text="${c.epithet()}">the Quick</div>
-                        <div class="hp-text" th:text="'Elo ' + ${c.elo()}">Elo 1000</div>
-                        <div class="odds" th:text="${c.odds()}">1.96x</div>
-                        <div class="hp-text" th:text="'Max stake ' + ${c.maxStake()}">Max stake 500</div>
-                    </div>
-                    <div class="vs" th:if="${side == 'red'}"><svg viewBox="0 0 100 100" aria-hidden="true"><use href="#laurel-branch"/><use href="#laurel-branch" transform="translate(100 0) scale(-1 1)"/></svg><span>VS</span></div>
-                </th:block>
-            </div>
-            <p class="countdown" th:if="${next.bettingOpen()}">Betting closes in <span th:data-until="${next.cutoffAt()}" data-fire="cutoff">…</span></p>
-            <p class="countdown" th:unless="${next.bettingOpen()}">Betting has closed</p>
-            <p class="countdown">Starts in <span th:data-until="${next.startsAt()}">…</span></p>
-            <th:block th:if="${me}">
-                <p class="your-bet" th:if="${me.nextBet()}" th:text="${me.nextBet()}">Your bet: 100 on Vex at 1.96x</p>
-                <div class="bet-form" th:if="${me.betForm()}" th:with="form=${me.betForm()}">
-                    <p th:if="${form.nothingAffordable()}">Not enough points to bet</p>
-                    <!-- One form per corner; the clicked button sends its stake -->
-                    <form th:each="side : ${ {'red', 'blue'} }"
-                          th:with="stakes=${side == 'red' ? form.redStakes() : form.blueStakes()}, c=${side == 'red' ? next.red() : next.blue()}"
-                          th:class="'stakes ' + ${side}" hx-post="/bet" hx-target="#board" hx-swap="outerHTML">
-                        <th:block th:unless="${stakes.isEmpty()}">
-                            <input type="hidden" name="fight_id" th:value="${form.fightId()}">
-                            <input type="hidden" name="corner" th:value="${side}">
-                            <span class="stakes-label" th:text="'Bet on ' + ${c.name()}">Bet on Vex</span>
-                            <button th:each="stake : ${stakes}" type="submit" name="stake" th:value="${stake}" th:text="${stake}">100</button>
-                        </th:block>
-                    </form>
+            <section class="panel" th:if="${board.live()}" th:with="live=${board.live()}">
+                <h3><span class="live-dot"></span>Now fighting</h3>
+                <div class="corners">
+                    <th:block th:each="side : ${ {'red', 'blue'} }" th:with="c=${side == 'red' ? live.red() : live.blue()}">
+                        <div th:class="'corner ' + ${side}">
+                            <a class="name brush" th:href="@{/gladiators/{slug}(slug=${c.slug()})}" th:text="${c.name()}">Brutus</a>
+                            <div class="epithet" th:text="${c.epithet()}">the Anvil</div>
+                            <div class="hp-bar"><span th:style="'width: ' + ${c.hpPercent()} + '%'"></span></div>
+                            <div class="hp-text" th:text="${c.shownHp()} + ' / ' + ${c.startingHp()} + ' HP'">120 / 120 HP</div>
+                        </div>
+                        <div class="vs" th:if="${side == 'red'}"><svg viewBox="0 0 100 100" aria-hidden="true"><use href="#laurel-branch"/><use href="#laurel-branch" transform="translate(100 0) scale(-1 1)"/></svg><span>VS</span></div>
+                    </th:block>
                 </div>
-                <p class="error" th:if="${feedback.betError()}" th:text="${feedback.betError()}" role="alert"></p>
-            </th:block>
-        </section>
+                <p class="countdown">Next round in <span th:data-until="${live.nextRoundAt()}">…</span></p>
+                <!-- Always there, empty or not, so a bet doesn't push the log down -->
+                <p class="your-bet" th:text="${me != null ? me.fightBet() : null}">Your bet: 100 on Vex at 1.96x</p>
+                <ol class="log">
+                    <li th:each="line : ${live.log()}" th:text="${line}">1. Brutus hits Vex for 14 · Brutus dodges</li>
+                </ol>
+            </section>
 
-        <p class="login-prompt" th:unless="${me}">
+            <section class="panel" th:if="${board.live() == null}">
+                <h3 th:text="${board.lastResult() != null ? 'Last result' : 'The sand'}">Last result</h3>
+                <div class="quiet">
+                    <th:block th:if="${board.lastResult()}">
+                        <p class="result"><a th:href="@{/fights/{id}(id=${board.lastResult().fightId()})}"
+                                             th:text="${board.lastResult().summary()}">Brutus beat Vex by KO</a></p>
+                        <p class="your-bet" th:if="${me != null and me.fightBet() != null}" th:text="${me.fightBet()}">You won 196 on Brutus</p>
+                    </th:block>
+                    <p class="muted" th:unless="${board.lastResult()}">No fight yet</p>
+                </div>
+            </section>
+
+            <!-- The next fight is billed as a notice pinned to the wall, apart from the live feed -->
+            <div class="bill-wrap">
+                <section class="bill" th:with="next=${board.next()}">
+                    <span class="nail left"></span><span class="nail right"></span>
+                    <p class="kicker">The arena presents</p>
+                    <h2 class="billing">The next fight</h2>
+                    <div class="quiet" th:unless="${next}"><p>To be announced</p></div>
+                    <th:block th:if="${next}">
+                        <div class="corners">
+                            <th:block th:each="side : ${ {'red', 'blue'} }" th:with="c=${side == 'red' ? next.red() : next.blue()}">
+                                <div th:class="'corner ' + ${side}">
+                                    <a class="name brush" th:href="@{/gladiators/{slug}(slug=${c.slug()})}" th:text="${c.name()}">Vex</a>
+                                    <div class="epithet" th:text="${c.epithet()}">the Quick</div>
+                                    <div class="odds" th:text="${c.odds()}">1.96x</div>
+                                    <div class="stat" th:text="'Elo ' + ${c.elo()} + ' · max stake ' + ${c.maxStake()}">Elo 1000 · max stake 500</div>
+                                </div>
+                                <div class="vs" th:if="${side == 'red'}"><svg viewBox="0 0 100 100" aria-hidden="true"><use href="#laurel-branch"/><use href="#laurel-branch" transform="translate(100 0) scale(-1 1)"/></svg><span>VS</span></div>
+                            </th:block>
+                        </div>
+                        <div class="timers">
+                            <p class="countdown" th:if="${next.bettingOpen()}">Betting closes in <span th:data-until="${next.cutoffAt()}" data-fire="cutoff">…</span></p>
+                            <p class="countdown" th:unless="${next.bettingOpen()}">Betting is <span>closed</span></p>
+                            <p class="countdown">Starts in <span th:data-until="${next.startsAt()}">…</span></p>
+                        </div>
+                        <div class="bet-area">
+                            <p class="login-prompt" th:unless="${me}">
+                                <a th:href="@{/auth/login}">Log in</a> or <a th:href="@{/auth/signup}">sign up</a> to play.
+                            </p>
+                            <th:block th:if="${me}">
+                                <th:block th:if="${me.nextBet()}">
+                                    <p class="your-bet" th:text="${me.nextBet()}">Your bet: 100 on Vex at 1.96x</p>
+                                    <p class="seal">Wager sealed</p>
+                                </th:block>
+                                <div class="bet-form" th:if="${me.betForm()}" th:with="form=${me.betForm()}">
+                                    <p th:if="${form.nothingAffordable()}">Not enough points to bet</p>
+                                    <!-- One form per corner; the clicked button sends its stake -->
+                                    <form th:each="side : ${ {'red', 'blue'} }"
+                                          th:with="stakes=${side == 'red' ? form.redStakes() : form.blueStakes()}, c=${side == 'red' ? next.red() : next.blue()}"
+                                          th:class="'stakes ' + ${side}" hx-post="/bet" hx-target="#board" hx-swap="outerHTML">
+                                        <th:block th:unless="${stakes.isEmpty()}">
+                                            <input type="hidden" name="fight_id" th:value="${form.fightId()}">
+                                            <input type="hidden" name="corner" th:value="${side}">
+                                            <span class="stakes-label" th:text="'Bet on ' + ${c.name()}">Bet on Vex</span>
+                                            <button th:each="stake : ${stakes}" type="submit" name="stake" th:value="${stake}" th:text="${stake}">100</button>
+                                        </th:block>
+                                    </form>
+                                </div>
+                                <p class="error" th:if="${feedback.betError()}" th:text="${feedback.betError()}" role="alert"></p>
+                            </th:block>
+                        </div>
+                    </th:block>
+                </section>
+            </div>
+
+        </div>
+
+        <!-- With a bill up, the prompt sits on it, where the stake buttons would be -->
+        <p class="login-prompt" th:if="${me == null and board.next() == null}">
             <a th:href="@{/auth/login}">Log in</a> or <a th:href="@{/auth/signup}">sign up</a> to play.
         </p>
 
-        <div class="wallet" th:if="${me}">
-            Balance: <span th:text="${me.balance()}">0</span> pts
-            <button class="topup" th:if="${me.topUpTarget()}" hx-post="/topup" hx-target="#board" hx-swap="outerHTML"
-                    th:text="'Daily top-up to ' + ${me.topUpTarget()}">Daily top-up</button>
-            <p class="error" th:if="${feedback.topUpError()}" th:text="${feedback.topUpError()}" role="alert"></p>
-        </div>
+        <div class="footer">
+            <div class="wallet" th:if="${me}">
+                Balance: <span th:text="${me.balance()}">0</span> pts
+                <button class="topup" th:if="${me.topUpTarget()}" hx-post="/topup" hx-target="#board" hx-swap="outerHTML"
+                        th:text="'Daily top-up to ' + ${me.topUpTarget()}">Daily top-up</button>
+                <p class="error" th:if="${feedback.topUpError()}" th:text="${feedback.topUpError()}" role="alert"></p>
+            </div>
 
-        <section class="recent-bets" th:if="${me != null and !me.recentBets().isEmpty()}">
-            <h3>Your last bets</h3>
-            <ul>
-                <li th:each="bet : ${me.recentBets()}">
-                    <a th:href="@{/fights/{id}(id=${bet.fightId()})}" th:text="${bet.line()}">Brutus v Vex: 100 on Brutus at 1.96x · won 196</a>
-                </li>
-            </ul>
-        </section>
+            <section class="recent-bets" th:if="${me != null and !me.recentBets().isEmpty()}">
+                <h3>Your last bets</h3>
+                <ul>
+                    <li th:each="bet : ${me.recentBets()}">
+                        <a th:href="@{/fights/{id}(id=${bet.fightId()})}" th:text="${bet.line()}">Brutus v Vex: 100 on Brutus at 1.96x · won 196</a>
+                    </li>
+                </ul>
+            </section>
+        </div>
 
         <!-- Dev profile only. Each button pulls a due time forward and ticks the real engine; the events refetch the board. -->
         <section class="dev" th:if="${board.devPanel()}">
