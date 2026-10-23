@@ -21,6 +21,8 @@ import java.util.stream.StreamSupport;
 /** Every wallet change, each with its ledger row (spec section 7): signup bonus, stakes, payouts and refunds, and the daily top-up. */
 @Service
 public class WalletService {
+    private static final String INSUFFICIENT = "Insufficient funds in wallet";
+
     private final WalletRepository walletRepository;
     private final LedgerRepository ledgerRepository;
     private final GameProperties game;
@@ -49,13 +51,23 @@ public class WalletService {
     }
 
     /**
+     * Refuses a stake the wallet can't cover, before anything is written for it. {@link #debitStake}
+     * still checks atomically, since the balance can change in between.
+     */
+    public void requireBalance(long userId, long stake) {
+        if (getWallet(userId).balance() < stake) {
+            throw GameRuleException.conflict(INSUFFICIENT);
+        }
+    }
+
+    /**
      * Takes a bet's stake, with its ledger row. Joins the caller's transaction, so if this fails
      * the bet it pays for is rolled back too.
      */
     @Transactional
     public void debitStake(long userId, long stake, long betId, Instant now) {
         if (walletRepository.deductStake(userId, stake, now) == 0) {
-            throw GameRuleException.conflict("Insufficient funds in wallet");
+            throw GameRuleException.conflict(INSUFFICIENT);
         }
         ledgerRepository.save(new LedgerEntry(null, userId, -stake, LedgerEntry.Reason.STAKE, betId, now));
     }

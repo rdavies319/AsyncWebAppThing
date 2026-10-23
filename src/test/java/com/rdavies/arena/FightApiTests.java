@@ -44,6 +44,7 @@ class FightApiTests {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.announced.fight_id").value(announced.fightId()))
                 .andExpect(jsonPath("$.announced.starts_at").value("2026-01-01T01:00:00Z"))
+                .andExpect(jsonPath("$.announced.cutoff_at").value("2026-01-01T00:59:50Z"))
                 .andExpect(jsonPath("$.announced.red.name").value(announced.red().name()))
                 .andExpect(jsonPath("$.announced.red.epithet").value(announced.red().epithet()))
                 .andExpect(jsonPath("$.announced.blue.slug").value(announced.blue().slug()))

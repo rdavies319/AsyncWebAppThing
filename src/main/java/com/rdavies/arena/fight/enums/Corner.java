@@ -12,6 +12,16 @@ public enum Corner {
         return name().toLowerCase();
     }
 
+    /** The corner with this label ("red" or "blue"), or null for anything else. */
+    public static Corner fromLabel(String label) {
+        for (Corner corner : values()) {
+            if (corner.label().equals(label)) {
+                return corner;
+            }
+        }
+        return null;
+    }
+
     public Corner other() {
         return this == RED ? BLUE : RED;
     }

@@ -61,11 +61,12 @@ public class TestFights {
     }
 
     /**
-     * Removes every fight and puts every rating back to its starting 1000, for tests that commit.
+     * Removes every fight, and every bet on one, and puts every rating back to its starting 1000, for
+     * tests that commit. Wallets and their ledger rows stay, so they still match.
      * TRUNCATE skips the append-only trigger, which blocks deleting rounds row by row.
      */
     public void deleteAll() {
-        jdbc.execute("TRUNCATE fight_rounds, fights");
+        jdbc.execute("TRUNCATE bets, fight_rounds, fights");
         jdbc.update("UPDATE gladiators SET elo = 1000");
     }
 }

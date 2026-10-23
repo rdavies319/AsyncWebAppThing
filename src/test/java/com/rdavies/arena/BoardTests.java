@@ -1,7 +1,9 @@
 package com.rdavies.arena;
 
+import com.rdavies.arena.bet.BetService;
 import com.rdavies.arena.board.BoardService;
 import com.rdavies.arena.board.records.Board;
+import com.rdavies.arena.fight.enums.Corner;
 import com.rdavies.arena.fight.enums.EndedBy;
 import com.rdavies.arena.fight.enums.Winner;
 import com.rdavies.arena.fight.records.AnnouncedFight;
@@ -20,6 +22,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -37,6 +40,7 @@ class BoardTests {
     private static final Instant TWO_AM = Instant.parse("2026-01-01T02:00:00Z");
 
     @Autowired BoardService boardService;
+    @Autowired BetService betService;
     @Autowired UserService userService;
     @Autowired WalletService walletService;
     @Autowired TestWallets wallets;
@@ -81,7 +85,7 @@ class BoardTests {
         assertEquals(new Board.Next(announced.fightId(),
                 new Board.Contender(announced.red().name(), announced.red().epithet(), 1000, 19600, 500),
                 new Board.Contender(announced.blue().name(), announced.blue().epithet(), 1000, 19600, 500),
-                ONE_AM), board.next());
+                ONE_AM, Instant.parse("2026-01-01T00:59:50Z"), true), board.next());
     }
 
     @Test
@@ -188,17 +192,56 @@ class BoardTests {
     void aPlayerSeesTheirBalance() {
         Board board = boardService.board(Optional.of(alice));
 
-        assertEquals(new Board.PlayerBoard("alice", 1000, null), board.player()); // at the top-up target already
+        assertEquals(new Board.PlayerBoard("alice", 1000, null, null, null, null), board.player()); // at the top-up target already
     }
 
     @Test
     void aPlayerBelowTheTargetIsOfferedTheTopUpUntilTheyClaimIt() {
         wallets.spend(alice.id(), 400);
 
-        assertEquals(new Board.PlayerBoard("alice", 600, 1000L), boardService.board(Optional.of(alice)).player());
+        assertEquals(new Board.PlayerBoard("alice", 600, 1000L, null, null, null), boardService.board(Optional.of(alice)).player());
 
         walletService.claimTopUp(alice.id());
-        assertEquals(new Board.PlayerBoard("alice", 1000, null), boardService.board(Optional.of(alice)).player());
+        assertEquals(new Board.PlayerBoard("alice", 1000, null, null, null, null), boardService.board(Optional.of(alice)).player());
+    }
+
+    @Test
+    void aPlayerIsOfferedTheStakesTheyCanAffordOnEachCorner() {
+        long fightId = game.boot().announced().fightId();
+
+        assertEquals(new Board.BetForm(fightId, List.of(10L, 100L, 500L), List.of(10L, 100L, 500L)),
+                boardService.board(Optional.of(alice)).player().betForm());
+
+        wallets.spend(alice.id(), 850);
+        assertEquals(new Board.BetForm(fightId, List.of(10L, 100L), List.of(10L, 100L)),
+                boardService.board(Optional.of(alice)).player().betForm());
+
+        wallets.spend(alice.id(), 145);
+        Board.BetForm broke = boardService.board(Optional.of(alice)).player().betForm();
+        assertTrue(broke.nothingAffordable());
+    }
+
+    @Test
+    void onceTheyBetAPlayerSeesTheirBetInsteadOfTheForm() {
+        AnnouncedFight announced = game.boot().announced();
+        betService.place(alice.id(), announced.fightId(), Corner.BLUE, 100L);
+
+        Board.PlayerBoard me = boardService.board(Optional.of(alice)).player();
+
+        assertNull(me.betForm());
+        assertEquals("Your bet: 100 on " + announced.blue().name() + " at 1.96x", me.nextBet());
+        assertEquals(900, me.balance());
+    }
+
+    @Test
+    void theFormGoesOnceBettingCloses() {
+        game.boot();
+        clock.now = Instant.parse("2026-01-01T00:59:50Z");
+
+        Board board = arena();
+
+        assertFalse(board.next().bettingOpen());
+        assertNull(boardService.board(Optional.of(alice)).player().betForm());
     }
 
     @Test

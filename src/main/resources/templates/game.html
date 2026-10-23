@@ -42,6 +42,12 @@
         .log li { padding: 0.15rem 0; border-bottom: 1px solid #eee; }
         .result { font-weight: bold; }
         .odds { font-size: 1.2rem; font-weight: bold; margin: 0.25rem 0; }
+        .your-bet { font-weight: bold; color: #444; }
+        .stakes { display: flex; flex-wrap: wrap; gap: 0.25rem; align-items: center; justify-content: center; margin: 0.25rem 0; }
+        .stakes button { padding: 0.3rem 0.7rem; border-radius: 0.5rem; border: none; color: white; cursor: pointer; }
+        .stakes.red button { background: #c5221f; }
+        .stakes.blue button { background: #1a73e8; }
+        .stakes-label { font-size: 0.85rem; }
         .dev { border: 1px dashed #b06000; border-radius: 0.5rem; padding: 0.5rem; }
         .dev h3 { color: #b06000; }
         .dev button { margin: 0.15rem; }
@@ -84,6 +90,7 @@
                 </div>
             </div>
             <p class="countdown">Next round in <span th:data-until="${live.nextRoundAt()}">…</span></p>
+            <p class="your-bet" th:if="${me != null and me.fightBet() != null}" th:text="${me.fightBet()}">Your bet: 100 on Vex at 1.96x</p>
             <ol class="log">
                 <li th:each="line : ${live.log()}" th:text="${line}">1. Brutus hits Vex for 14 · Brutus dodges</li>
             </ol>
@@ -92,6 +99,7 @@
         <section th:if="${board.lastResult()}">
             <h3>Last result</h3>
             <p class="result" th:text="${board.lastResult().summary()}">Brutus beat Vex by KO</p>
+            <p class="your-bet" th:if="${me != null and me.fightBet() != null}" th:text="${me.fightBet()}">You won 196 on Brutus</p>
         </section>
 
         <section th:if="${board.next()}" th:with="next=${board.next()}">
@@ -106,7 +114,27 @@
                     <div class="hp-text" th:text="'Max stake ' + ${c.maxStake()}">Max stake 500</div>
                 </div>
             </div>
+            <p class="countdown" th:if="${next.bettingOpen()}">Betting closes in <span th:data-until="${next.cutoffAt()}">…</span></p>
+            <p class="countdown" th:unless="${next.bettingOpen()}">Betting has closed</p>
             <p class="countdown">Starts in <span th:data-until="${next.startsAt()}">…</span></p>
+            <th:block th:if="${me}">
+                <p class="your-bet" th:if="${me.nextBet()}" th:text="${me.nextBet()}">Your bet: 100 on Vex at 1.96x</p>
+                <div class="bet-form" th:if="${me.betForm()}" th:with="form=${me.betForm()}">
+                    <p th:if="${form.nothingAffordable()}">Not enough points to bet</p>
+                    <!-- One form per corner; the clicked button sends its stake -->
+                    <form th:each="side : ${ {'red', 'blue'} }"
+                          th:with="stakes=${side == 'red' ? form.redStakes() : form.blueStakes()}, c=${side == 'red' ? next.red() : next.blue()}"
+                          th:class="'stakes ' + ${side}" hx-post="/bet" hx-target="#board" hx-swap="outerHTML">
+                        <th:block th:unless="${stakes.isEmpty()}">
+                            <input type="hidden" name="fight_id" th:value="${form.fightId()}">
+                            <input type="hidden" name="corner" th:value="${side}">
+                            <span class="stakes-label" th:text="'Bet on ' + ${c.name()}">Bet on Vex</span>
+                            <button th:each="stake : ${stakes}" type="submit" name="stake" th:value="${stake}" th:text="${stake}">100</button>
+                        </th:block>
+                    </form>
+                </div>
+                <p class="error" th:if="${feedback.betError()}" th:text="${feedback.betError()}" role="alert"></p>
+            </th:block>
         </section>
 
         <p class="login-prompt" th:unless="${me}">

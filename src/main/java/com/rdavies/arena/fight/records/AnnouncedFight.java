@@ -1,9 +1,19 @@
 package com.rdavies.arena.fight.records;
 
+import com.rdavies.arena.fight.enums.Corner;
+
 import java.time.Instant;
 
-/** The next fight, open for betting, as anyone may see it. */
-public record AnnouncedFight(long fightId, Instant startsAt, Fighter red, Fighter blue) {
+/**
+ * The next fight, open for betting, as anyone may see it.
+ *
+ * @param cutoffAt betting closes here: game.cutoff before the start
+ */
+public record AnnouncedFight(long fightId, Instant startsAt, Instant cutoffAt, Fighter red, Fighter blue) {
+
+    public Fighter fighter(Corner corner) {
+        return corner == Corner.RED ? red : blue;
+    }
 
     /**
      * @param elo           the rating stored at announcement

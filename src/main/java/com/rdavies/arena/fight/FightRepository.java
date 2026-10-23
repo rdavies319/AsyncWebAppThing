@@ -31,6 +31,10 @@ interface FightRepository extends CrudRepository<Fight, Long> {
     @Lock(LockMode.PESSIMISTIC_WRITE)
     Optional<Fight> findLockedByStatus(FightStatus status);
 
+    /** Share-locks the fight until the transaction ends, if it has this status: a bet holds it while it is placed. */
+    @Lock(LockMode.PESSIMISTIC_READ)
+    Optional<Fight> findSharedByIdAndStatus(long id, FightStatus status);
+
     Optional<Fight> findFirstByStatusOrderByStartsAtDesc(FightStatus status);
 
     /** Row-locks the live fight until the engine's transaction ends. */
