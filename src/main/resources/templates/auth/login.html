@@ -4,11 +4,11 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Log in · The Arena</title>
-    <link rel="stylesheet" th:href="@{/app.css}">
-    <link rel="stylesheet" th:href="@{/auth.css}">
+    <th:block th:replace="~{fonts :: fonts}"></th:block>
+    <link rel="stylesheet" th:href="@{/arena.css}">
 </head>
 <body>
-<main class="card">
+<main class="card auth">
     <h2>Log in</h2>
     <p class="notice" th:if="${param.registered}">Account created. Log in to start playing.</p>
     <p class="error" th:if="${param.error}" role="alert">Wrong email or password.</p>

@@ -13,62 +13,48 @@
     <script src="https://unpkg.com/htmx-ext-sse@2.2.2/sse.js"
             integrity="sha384-fw+eTlCc7suMV/1w/7fr2/PmwElUIt5i82bi+qTiLXvjRXZ2/FkiTNA/w0MhXnGI"
             crossorigin="anonymous"></script>
-    <link rel="stylesheet" th:href="@{/app.css}">
-    <style>
-        .card { text-align: center; }
-        .soon { font-size: 1.4rem; font-weight: bold; color: #1a73e8; margin: 1.5rem 0; }
-        .wallet { margin-top: 1.5rem; font-size: 0.9rem; color: #888; }
-        .account { font-size: 0.85rem; color: #666; margin-top: -0.5rem; }
-        .link { background: none; border: none; padding: 0; color: #1a73e8; cursor: pointer; font: inherit; text-decoration: underline; }
-        .login-prompt { color: #444; }
-        .auth-links { display: flex; gap: 0.5rem; justify-content: center; margin: -0.25rem 0 1rem; }
-        .auth-links a { padding: 0.4rem 1rem; border: 2px solid #1a73e8; border-radius: 0.5rem; color: #1a73e8; font-weight: bold; text-decoration: none; }
-        .auth-links a.primary { background: #1a73e8; color: white; }
-        .topup { display: block; margin: 0.5rem auto 0; padding: 0.4rem 0.8rem; border: 1px solid #1a73e8; border-radius: 0.5rem; background: white; color: #1a73e8; cursor: pointer; }
-        section { margin: 1rem 0; }
-        h3 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: #888; margin: 0 0 0.5rem; }
-        .corners { display: flex; gap: 0.5rem; }
-        .corner { flex: 1; padding: 0.5rem; border-radius: 0.5rem; }
-        .corner.red { background: #fce8e6; }
-        .corner.blue { background: #e8f0fe; }
-        .corner .name { display: block; font-weight: bold; color: inherit; }
-        .corner .epithet, .hp-text { font-size: 0.8rem; color: #666; }
-        .hp-bar { height: 0.5rem; background: #ddd; border-radius: 0.25rem; overflow: hidden; margin-top: 0.25rem; }
-        .hp-bar span { display: block; height: 100%; }
-        .red .hp-bar span { background: #c5221f; }
-        .blue .hp-bar span { background: #1a73e8; }
-        .countdown { font-size: 0.85rem; color: #444; margin: 0.5rem 0; }
-        .log { list-style: none; padding: 0; margin: 0; max-height: 10rem; overflow-y: auto; font-size: 0.8rem; text-align: left; }
-        .log li { padding: 0.15rem 0; border-bottom: 1px solid #eee; }
-        .result { font-weight: bold; }
-        .odds { font-size: 1.2rem; font-weight: bold; margin: 0.25rem 0; }
-        .your-bet { font-weight: bold; color: #444; }
-        .stakes { display: flex; flex-wrap: wrap; gap: 0.25rem; align-items: center; justify-content: center; margin: 0.25rem 0; }
-        .stakes button { padding: 0.3rem 0.7rem; border-radius: 0.5rem; border: none; color: white; cursor: pointer; }
-        .stakes.red button { background: #c5221f; }
-        .stakes.blue button { background: #1a73e8; }
-        .stakes-label { font-size: 0.85rem; }
-        .recent-bets ul { list-style: none; padding: 0; margin: 0; font-size: 0.8rem; text-align: left; }
-        .recent-bets li { padding: 0.15rem 0; border-bottom: 1px solid #eee; }
-        .links { font-size: 0.85rem; margin: -0.5rem 0 0.75rem; }
-        .dev { border: 1px dashed #b06000; border-radius: 0.5rem; padding: 0.5rem; }
-        .dev h3 { color: #b06000; }
-        .dev button { margin: 0.15rem; }
-    </style>
+    <th:block th:replace="~{fonts :: fonts}"></th:block>
+    <link rel="stylesheet" th:href="@{/arena.css}">
 </head>
-<body>
+<body class="game">
+
+<!-- Outside the board, so they survive its swaps: the brushed-paint filter and the laurel branch around each VS -->
+<svg width="0" height="0" style="position: absolute" aria-hidden="true">
+    <defs>
+        <filter id="brush"><feTurbulence type="fractalNoise" baseFrequency=".06" numOctaves="2" seed="3"/><feDisplacementMap in="SourceGraphic" scale="2.5"/></filter>
+        <symbol id="laurel-branch" viewBox="0 0 100 100">
+            <path d="M48 94 Q12 72 22 14" fill="none" stroke="currentColor" stroke-width="2.2"/>
+            <g fill="currentColor">
+                <ellipse cx="40" cy="87" rx="8" ry="3.2" transform="rotate(-25 40 87)"/>
+                <ellipse cx="30" cy="78" rx="8" ry="3.2" transform="rotate(-45 30 78)"/>
+                <ellipse cx="23" cy="66" rx="8" ry="3.2" transform="rotate(-62 23 66)"/>
+                <ellipse cx="19" cy="53" rx="8" ry="3.2" transform="rotate(-78 19 53)"/>
+                <ellipse cx="18" cy="40" rx="8" ry="3.2" transform="rotate(-92 18 40)"/>
+                <ellipse cx="20" cy="27" rx="7" ry="3" transform="rotate(-108 20 27)"/>
+                <ellipse cx="35" cy="82" rx="7" ry="2.8" transform="rotate(20 35 82)"/>
+                <ellipse cx="26" cy="71" rx="7" ry="2.8" transform="rotate(5 26 71)"/>
+                <ellipse cx="22" cy="58" rx="7" ry="2.8" transform="rotate(-10 22 58)"/>
+                <ellipse cx="22" cy="45" rx="7" ry="2.8" transform="rotate(-25 22 45)"/>
+                <ellipse cx="24" cy="33" rx="6" ry="2.6" transform="rotate(-40 24 33)"/>
+            </g>
+        </symbol>
+    </defs>
+</svg>
 
 <!-- One SSE connection for the page; every connect starts with a snapshot -->
 <main class="card" hx-ext="sse" sse-connect="/live">
-    <h2>The Arena</h2>
-    <nav class="links"><a th:href="@{/gladiators}">Gladiators</a> · <a th:href="@{/fights}">Past fights</a> · <a th:href="@{/leaderboard}">Leaderboard</a></nav>
-    <form class="account" th:if="${board.player()}" method="post" th:action="@{/auth/logout}">
-        <span th:text="${board.player().name()}">player</span> · <button type="submit" class="link">Log out</button>
-    </form>
-    <nav class="auth-links" th:unless="${board.player()}">
-        <a th:href="@{/auth/login}">Log in</a>
-        <a class="primary" th:href="@{/auth/signup}">Sign up</a>
-    </nav>
+    <header>
+        <h1 class="brush">The Arena</h1>
+        <nav class="links"><a th:href="@{/gladiators}">Gladiators</a> · <a th:href="@{/fights}">Past fights</a> · <a th:href="@{/leaderboard}">Leaderboard</a></nav>
+        <form class="account" th:if="${board.player()}" method="post" th:action="@{/auth/logout}">
+            <span th:text="${board.player().name()}">player</span> · <button type="submit" class="link">Log out</button>
+        </form>
+        <nav class="auth-links" th:unless="${board.player()}">
+            <a th:href="@{/auth/login}">Log in</a>
+            <a class="primary" th:href="@{/auth/signup}">Sign up</a>
+        </nav>
+        <div class="meander"></div>
+    </header>
 
     <!--
         Renders a board.Board (built by BoardService) and the last request's BoardFeedback. Refetched on
@@ -85,13 +71,15 @@
         <section th:if="${board.live()}" th:with="live=${board.live()}">
             <h3>Now fighting</h3>
             <div class="corners">
-                <div th:each="side : ${ {'red', 'blue'} }" th:with="c=${side == 'red' ? live.red() : live.blue()}"
-                     th:class="'corner ' + ${side}">
-                    <a class="name" th:href="@{/gladiators/{slug}(slug=${c.slug()})}" th:text="${c.name()}">Brutus</a>
-                    <div class="epithet" th:text="${c.epithet()}">the Anvil</div>
-                    <div class="hp-bar"><span th:style="'width: ' + ${c.hpPercent()} + '%'"></span></div>
-                    <div class="hp-text" th:text="${c.shownHp()} + ' / ' + ${c.startingHp()} + ' HP'">120 / 120 HP</div>
-                </div>
+                <th:block th:each="side : ${ {'red', 'blue'} }" th:with="c=${side == 'red' ? live.red() : live.blue()}">
+                    <div th:class="'corner ' + ${side}">
+                        <a class="name brush" th:href="@{/gladiators/{slug}(slug=${c.slug()})}" th:text="${c.name()}">Brutus</a>
+                        <div class="epithet" th:text="${c.epithet()}">the Anvil</div>
+                        <div class="hp-bar"><span th:style="'width: ' + ${c.hpPercent()} + '%'"></span></div>
+                        <div class="hp-text" th:text="${c.shownHp()} + ' / ' + ${c.startingHp()} + ' HP'">120 / 120 HP</div>
+                    </div>
+                    <div class="vs" th:if="${side == 'red'}"><svg viewBox="0 0 100 100" aria-hidden="true"><use href="#laurel-branch"/><use href="#laurel-branch" transform="translate(100 0) scale(-1 1)"/></svg><span>VS</span></div>
+                </th:block>
             </div>
             <p class="countdown">Next round in <span th:data-until="${live.nextRoundAt()}">…</span></p>
             <p class="your-bet" th:if="${me != null and me.fightBet() != null}" th:text="${me.fightBet()}">Your bet: 100 on Vex at 1.96x</p>
@@ -110,14 +98,16 @@
         <section th:if="${board.next()}" th:with="next=${board.next()}">
             <h3>Next fight</h3>
             <div class="corners">
-                <div th:each="side : ${ {'red', 'blue'} }" th:with="c=${side == 'red' ? next.red() : next.blue()}"
-                     th:class="'corner ' + ${side}">
-                    <a class="name" th:href="@{/gladiators/{slug}(slug=${c.slug()})}" th:text="${c.name()}">Vex</a>
-                    <div class="epithet" th:text="${c.epithet()}">the Quick</div>
-                    <div class="hp-text" th:text="'Elo ' + ${c.elo()}">Elo 1000</div>
-                    <div class="odds" th:text="${c.odds()}">1.96x</div>
-                    <div class="hp-text" th:text="'Max stake ' + ${c.maxStake()}">Max stake 500</div>
-                </div>
+                <th:block th:each="side : ${ {'red', 'blue'} }" th:with="c=${side == 'red' ? next.red() : next.blue()}">
+                    <div th:class="'corner ' + ${side}">
+                        <a class="name brush" th:href="@{/gladiators/{slug}(slug=${c.slug()})}" th:text="${c.name()}">Vex</a>
+                        <div class="epithet" th:text="${c.epithet()}">the Quick</div>
+                        <div class="hp-text" th:text="'Elo ' + ${c.elo()}">Elo 1000</div>
+                        <div class="odds" th:text="${c.odds()}">1.96x</div>
+                        <div class="hp-text" th:text="'Max stake ' + ${c.maxStake()}">Max stake 500</div>
+                    </div>
+                    <div class="vs" th:if="${side == 'red'}"><svg viewBox="0 0 100 100" aria-hidden="true"><use href="#laurel-branch"/><use href="#laurel-branch" transform="translate(100 0) scale(-1 1)"/></svg><span>VS</span></div>
+                </th:block>
             </div>
             <p class="countdown" th:if="${next.bettingOpen()}">Betting closes in <span th:data-until="${next.cutoffAt()}" data-fire="cutoff">…</span></p>
             <p class="countdown" th:unless="${next.bettingOpen()}">Betting has closed</p>

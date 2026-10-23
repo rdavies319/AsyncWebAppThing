@@ -110,6 +110,12 @@ class AuthTests {
     }
 
     @Test
+    void theStylesheetIsPublic() throws Exception {
+        // The login page links it, so it must load before anyone has logged in
+        mockMvc.perform(get("/arena.css")).andExpect(status().isOk());
+    }
+
+    @Test
     void anonymousApiCallsGet401() throws Exception {
         mockMvc.perform(post("/wallet/topup").with(csrf()).accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isUnauthorized())

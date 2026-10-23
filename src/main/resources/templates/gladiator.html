@@ -4,8 +4,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title th:text="${gladiator.name()} + ' · The Arena'">Gladiator · The Arena</title>
-    <link rel="stylesheet" th:href="@{/app.css}">
-    <link rel="stylesheet" th:href="@{/pages.css}">
+    <th:block th:replace="~{fonts :: fonts}"></th:block>
+    <link rel="stylesheet" th:href="@{/arena.css}">
 </head>
 <body>
 <main class="card page">

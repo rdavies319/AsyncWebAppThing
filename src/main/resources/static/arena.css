@@ -1,0 +1,160 @@
+/*
+ * The arena's one theme: a Roman games broadside, torchlit at night. Every page links this file.
+ * Colours are tokens on :root, so a second theme only needs to redefine them.
+ */
+:root {
+    color-scheme: dark;
+    --paper: #201a15; --ink: #eadcbc; --muted: #b3a585; --gold: #d4a94a; --line: #d4a94a3a;
+    --red: #dd5a43; --blue: #5fae9f; --error: #ff8a74;
+    --display: 'Cinzel', serif; --body: 'EB Garamond', serif;
+    --meander: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M0 19H20M19 19V1H5V15H15V5H9V11' fill='none' stroke='%23d4a94a' stroke-width='2'/%3E%3C/svg%3E");
+}
+
+* { box-sizing: border-box; }
+
+/* Torchlit stone blocks behind the poster */
+body {
+    margin: 0; min-height: 100vh; padding: 2rem 1rem; color: var(--ink); font-family: var(--body); font-size: 1.05rem;
+    background:
+        radial-gradient(ellipse at 15% 0%, #e0782a33, transparent 45%),
+        radial-gradient(ellipse at 85% 100%, #e0782a26, transparent 50%),
+        repeating-linear-gradient(0deg, #00000030 0 2px, transparent 2px 46px),
+        repeating-linear-gradient(90deg, #00000030 0 2px, transparent 2px 92px),
+        linear-gradient(#2e2620, #1b1612);
+    background-color: #1b1612;
+}
+
+/* The poster: a framed sheet with paper grain */
+.card {
+    position: relative; width: min(440px, 100%); margin: 0 auto; padding: 28px 24px 26px;
+    background: var(--paper); border: 2px solid var(--gold); outline: 6px solid var(--paper); outline-offset: -12px;
+    box-shadow: 0 12px 30px #000a, 0 0 60px #e0782a1a;
+}
+.card::before {
+    content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .18; mix-blend-mode: screen;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .4 0 0 0 0 .35 0 0 0 0 .3 0 0 0 .5 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+.card.page { width: min(640px, 100%); }
+
+a { color: var(--gold); }
+h1, h2 { font-family: var(--display); font-weight: 900; text-transform: uppercase; letter-spacing: .08em; text-align: center; line-height: 1; margin: 0 0 .5rem; }
+h1 { font-size: clamp(2.2rem, 9vw, 2.8rem); }
+h2 { font-size: clamp(1.6rem, 7vw, 2.1rem); }
+/* Section headings sit between two gold rules */
+h3 {
+    display: flex; align-items: center; gap: 8px; margin: 1.25rem 0 .5rem;
+    font-family: var(--display); font-weight: 700; font-size: .72rem; letter-spacing: .25em; text-transform: uppercase; color: var(--gold);
+}
+h3::before, h3::after { content: ""; flex: 1; border-top: 1px solid var(--line); }
+nav { font-family: var(--display); font-weight: 700; font-size: .68rem; letter-spacing: .15em; text-transform: uppercase; text-align: center; }
+nav a { color: var(--ink); text-decoration: none; }
+nav a:hover { color: var(--gold); }
+.meander { height: 14px; margin: 10px -4px 0; background: var(--meander) repeat-x center / 14px 14px; }
+/* Painted lettering, as on a Pompeii games notice; the filter is defined in game.html */
+.brush { filter: url(#brush); }
+.muted { color: var(--muted); }
+.error { color: var(--error); }
+.red { color: var(--red); }
+.blue { color: var(--blue); }
+
+button {
+    font: 700 .72rem var(--display); letter-spacing: .12em; text-transform: uppercase;
+    padding: .6rem .9rem; background: var(--gold); color: var(--paper); border: 0; cursor: pointer;
+}
+button:focus-visible, a:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
+
+/* ---------- Game page ---------- */
+.game header { text-align: center; }
+.account { margin: .4rem 0 0; font-style: italic; color: var(--muted); }
+.link { background: none; padding: 0; color: var(--gold); font: inherit; letter-spacing: 0; text-transform: none; text-decoration: underline; }
+.auth-links { display: flex; gap: .5rem; justify-content: center; margin-top: .75rem; }
+.auth-links a { padding: .45rem 1rem; border: 1px solid var(--gold); color: var(--gold); }
+.auth-links a.primary { background: var(--gold); color: var(--paper); }
+.soon { text-align: center; font-family: var(--display); font-weight: 900; font-size: 1.3rem; text-transform: uppercase; color: var(--gold); margin: 1.5rem 0; }
+#board section { margin-top: 1.25rem; }
+
+/* A matchup is billed like a poster: red name, laurel VS, blue name */
+.corners { text-align: center; }
+.corner .name {
+    display: block; font-family: var(--display); font-weight: 900; text-transform: uppercase; letter-spacing: .05em;
+    font-size: clamp(1.7rem, 8vw, 2.3rem); line-height: 1; text-decoration: none; text-shadow: 2px 2px 0 #000;
+}
+.corner.red .name { color: var(--red); }
+.corner.blue .name { color: var(--blue); }
+.corner .epithet { font-style: italic; }
+.corner .hp-text { font-family: var(--display); font-weight: 700; font-size: .72rem; letter-spacing: .08em; color: var(--muted); }
+.hp-bar { height: 10px; max-width: 280px; margin: .4rem auto .2rem; border: 2px solid var(--ink); }
+.hp-bar span { display: block; height: 100%; }
+.red .hp-bar span { background: var(--red); }
+.blue .hp-bar span { background: var(--blue); }
+.odds { font-family: var(--display); font-weight: 900; font-size: 1.8rem; line-height: 1; margin: .3rem 0 .1rem; }
+.vs { position: relative; width: 74px; height: 74px; margin: 2px auto; display: grid; place-items: center; font-family: var(--display); font-weight: 900; font-size: 1.2rem; }
+.vs svg { position: absolute; inset: 0; width: 100%; height: 100%; color: var(--gold); }
+.vs span { position: relative; }
+
+.countdown { text-align: center; margin: .75rem 0 .25rem; font-family: var(--display); font-weight: 700; font-size: .72rem; letter-spacing: .1em; text-transform: uppercase; }
+.countdown span { display: block; font-weight: 900; font-size: 1.5rem; letter-spacing: .04em; color: var(--ink); }
+.your-bet { text-align: center; font-weight: 600; color: var(--gold); margin: .4rem 0; }
+.result { text-align: center; font-family: var(--display); font-weight: 900; text-transform: uppercase; font-size: 1.35rem; line-height: 1.1; margin: .25rem 0; }
+.result a { color: var(--ink); text-decoration: none; border-bottom: 2px solid var(--gold); }
+.log { list-style: none; padding: 0; margin: .6rem 0 0; font-size: .95rem; border-top: 1px solid var(--line); }
+.game .log { max-height: 10rem; overflow-y: auto; }
+.log li { padding: .25rem 0; border-bottom: 1px solid var(--line); }
+.recent-bets ul { list-style: none; padding: 0; margin: 0; font-size: .95rem; }
+.recent-bets li { padding: .25rem 0; border-bottom: 1px solid var(--line); }
+.recent-bets a { color: var(--ink); text-decoration: none; }
+.recent-bets a:hover { color: var(--gold); }
+.bet-form > p { text-align: center; }
+
+/* Stakes are struck as Roman coins: copper, then silver, then gold for the third button and up.
+   Buttons keep config order and only the dearest drop out when unaffordable, so position fixes the metal. */
+.stakes { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: .9rem; }
+.stakes-label { width: 100%; text-align: center; font-family: var(--display); font-weight: 700; font-size: .72rem; letter-spacing: .2em; text-transform: uppercase; }
+.stakes.red .stakes-label { color: var(--red); }
+.stakes.blue .stakes-label { color: var(--blue); }
+.stakes button {
+    --hi: #fff3b8; --mid: #e0b02f; --lo: #81590c;
+    position: relative; width: 56px; height: 56px; padding: 0; display: grid; place-items: center;
+    border-radius: 50% 47% 52% 48% / 48% 52% 47% 51%;   /* hand-struck, never quite round */
+    background: radial-gradient(circle at 34% 28%, var(--hi), var(--mid) 52%, var(--lo) 100%);
+    box-shadow: inset 0 0 0 2px var(--lo), inset 0 -4px 6px #0003, inset 0 3px 3px #fff5, 0 2px 0 var(--lo), 0 4px 6px #0008;
+    font: 900 1rem var(--display); letter-spacing: 0; color: var(--lo); text-shadow: 0 1px 0 #ffffff90, 0 -1px 0 #00000030;
+    transition: transform .15s;
+}
+.stakes button::before { content: ""; position: absolute; inset: 5px; border-radius: 50%; border: 2px dotted var(--lo); opacity: .55; }  /* beaded rim */
+.stakes button:nth-of-type(1) { --hi: #f6c3a0; --mid: #b8673a; --lo: #6a3318; }   /* copper */
+.stakes button:nth-of-type(2) { --hi: #ffffff; --mid: #bdbdb8; --lo: #5f5f5b; }   /* silver */
+.stakes button:hover { transform: translateY(-3px) rotate(-10deg); }
+.stakes button:active { transform: translateY(1px) scale(.96); }
+
+.wallet { margin-top: 1.25rem; padding-top: .75rem; border-top: 1px solid var(--line); text-align: center;
+          font-family: var(--display); font-weight: 700; font-size: .72rem; letter-spacing: .1em; text-transform: uppercase; }
+.wallet > span { font-weight: 900; font-size: 1.4rem; letter-spacing: .02em; color: var(--gold); }
+.topup { display: block; margin: .6rem auto 0; }
+.login-prompt { text-align: center; margin-top: 1.25rem; }
+
+.dev { border: 1px dashed var(--gold); padding: .5rem; text-align: center; }
+.dev h3 { margin-top: 0; }
+.dev button { margin: .15rem; }
+
+/* ---------- Public pages (fights, gladiators, leaderboard) ---------- */
+.page nav { margin-bottom: 1rem; }
+.page > p { text-align: center; }
+.page table { width: 100%; border-collapse: collapse; font-size: .98rem; margin-top: .5rem; }
+.page th, .page td { text-align: left; padding: .35rem .4rem; border-bottom: 1px solid var(--line); }
+.page th { font-family: var(--display); font-weight: 700; font-size: .66rem; letter-spacing: .15em; text-transform: uppercase; color: var(--gold); }
+.page td a { color: var(--ink); }
+.page td a:hover { color: var(--gold); }
+.page .num { text-align: right; }
+.page td.red, .page td.blue, .page span.red, .page span.blue { font-weight: 600; }
+
+/* ---------- Log in and sign up ---------- */
+.auth label { display: block; margin-bottom: .9rem; font-family: var(--display); font-weight: 700; font-size: .7rem; letter-spacing: .15em; text-transform: uppercase; color: var(--muted); }
+.auth input {
+    display: block; width: 100%; margin-top: .3rem; padding: .55rem; font: 1rem var(--body); color: var(--ink);
+    background: #00000040; border: 1px solid var(--line);
+}
+.auth input:focus { outline: none; border-color: var(--gold); }
+.auth button[type=submit] { width: 100%; margin-top: .25rem; padding: .8rem; }
+.auth p { text-align: center; }
+.notice { color: var(--muted); }
