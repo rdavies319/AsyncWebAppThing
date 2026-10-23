@@ -1,5 +1,6 @@
 package com.rdavies.arena.board.records;
 
+import com.rdavies.arena.Wording;
 import java.time.Instant;
 import java.util.List;
 
@@ -15,11 +16,6 @@ import java.util.List;
  * @param devPanel   whether to show the dev forcing buttons (dev profile, logged in)
  */
 public record Board(Instant serverTime, Live live, Result lastResult, Next next, PlayerBoard player, boolean devPanel) {
-
-    /** A multiplier in basis points as shown, e.g. "1.96x": rounded down, so it never promises more than a win pays. */
-    public static String odds(int multiplierBps) {
-        return multiplierBps / 10_000 + "." + String.format("%02d", multiplierBps % 10_000 / 100) + "x";
-    }
 
     /** Nothing has been announced yet, so there is no arena to show. */
     public boolean openingSoon() {
@@ -63,7 +59,7 @@ public record Board(Instant serverTime, Live live, Result lastResult, Next next,
     public record Contender(String slug, String name, String epithet, int elo, int multiplierBps, long maxStake) {
         /** The multiplier as shown, e.g. "1.96x": rounded down, so it never promises more than a win pays. */
         public String odds() {
-            return Board.odds(multiplierBps);
+            return Wording.odds(multiplierBps);
         }
     }
 

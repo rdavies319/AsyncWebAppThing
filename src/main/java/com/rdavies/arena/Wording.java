@@ -1,14 +1,20 @@
-package com.rdavies.arena.board;
+package com.rdavies.arena;
 
+import com.rdavies.arena.bet.enums.BetStatus;
 import com.rdavies.arena.fight.enums.EndedBy;
 import com.rdavies.arena.fight.enums.Result;
 import com.rdavies.arena.fight.enums.Winner;
 import com.rdavies.arena.fight.records.FightRecord;
 import com.rdavies.arena.fight.records.RoundView;
 
-/** How the game words fights for viewers, shared by the board and the fight pages. */
+/** Every line of text a viewer reads about fights and bets, shared by the board and the public pages. */
 public final class Wording {
     private Wording() {}
+
+    /** A multiplier in basis points as shown, e.g. "1.96x": rounded down, so it never promises more than a win pays. */
+    public static String odds(int multiplierBps) {
+        return multiplierBps / 10_000 + "." + String.format("%02d", multiplierBps % 10_000 / 100) + "x";
+    }
 
     /** A rate in basis points as a percentage to one place, rounded down: 5234 is "52.3%". "–" for none. */
     public static String percent(Integer bps) {
@@ -74,5 +80,32 @@ public final class Wording {
                     ? "Draw: level on HP after " + roundsDone + " rounds"
                     : beat + " on HP after " + roundsDone + " rounds";
         };
+    }
+
+    /** "Your bet: 100 on Vex at 1.96x" */
+    public static String pendingBet(long stake, String gladiator, int multiplierBps) {
+        return "Your bet: " + stake + " on " + gladiator + " at " + odds(multiplierBps);
+    }
+
+    /** "You won 196 on Vex", "You lost 100 on Vex" or "Draw: your 100 on Vex is refunded" */
+    public static String settledBet(BetStatus status, long stake, Long payout, String gladiator) {
+        return switch (status) {
+            case WON -> "You won " + payout + " on " + gladiator;
+            case LOST -> "You lost " + stake + " on " + gladiator;
+            case PUSH -> "Draw: your " + stake + " on " + gladiator + " is refunded";
+            case PENDING -> throw new IllegalStateException("A bet on a settled fight is still pending");
+        };
+    }
+
+    /** "Brutus v Vex: 100 on Brutus at 1.96x · won 196", then lost, refunded 100 or pending. */
+    public static String pastBet(String red, String blue, String backed, long stake, int multiplierBps,
+                                 BetStatus status, Long payout) {
+        String outcome = switch (status) {
+            case PENDING -> "pending";
+            case WON -> "won " + payout;
+            case LOST -> "lost";
+            case PUSH -> "refunded " + payout;
+        };
+        return red + " v " + blue + ": " + stake + " on " + backed + " at " + odds(multiplierBps) + " · " + outcome;
     }
 }

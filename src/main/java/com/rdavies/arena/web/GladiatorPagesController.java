@@ -1,6 +1,6 @@
 package com.rdavies.arena.web;
 
-import com.rdavies.arena.board.Wording;
+import com.rdavies.arena.Wording;
 import com.rdavies.arena.fight.CareerService;
 import com.rdavies.arena.fight.records.Career;
 import com.rdavies.arena.fight.records.GladiatorProfile;

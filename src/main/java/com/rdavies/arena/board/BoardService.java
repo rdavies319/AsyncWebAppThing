@@ -1,6 +1,7 @@
 package com.rdavies.arena.board;
 
 import com.rdavies.arena.GameProperties;
+import com.rdavies.arena.Wording;
 import com.rdavies.arena.bet.BetService;
 import com.rdavies.arena.bet.records.Bet;
 import com.rdavies.arena.bet.records.BetRecord;
@@ -129,30 +130,16 @@ public class BoardService {
         return game.stakeOptions().stream().filter(stake -> stake <= most).toList();
     }
 
-    /** "You won 196 on Vex", "You lost 100 on Vex" or "Draw: your 100 on Vex is refunded" */
     private static String settledBet(Bet bet, String gladiator) {
-        return switch (bet.status()) {
-            case WON -> "You won " + bet.payout() + " on " + gladiator;
-            case LOST -> "You lost " + bet.stake() + " on " + gladiator;
-            case PUSH -> "Draw: your " + bet.stake() + " on " + gladiator + " is refunded";
-            case PENDING -> throw new IllegalStateException("Bet " + bet.id() + " on a settled fight is still pending");
-        };
+        return Wording.settledBet(bet.status(), bet.stake(), bet.payout(), gladiator);
     }
 
-    /** "Brutus v Vex: 100 on Brutus at 1.96x · won 196", then lost, refunded 100 or pending. */
     private static String pastBet(BetRecord bet) {
-        String outcome = switch (bet.status()) {
-            case PENDING -> "pending";
-            case WON -> "won " + bet.payout();
-            case LOST -> "lost";
-            case PUSH -> "refunded " + bet.payout();
-        };
-        return bet.red() + " v " + bet.blue() + ": " + bet.stake() + " on " + bet.backed() + " at "
-                + Board.odds(bet.multiplierBps()) + " · " + outcome;
+        return Wording.pastBet(bet.red(), bet.blue(), bet.backed(), bet.stake(), bet.multiplierBps(), bet.status(),
+                bet.payout());
     }
 
-    /** "Your bet: 100 on Vex at 1.96x" */
     private static String pendingBet(Bet bet, String gladiator) {
-        return "Your bet: " + bet.stake() + " on " + gladiator + " at " + Board.odds(bet.multiplierBps());
+        return Wording.pendingBet(bet.stake(), gladiator, bet.multiplierBps());
     }
 }

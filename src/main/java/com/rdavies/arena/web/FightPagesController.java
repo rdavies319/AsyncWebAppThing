@@ -1,7 +1,6 @@
 package com.rdavies.arena.web;
 
-import com.rdavies.arena.board.Wording;
-import com.rdavies.arena.board.records.Board;
+import com.rdavies.arena.Wording;
 import com.rdavies.arena.fight.FightService;
 import com.rdavies.arena.fight.records.FightPage;
 import com.rdavies.arena.fight.records.FightRecord;
@@ -59,8 +58,8 @@ public class FightPagesController {
         FightRecord fight = page.fight();
         model.addAttribute("fight", fight);
         model.addAttribute("summary", Wording.summary(fight));
-        model.addAttribute("redOdds", Board.odds(fight.red().multiplierBps()));
-        model.addAttribute("blueOdds", Board.odds(fight.blue().multiplierBps()));
+        model.addAttribute("redOdds", Wording.odds(fight.red().multiplierBps()));
+        model.addAttribute("blueOdds", Wording.odds(fight.blue().multiplierBps()));
         model.addAttribute("log", page.rounds().stream()
                 .map(round -> Wording.roundLine(round, fight.red().name(), fight.blue().name())).toList());
         return "fight";

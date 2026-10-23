@@ -116,7 +116,7 @@ class BetHistoryTests {
                 recent.stream().map(Board.PastBet::fightId).toList());
         AnnouncedFight newest = fightService.current().announced();
         assertEquals(newest.red().name() + " v " + newest.blue().name() + ": 10 on " + newest.red().name()
-                + " at " + Board.odds(newest.red().multiplierBps()) + " · pending", recent.getFirst().line()); // ratings have moved
+                + " at " + Wording.odds(newest.red().multiplierBps()) + " · pending", recent.getFirst().line()); // ratings have moved
         String board = mockMvc.perform(get("/fragments/board").with(user(player)))
                 .andReturn().getResponse().getContentAsString();
         assertTrue(board.contains("href=\"/fights/" + placed.get(1).fightId() + "\""), board);
