@@ -26,7 +26,6 @@ replay_pid*
 # AI assistant / agent tooling
 # Claude Code
 .claude/
-CLAUDE.md
 CLAUDE.local.md
 # Installed agent skills (skills CLI)
 .agents/
