@@ -3,6 +3,7 @@ package com.rdavies.arena.fight;
 import com.rdavies.arena.fight.enums.FightStatus;
 import com.rdavies.arena.fight.records.Fight;
 import com.rdavies.arena.fight.records.LastFought;
+import com.rdavies.arena.fight.records.RecentOpponent;
 import org.springframework.data.domain.Limit;
 import org.springframework.data.jdbc.repository.query.Modifying;
 import org.springframework.data.relational.core.sql.LockMode;
@@ -103,6 +104,26 @@ interface FightRepository extends CrudRepository<Fight, Long> {
         @Override
         public LastFought mapRow(ResultSet rs, int rowNum) throws SQLException {
             return new LastFought(rs.getLong("gladiator_id"), rs.getTimestamp("starts_at").toInstant());
+        }
+    }
+
+    /** Each gladiator's last {@code count} opponents from fights in any status, most recent first within a gladiator. */
+    @Query(value = """
+            SELECT gladiator_id, opponent_id FROM (
+                SELECT gladiator_id, opponent_id,
+                       row_number() OVER (PARTITION BY gladiator_id ORDER BY starts_at DESC) AS n
+                FROM (
+                    SELECT red_id AS gladiator_id, blue_id AS opponent_id, starts_at FROM fights
+                    UNION ALL
+                    SELECT blue_id, red_id, starts_at FROM fights) AS meetings) AS numbered
+            WHERE n <= :count
+            ORDER BY gladiator_id, n""", rowMapperClass = RecentOpponentRowMapper.class)
+    List<RecentOpponent> findRecentOpponents(@Param("count") int count);
+
+    class RecentOpponentRowMapper implements RowMapper<RecentOpponent> {
+        @Override
+        public RecentOpponent mapRow(ResultSet rs, int rowNum) throws SQLException {
+            return new RecentOpponent(rs.getLong("gladiator_id"), rs.getLong("opponent_id"));
         }
     }
 }

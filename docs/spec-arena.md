@@ -65,10 +65,11 @@ Run at announcement time:
 
 1. Leave out the two gladiators who are fighting right now (fight N).
 2. Rank the rest by the `starts_at` of their last fight, oldest first. A gladiator who has never fought ranks before everyone.
-3. Take the top two. Break ties with the new fight's seed (section 6), so the pick is reproducible.
-4. If the chosen pair is the same pair as fight N, swap the second pick for the next gladiator in the ranking.
+3. Red is the top of the ranking.
+4. Blue is the highest-ranked of the rest who isn't one of red's last 3 opponents. If all of them are, blue is simply the highest-ranked of the rest.
+5. Break ties with the new fight's seed (section 6), so the pick is reproducible.
 
-With 8 gladiators, each fights about every 4 hours.
+Step 4 exists because ranking by rest alone pairs the same two forever: two gladiators who fight each other rest for the same time, so they reach the top of the ranking together again (with 8 gladiators the first four pairs repeated endlessly). With it, all 28 matchups come round, a rematch is at least 13 fights apart, and each gladiator fights about every 4 hours, never more than 6 apart.
 
 ### The round
 
@@ -157,7 +158,7 @@ The ratings are integers, and the change is zero-sum.
               if u < limit: return (u mod k) + 1
   ```
 
-  The pairing tie-break picks from the tied gladiators, ordered by id: `roll(fight, 0, "red", "pair", k)` picks red, and if blue also comes from a tie, `roll(fight, 0, "blue", "pair", k)` picks blue from those left. The fight's id is reserved before its row is inserted, so the rolls can use it.
+  The pairing tie-break picks from the tied gladiators, ordered by id: `roll(fight, 0, "red", "pair", k)` picks red from the longest-rested, and if blue also comes from a tie, `roll(fight, 0, "blue", "pair", k)` picks blue from the longest-rested of blue's candidates. The fight's id is reserved before its row is inserted, so the rolls can use it.
 - **Internal action log:** every round row stores its raw `hit` and `dmg` rolls next to the outcome, for internal fact-checking. Those columns, like the seed and the stats, never leave the server.
 - **Server clock only.** The cutoff, round due times and fight starts all read the injected `Clock`. Clients get `server_time` only to drive countdowns.
 
@@ -271,7 +272,7 @@ Nothing has been deployed, so the old game is removed outright, as the first Pha
 | --- | --- |
 | Replace Higher or Lower, or run both? | Replace. Keep users, wallets, ledger, auth, SSE and the board. |
 | Fight format? | One 1v1 duel per hour. Corners are red and blue. |
-| Who fights? | Least recently fought, seeded tie-break. Not the current fighters, and not the same pair twice in a row. |
+| Who fights? | Least recently fought, seeded tie-break. Not the current fighters, and not one of red's last 3 opponents (amended 2026-10-24: the original "not the same pair twice in a row" let the same four pairs repeat forever). |
 | When can players bet? | Before the fight only, closing at :59:50. In-fight betting may come later. |
 | How random? | The strongest beats the weakest about 70% of the time (65–75%, checked by a simulation test) |
 | Provably fair? | No, this is a toy. The seed and stats are internal and never revealed. Raw rolls are logged per round for internal fact-checking. |

@@ -12,6 +12,7 @@ import com.rdavies.arena.fight.records.Fight;
 import com.rdavies.arena.fight.records.LastFought;
 import com.rdavies.arena.fight.records.Outcome;
 import com.rdavies.arena.fight.records.Pair;
+import com.rdavies.arena.fight.records.RecentOpponent;
 import com.rdavies.arena.gladiator.GladiatorService;
 import com.rdavies.arena.gladiator.records.Gladiator;
 import com.rdavies.arena.gladiator.records.Stats;
@@ -27,6 +28,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -176,8 +178,11 @@ public class FightEngine {
         Set<Long> fighting = current == null ? Set.of() : Set.of(current.redId(), current.blueId());
         Map<Long, Instant> lastFought = fights.findLastFought().stream()
                 .collect(Collectors.toMap(LastFought::gladiatorId, LastFought::startsAt));
+        Map<Long, List<Long>> recentOpponents = fights.findRecentOpponents(Pairing.RECENT_OPPONENTS).stream()
+                .collect(Collectors.groupingBy(RecentOpponent::gladiatorId,
+                        Collectors.mapping(RecentOpponent::opponentId, Collectors.toList())));
         Pair pair = Pairing.pick(gladiators.roster().stream().map(Gladiator::id).toList(),
-                lastFought, fighting, fighting, seed, id);
+                lastFought, fighting, recentOpponents, seed, id);
 
         Gladiator red = gladiators.gladiator(pair.redId());
         Gladiator blue = gladiators.gladiator(pair.blueId());
