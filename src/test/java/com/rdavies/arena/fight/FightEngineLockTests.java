@@ -1,6 +1,7 @@
 package com.rdavies.arena.fight;
 
 import com.rdavies.arena.GameTest;
+import com.rdavies.arena.MutableClock;
 import com.rdavies.arena.TestGame;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -24,6 +25,8 @@ import static org.junit.jupiter.api.Assertions.*;
 @GameTest
 class FightEngineLockTests {
     @Autowired TestGame game;
+    @Autowired FightEngine engine;
+    @Autowired MutableClock clock;
     @Autowired FightService fightService;
     @Autowired TestFights testFights;
     @Autowired TransactionTemplate transactions;
@@ -48,11 +51,14 @@ class FightEngineLockTests {
             }));
             assertTrue(locked.await(10, TimeUnit.SECONDS), "the other transaction took the lock");
 
-            assertNull(game.boot().announced(), "the tick skipped, so nothing was announced");
+            clock.set(TestGame.BOOT);
+            assertFalse(engine.tick(), "the tick says it skipped");
+            assertNull(fightService.current().announced(), "and changed nothing: no fight was announced");
 
             release.countDown();
             holder.get(10, TimeUnit.SECONDS);
-            assertNotNull(game.boot().announced(), "with the lock free, the tick runs");
+            assertTrue(engine.tick(), "with the lock free, the tick runs");
+            assertNotNull(fightService.current().announced());
         } finally {
             release.countDown();
             other.shutdownNow();

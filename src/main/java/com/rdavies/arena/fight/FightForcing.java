@@ -2,13 +2,11 @@ package com.rdavies.arena.fight;
 
 import com.rdavies.arena.GameProperties;
 import com.rdavies.arena.GameRuleException;
-import com.rdavies.arena.fight.records.Fight;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
-import java.util.Optional;
 
 /**
  * Dev forcing (spec section 7, Dev controls), under the dev profile only. Each verb pulls a due time
@@ -40,8 +38,7 @@ public class FightForcing {
             throw GameRuleException.conflict("No fight is announced");
         }
         fights.pullStartForward(clock.instant());
-        engine.tick();
-        if (fights.findLive().isEmpty()) {
+        if (!engine.tick()) {
             throw busy();
         }
     }
@@ -49,28 +46,29 @@ public class FightForcing {
     /** Runs the live fight's next round now. */
     @Transactional
     public void round() {
-        runNextRound(requireLive());
+        requireLive();
+        runNextRound();
     }
 
     /** Runs the live fight's rounds now, until it settles. */
     @Transactional
     public void finish() {
-        Optional<Fight> live = Optional.of(requireLive());
+        requireLive();
         // Each tick runs one round, and a fight never runs past the cap
-        for (int i = 0; i < game.maxRounds() && live.isPresent(); i++) {
-            runNextRound(live.get());
-            live = fights.findLive();
+        for (int i = 0; i < game.maxRounds() && fights.findLive().isPresent(); i++) {
+            runNextRound();
         }
     }
 
-    private Fight requireLive() {
-        return fights.findLive().orElseThrow(() -> GameRuleException.conflict("No fight is live"));
+    private void requireLive() {
+        if (fights.findLive().isEmpty()) {
+            throw GameRuleException.conflict("No fight is live");
+        }
     }
 
-    private void runNextRound(Fight live) {
+    private void runNextRound() {
         fights.pullRoundForward(clock.instant());
-        engine.tick();
-        if (fights.findLive().filter(after -> after.roundsDone() == live.roundsDone()).isPresent()) {
+        if (!engine.tick()) {
             throw busy();
         }
     }

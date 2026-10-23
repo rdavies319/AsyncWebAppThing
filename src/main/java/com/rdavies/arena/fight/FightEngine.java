@@ -66,11 +66,12 @@ public class FightEngine {
         this.fightCron = CronExpression.parse(game.fightCron());
     }
 
+    /** Runs one tick. Returns false if another tick held the arena lock, in which case nothing changed. */
     @Transactional
-    public void tick() {
+    public boolean tick() {
         if (!fights.tryLock(LOCK_KEY)) {
             log.debug("Another tick holds the arena lock; skipping");
-            return;
+            return false;
         }
         Instant now = clock.instant();
         boolean fighting = fights.lockLive()
@@ -94,6 +95,7 @@ public class FightEngine {
         } else if (!fighting) {
             announce(nextSlot(now), null); // bootstrap
         }
+        return true;
     }
 
     /** Runs every round due by {@code now}, settling the fight if one ends it. Returns the fight as it stands. */
