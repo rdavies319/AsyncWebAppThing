@@ -17,6 +17,8 @@ import com.rdavies.arena.wallet.records.Wallet;
 import org.springframework.core.env.Environment;
 import org.springframework.data.domain.Limit;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
@@ -41,7 +43,12 @@ public class BoardService {
         this.devProfile = environment.matchesProfiles("dev");
     }
 
-    /** The board as {@code viewer} sees it now; {@code viewer} is empty for an anonymous viewer. */
+    /**
+     * The board as {@code viewer} sees it now; {@code viewer} is empty for an anonymous viewer. The
+     * fight, wallet and bet reads all come from one snapshot, so a tick committing part way through
+     * can't mix two states of the arena on one board.
+     */
+    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public Board board(Optional<GamePrincipal> viewer) {
         CurrentFights current = fightService.current();
         Optional<SettledFight> lastSettled = current.live() == null ? fightService.lastSettled() : Optional.empty();

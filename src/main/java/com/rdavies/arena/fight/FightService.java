@@ -16,6 +16,7 @@ import com.rdavies.arena.gladiator.GladiatorService;
 import com.rdavies.arena.gladiator.records.Gladiator;
 import org.springframework.data.domain.Limit;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -48,8 +49,12 @@ public class FightService {
         this.clock = clock;
     }
 
-    /** The live and announced fights, stamped with the server time. */
-    @Transactional(readOnly = true)
+    /**
+     * The live and announced fights, stamped with the server time. Read from one snapshot: under read
+     * committed, a tick that started one fight and announced the next could commit between the two
+     * reads, and the live fight would go missing.
+     */
+    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public CurrentFights current() {
         Instant now = clock.instant();
         return new CurrentFights(now,
