@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Gladiators · The Arena</title>
+    <th:block th:replace="~{fonts :: fonts}"></th:block>
+    <link rel="stylesheet" th:href="@{/arena.css}">
+</head>
+<body>
+<main class="card page">
+    <header th:replace="~{header :: header('gladiators')}"></header>
+    <h2>Gladiators</h2>
+    <table>
+        <thead><tr><th>Gladiator</th><th class="num">Elo</th><th class="num">W–L–D</th></tr></thead>
+        <tbody>
+        <tr th:each="row : ${rows}" th:with="g=${row.gladiator()}">
+            <td><a th:href="@{/gladiators/{slug}(slug=${g.slug()})}" th:text="${g.name()}">Brutus</a>
+                <span class="muted" th:text="${g.epithet()}">the Anvil</span></td>
+            <td class="num" th:text="${g.elo()}">1000</td>
+            <td class="num" th:text="${row.record()}">0–0–0</td>
+        </tr>
+        </tbody>
+    </table>
+</main>
+</body>
+</html>

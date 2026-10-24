@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Leaderboard · The Arena</title>
+    <th:block th:replace="~{fonts :: fonts}"></th:block>
+    <link rel="stylesheet" th:href="@{/arena.css}">
+</head>
+<body>
+<main class="card page">
+    <header th:replace="~{header :: header('leaderboard')}"></header>
+    <h2>Leaderboard</h2>
+    <p class="muted" th:if="${entries.isEmpty()}">Nobody has signed up yet.</p>
+    <table th:unless="${entries.isEmpty()}">
+        <thead><tr><th class="num">#</th><th>Player</th><th class="num">Points</th></tr></thead>
+        <tbody>
+        <tr th:each="entry : ${entries}">
+            <td class="num" th:text="${entry.rank()}">1</td>
+            <td th:text="${entry.displayName()}">croesus</td>
+            <td class="num" th:text="${entry.balance()}">1000</td>
+        </tr>
+        </tbody>
+    </table>
+</main>
+</body>
+</html>

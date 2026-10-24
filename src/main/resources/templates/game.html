@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>The Arena</title>
+    <!-- htmx requests carry these as a header (see the script below); plain forms get a hidden field from th:action -->
+    <meta name="csrf-header" th:content="${_csrf.headerName}">
+    <meta name="csrf-token" th:content="${_csrf.token}">
+    <script src="https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js"
+            integrity="sha384-HGfztofotfshcF7+8n44JQL2oJmowVChPTg48S+jvZoztPfvwD79OC/LTtG6dMp+"
+            crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/htmx-ext-sse@2.2.2/sse.js"
+            integrity="sha384-fw+eTlCc7suMV/1w/7fr2/PmwElUIt5i82bi+qTiLXvjRXZ2/FkiTNA/w0MhXnGI"
+            crossorigin="anonymous"></script>
+    <th:block th:replace="~{fonts :: fonts}"></th:block>
+    <link rel="stylesheet" th:href="@{/arena.css}">
+</head>
+<body class="game">
+
+<!-- Outside the board, so they survive its swaps: the brushed-paint filter and the laurel branch around each VS -->
+<svg width="0" height="0" style="position: absolute" aria-hidden="true">
+    <defs>
+        <filter id="brush"><feTurbulence type="fractalNoise" baseFrequency=".06" numOctaves="2" seed="3"/><feDisplacementMap in="SourceGraphic" scale="2.5"/></filter>
+        <symbol id="laurel-branch" viewBox="0 0 100 100">
+            <path d="M48 94 Q12 72 22 14" fill="none" stroke="currentColor" stroke-width="2.2"/>
+            <g fill="currentColor">
+                <ellipse cx="40" cy="87" rx="8" ry="3.2" transform="rotate(-25 40 87)"/>
+                <ellipse cx="30" cy="78" rx="8" ry="3.2" transform="rotate(-45 30 78)"/>
+                <ellipse cx="23" cy="66" rx="8" ry="3.2" transform="rotate(-62 23 66)"/>
+                <ellipse cx="19" cy="53" rx="8" ry="3.2" transform="rotate(-78 19 53)"/>
+                <ellipse cx="18" cy="40" rx="8" ry="3.2" transform="rotate(-92 18 40)"/>
+                <ellipse cx="20" cy="27" rx="7" ry="3" transform="rotate(-108 20 27)"/>
+                <ellipse cx="35" cy="82" rx="7" ry="2.8" transform="rotate(20 35 82)"/>
+                <ellipse cx="26" cy="71" rx="7" ry="2.8" transform="rotate(5 26 71)"/>
+                <ellipse cx="22" cy="58" rx="7" ry="2.8" transform="rotate(-10 22 58)"/>
+                <ellipse cx="22" cy="45" rx="7" ry="2.8" transform="rotate(-25 22 45)"/>
+                <ellipse cx="24" cy="33" rx="6" ry="2.6" transform="rotate(-40 24 33)"/>
+            </g>
+        </symbol>
+    </defs>
+</svg>
+
+<!-- One SSE connection for the page; every connect starts with a snapshot -->
+<main class="card wide" hx-ext="sse" sse-connect="/live">
+    <header th:replace="~{header :: header('arena')}"></header>
+
+    <!--
+        Renders a board.Board (built by BoardService) and the last request's BoardFeedback. Refetched on
+        every arena event, and on the snapshot after a reconnect, so missed events never matter.
+        data-server-time sets the clock the countdowns run on.
+    -->
+    <div id="board" th:fragment="board" th:with="me=${board.player()}"
+         th:data-server-time="${board.serverTime()}"
+         hx-get="/fragments/board" hx-swap="outerHTML"
+         hx-trigger="sse:snapshot, sse:matchup_announced, sse:fight_started, sse:round, sse:fight_settled, sse:bet_settled, cutoff">
+
+        <p class="soon" th:if="${board.openingSoon()}">Arena opening soon</p>
+
+        <!-- Two boxes of fixed height, so the page keeps its shape whatever the arena is doing:
+             the fight in the sand (live, or the last result) and the next fight's bill -->
+        <div class="panels" th:unless="${board.openingSoon()}">
+
+            <section class="panel" th:if="${board.live()}" th:with="live=${board.live()}">
+                <h3><span class="live-dot"></span>Now fighting</h3>
+                <div class="corners">
+                    <th:block th:each="side : ${ {'red', 'blue'} }" th:with="c=${side == 'red' ? live.red() : live.blue()}">
+                        <div th:class="'corner ' + ${side}">
+                            <a class="name brush" th:href="@{/gladiators/{slug}(slug=${c.slug()})}" th:text="${c.name()}">Brutus</a>
+                            <div class="epithet" th:text="${c.epithet()}">the Anvil</div>
+                            <div class="hp-bar"><span th:style="'width: ' + ${c.hpPercent()} + '%'"></span></div>
+                            <div class="hp-text" th:text="${c.shownHp()} + ' / ' + ${c.startingHp()} + ' HP'">120 / 120 HP</div>
+                        </div>
+                        <div class="vs" th:if="${side == 'red'}"><svg viewBox="0 0 100 100" aria-hidden="true"><use href="#laurel-branch"/><use href="#laurel-branch" transform="translate(100 0) scale(-1 1)"/></svg><span>VS</span></div>
+                    </th:block>
+                </div>
+                <p class="countdown">Next round in <span th:data-until="${live.nextRoundAt()}">…</span></p>
+                <!-- Always there, empty or not, so a bet doesn't push the log down -->
+                <p class="your-bet" th:text="${me != null ? me.fightBet() : null}">Your bet: 100 on Vex at 1.96x</p>
+                <ol class="log">
+                    <li th:each="line : ${live.log()}" th:text="${line}">1. Brutus hits Vex for 14 · Brutus dodges</li>
+                </ol>
+            </section>
+
+            <section class="panel" th:if="${board.live() == null}">
+                <h3 th:text="${board.lastResult() != null ? 'Last result' : 'The sand'}">Last result</h3>
+                <div class="quiet">
+                    <th:block th:if="${board.lastResult()}">
+                        <p class="result"><a th:href="@{/fights/{id}(id=${board.lastResult().fightId()})}"
+                                             th:text="${board.lastResult().summary()}">Brutus beat Vex by KO</a></p>
+                        <p class="your-bet" th:if="${me != null and me.fightBet() != null}" th:text="${me.fightBet()}">You won 196 on Brutus</p>
+                    </th:block>
+                    <p class="muted" th:unless="${board.lastResult()}">No fight yet</p>
+                </div>
+            </section>
+
+            <!-- The next fight is billed as a notice pinned to the wall, apart from the live feed -->
+            <div class="bill-wrap">
+                <section class="bill" th:with="next=${board.next()}">
+                    <span class="nail left"></span><span class="nail right"></span>
+                    <p class="kicker">The arena presents</p>
+                    <h2 class="billing">The next fight</h2>
+                    <div class="quiet" th:unless="${next}"><p>To be announced</p></div>
+                    <th:block th:if="${next}">
+                        <div class="corners">
+                            <th:block th:each="side : ${ {'red', 'blue'} }" th:with="c=${side == 'red' ? next.red() : next.blue()}">
+                                <div th:class="'corner ' + ${side}">
+                                    <a class="name brush" th:href="@{/gladiators/{slug}(slug=${c.slug()})}" th:text="${c.name()}">Vex</a>
+                                    <div class="epithet" th:text="${c.epithet()}">the Quick</div>
+                                    <div class="odds" th:text="${c.odds()}">1.96x</div>
+                                    <div class="stat" th:text="'Elo ' + ${c.elo()} + ' · max stake ' + ${c.maxStake()}">Elo 1000 · max stake 500</div>
+                                </div>
+                                <div class="vs" th:if="${side == 'red'}"><svg viewBox="0 0 100 100" aria-hidden="true"><use href="#laurel-branch"/><use href="#laurel-branch" transform="translate(100 0) scale(-1 1)"/></svg><span>VS</span></div>
+                            </th:block>
+                        </div>
+                        <div class="timers">
+                            <p class="countdown" th:if="${next.bettingOpen()}">Betting closes in <span th:data-until="${next.cutoffAt()}" data-fire="cutoff">…</span></p>
+                            <p class="countdown" th:unless="${next.bettingOpen()}">Betting is <span>closed</span></p>
+                            <p class="countdown">Starts in <span th:data-until="${next.startsAt()}">…</span></p>
+                        </div>
+                        <div class="bet-area">
+                            <p class="login-prompt" th:unless="${me}">
+                                <a th:href="@{/auth/login}">Log in</a> or <a th:href="@{/auth/signup}">sign up</a> to play.
+                            </p>
+                            <th:block th:if="${me}">
+                                <th:block th:if="${me.nextBet()}">
+                                    <p class="your-bet" th:text="${me.nextBet()}">Your bet: 100 on Vex at 1.96x</p>
+                                    <p class="seal">Wager sealed</p>
+                                </th:block>
+                                <div class="bet-form" th:if="${me.betForm()}" th:with="form=${me.betForm()}">
+                                    <p th:if="${form.nothingAffordable()}">Not enough points to bet</p>
+                                    <!-- One form per corner; the clicked button sends its stake -->
+                                    <form th:each="side : ${ {'red', 'blue'} }"
+                                          th:with="stakes=${side == 'red' ? form.redStakes() : form.blueStakes()}, c=${side == 'red' ? next.red() : next.blue()}"
+                                          th:class="'stakes ' + ${side}" hx-post="/bet" hx-target="#board" hx-swap="outerHTML">
+                                        <th:block th:unless="${stakes.isEmpty()}">
+                                            <input type="hidden" name="fight_id" th:value="${form.fightId()}">
+                                            <input type="hidden" name="corner" th:value="${side}">
+                                            <span class="stakes-label" th:text="'Bet on ' + ${c.name()}">Bet on Vex</span>
+                                            <button th:each="stake : ${stakes}" type="submit" name="stake" th:value="${stake}" th:text="${stake}">100</button>
+                                        </th:block>
+                                    </form>
+                                </div>
+                                <p class="error" th:if="${feedback.betError()}" th:text="${feedback.betError()}" role="alert"></p>
+                            </th:block>
+                        </div>
+                    </th:block>
+                </section>
+            </div>
+
+        </div>
+
+        <!-- With a bill up, the prompt sits on it, where the stake buttons would be -->
+        <p class="login-prompt" th:if="${me == null and board.next() == null}">
+            <a th:href="@{/auth/login}">Log in</a> or <a th:href="@{/auth/signup}">sign up</a> to play.
+        </p>
+
+        <div class="footer">
+            <div class="wallet" th:if="${me}">
+                Balance: <span th:text="${me.balance()}">0</span> pts
+                <button class="topup" th:if="${me.topUpTarget()}" hx-post="/topup" hx-target="#board" hx-swap="outerHTML"
+                        th:text="'Daily top-up to ' + ${me.topUpTarget()}">Daily top-up</button>
+                <p class="error" th:if="${feedback.topUpError()}" th:text="${feedback.topUpError()}" role="alert"></p>
+            </div>
+
+            <section class="recent-bets" th:if="${me != null and !me.recentBets().isEmpty()}">
+                <h3>Your last bets</h3>
+                <ul>
+                    <li th:each="bet : ${me.recentBets()}">
+                        <a th:href="@{/fights/{id}(id=${bet.fightId()})}"><span th:text="${bet.line()}">Brutus v Vex: 100 on Brutus at 1.96x · won 196</span><b class="go" aria-hidden="true">›</b></a>
+                    </li>
+                </ul>
+            </section>
+        </div>
+
+        <!-- Dev profile only. Each button pulls a due time forward and ticks the real engine; the events refetch the board. -->
+        <section class="dev" th:if="${board.devPanel()}">
+            <h3>Dev</h3>
+            <button hx-post="/dev/fights/start" hx-swap="none">Start fight</button>
+            <button hx-post="/dev/fights/round" hx-swap="none">Next round</button>
+            <button hx-post="/dev/fights/finish" hx-swap="none">Finish fight</button>
+        </section>
+    </div>
+</main>
+
+<script>
+    // CSRF protection is on, so every htmx POST sends the token as a header
+    document.body.addEventListener('htmx:configRequest', (e) => {
+        const header = document.querySelector('meta[name="csrf-header"]').content;
+        e.detail.headers[header] = document.querySelector('meta[name="csrf-token"]').content;
+    });
+
+    // Countdowns run on the server's clock: each board carries the server time it was built at,
+    // and the offset from this browser's clock is applied to every countdown.
+    let serverOffset = 0;
+    function syncServerClock() {
+        const board = document.getElementById('board');
+        if (board && board.dataset.serverTime) {
+            serverOffset = Date.parse(board.dataset.serverTime) - Date.now();
+        }
+    }
+    function formatRemaining(seconds) {
+        return seconds >= 60 ? Math.floor(seconds / 60) + 'm ' + String(seconds % 60).padStart(2, '0') + 's' : seconds + 's';
+    }
+    // A countdown with data-fire triggers that event on the board once it reaches zero, so the board
+    // refetches itself (betting closes with no SSE event). Once per countdown: the refetched board has new ones.
+    function tickCountdowns() {
+        const now = Date.now() + serverOffset;
+        document.querySelectorAll('[data-until]').forEach((el) => {
+            const remaining = Date.parse(el.dataset.until) - now;
+            el.textContent = formatRemaining(Math.max(0, Math.ceil(remaining / 1000)));
+            if (el.dataset.fire && remaining <= 0 && !el.dataset.fired) {
+                el.dataset.fired = 'true';
+                htmx.trigger('#board', el.dataset.fire);
+            }
+        });
+    }
+    document.body.addEventListener('htmx:afterSettle', () => { syncServerClock(); tickCountdowns(); });
+    syncServerClock();
+    tickCountdowns();
+    setInterval(tickCountdowns, 250);
+</script>
+
+</body>
+</html>

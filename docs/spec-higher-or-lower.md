@@ -2,6 +2,8 @@
 
 Draft v2 (2026-10-19) · Asynchronous online prediction game
 
+> **Superseded** by [spec-arena.md](spec-arena.md) (v3, 2026-10-21). Phase 2 task 01 removed its `round` and `prediction` code, so this is history only.
+
 v2 settles the open questions from v1 and brings the architecture in line with the repo. Section 12 lists what was decided.
 
 ## 1. Overview

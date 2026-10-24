@@ -1,0 +1,164 @@
+package com.rdavies.arena.fight;
+
+import com.rdavies.arena.GameTest;
+import com.rdavies.arena.TestGame;
+import com.rdavies.arena.fight.enums.FightStatus;
+import com.rdavies.arena.fight.records.AnnouncedFight;
+import com.rdavies.arena.fight.records.CurrentFights;
+import com.rdavies.arena.fight.records.RoundResult;
+import com.rdavies.arena.fight.records.Fight;
+import com.rdavies.arena.fight.records.FightResult;
+import com.rdavies.arena.fight.records.LiveFight;
+import com.rdavies.arena.fight.records.SimulatedFight;
+import com.rdavies.arena.gladiator.GladiatorService;
+import com.rdavies.arena.gladiator.records.Gladiator;
+import com.rdavies.arena.gladiator.records.Stats;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.sql.Timestamp;
+import java.time.Instant;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+/** The engine tick from spec section 7, driven through the real engine with the test clock. */
+@GameTest
+@Transactional
+class FightEngineTests {
+    private static final Instant ONE_AM = Instant.parse("2026-01-01T01:00:00Z");
+    private static final Instant TWO_AM = Instant.parse("2026-01-01T02:00:00Z");
+
+    @Autowired TestGame game;
+    @Autowired FightService fightService;
+    @Autowired FightRepository fights;
+    @Autowired FightRoundRepository rounds;
+    @Autowired GladiatorService gladiators;
+    @Autowired JdbcTemplate jdbc;
+
+    @Test
+    void bootstrapAnnouncesTheFirstFightForTheNextSlot() {
+        CurrentFights now = game.boot();
+
+        assertNull(now.live());
+        assertEquals(ONE_AM, now.announced().startsAt());
+        Set<String> slugs = gladiators.roster().stream().map(Gladiator::slug).collect(Collectors.toSet());
+        assertTrue(slugs.contains(now.announced().red().slug()));
+        assertTrue(slugs.contains(now.announced().blue().slug()));
+        assertNotEquals(now.announced().red().slug(), now.announced().blue().slug());
+    }
+
+    @Test
+    void aFightWaitsForItsSlot() {
+        game.boot();
+
+        CurrentFights now = game.tickAt(ONE_AM.minusMillis(1));
+
+        assertNull(now.live());
+        assertNotNull(now.announced());
+    }
+
+    @Test
+    void atItsSlotTheFightGoesLive() {
+        LiveFight live = game.startFight();
+
+        assertEquals(ONE_AM, live.startsAt());
+        assertEquals(0, live.roundsDone());
+        assertEquals(ONE_AM.plusSeconds(60), live.nextRoundAt());
+        assertEquals(live.red().startingHp(), live.red().currentHp());
+        assertTrue(live.rounds().isEmpty());
+    }
+
+    @Test
+    void whenAFightStartsTheNextIsAnnouncedWithoutItsFighters() {
+        LiveFight live = game.startFight();
+
+        AnnouncedFight next = fightService.current().announced();
+
+        assertEquals(TWO_AM, next.startsAt());
+        Set<String> fighting = Set.of(live.red().slug(), live.blue().slug());
+        assertFalse(fighting.contains(next.red().slug()));
+        assertFalse(fighting.contains(next.blue().slug()));
+    }
+
+    @Test
+    void theNextFightWaitsForTheLastToSettle() {
+        LiveFight live = game.startFight();
+        // Hold the live fight past the next slot, as a fight too long for its slot would
+        jdbc.update("UPDATE fights SET next_round_at = ? WHERE id = ?",
+                Timestamp.from(Instant.parse("2026-01-01T05:00:00Z")), live.fightId());
+
+        CurrentFights now = game.tickAt(TWO_AM);
+
+        assertEquals(live.fightId(), now.live().fightId());
+        assertEquals(Instant.parse("2026-01-01T03:00:00Z"), now.announced().startsAt()); // moved to the following slot
+    }
+
+    @Test
+    void eachDueRoundIsWrittenWithTheNewHp() {
+        LiveFight started = game.startFight();
+
+        LiveFight live = game.nextRound().live();
+
+        assertEquals(1, live.roundsDone());
+        assertEquals(ONE_AM.plusSeconds(120), live.nextRoundAt());
+        assertEquals(1, live.rounds().size());
+        assertEquals(started.red().startingHp() - live.rounds().getFirst().blueDamage(), live.red().currentHp());
+        assertEquals(started.blue().startingHp() - live.rounds().getFirst().redDamage(), live.blue().currentHp());
+    }
+
+    @Test
+    void aRoundWaitsUntilItIsDue() {
+        LiveFight live = game.startFight();
+
+        assertEquals(0, game.tickAt(live.nextRoundAt().minusMillis(1)).live().roundsDone());
+    }
+
+    @Test
+    void repeatingATickChangesNothing() {
+        game.startFight();
+        CurrentFights once = game.nextRound();
+
+        CurrentFights twice = game.tickAt(once.serverTime());
+
+        assertEquals(once, twice);
+    }
+
+    @Test
+    void aFinishedFightSettlesAndTheNextStartsAtItsSlot() {
+        FightResult result = game.finishFight();
+        Fight settled = fights.findById(result.fightId()).orElseThrow();
+
+        assertEquals(FightStatus.SETTLED, settled.status());
+        assertNotNull(result.winner());
+        assertNotNull(result.endedBy());
+        assertNull(settled.nextRoundAt());
+        CurrentFights now = fightService.current();
+        assertNull(now.live());
+        assertEquals(TWO_AM, now.announced().startsAt());
+        assertEquals(TWO_AM, game.startFight().startsAt());
+    }
+
+    @Test
+    void theFightPlaysOutExactlyAsTheCombatCoreSimulatesItsSeed() {
+        FightResult result = game.finishFight();
+        Fight fight = fights.findById(result.fightId()).orElseThrow();
+        Stats red = gladiators.stats(fight.redId());
+        Stats blue = gladiators.stats(fight.blueId());
+
+        SimulatedFight simulated = Combat.simulate(fight.seed(), fight.id(), red, blue, 30);
+
+        assertEquals(simulated.outcome().winner(), result.winner());
+        assertEquals(simulated.outcome().endedBy(), result.endedBy());
+        assertEquals(simulated.rounds().size(), result.roundsDone());
+        List<RoundResult> stored = rounds.findByFight(fight.id()).stream().map(e -> e.result()).toList();
+        assertEquals(simulated.rounds(), stored);
+        RoundResult last = simulated.rounds().getLast();
+        assertEquals(last.redHpAfter(), result.redHp());
+        assertEquals(last.blueHpAfter(), result.blueHp());
+    }
+}

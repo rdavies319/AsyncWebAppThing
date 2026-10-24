@@ -1,0 +1,18 @@
+[
+  {"slug": "brutus", "name": "Brutus", "epithet": "the Anvil", "bio": "A retired legionary who never learned to step aside, and never needed to.",
+   "stats": {"hp": 114, "attack_min": 10, "attack_max": 20, "defence": 0, "agility": 5}},
+  {"slug": "vex", "name": "Vex", "epithet": "the Quick", "bio": "A street thief who learned that the best block is not being there.",
+   "stats": {"hp": 100, "attack_min": 8, "attack_max": 13, "defence": 4, "agility": 27}},
+  {"slug": "hesper", "name": "Hesper", "epithet": "of the Long Spear", "bio": "Keeps her opponents at arm's length, and then some.",
+   "stats": {"hp": 116, "attack_min": 11, "attack_max": 15, "defence": 1, "agility": 13}},
+  {"slug": "corvin", "name": "Corvin", "epithet": "the Crow", "bio": "Circles, waits, and strikes when the crowd least expects it.",
+   "stats": {"hp": 105, "attack_min": 11, "attack_max": 13, "defence": 3, "agility": 7}},
+  {"slug": "ula", "name": "Ula", "epithet": "Ironhide", "bio": "Bought her freedom twice and lost it at dice both times.",
+   "stats": {"hp": 95, "attack_min": 6, "attack_max": 14, "defence": 6, "agility": 9}},
+  {"slug": "dagny", "name": "Dagny", "epithet": "the Red", "bio": "Came south with a raiding party and stayed for the applause.",
+   "stats": {"hp": 103, "attack_min": 8, "attack_max": 18, "defence": 1, "agility": 21}},
+  {"slug": "talos", "name": "Talos", "epithet": "the Patient", "bio": "A former stonemason who fights like he builds: slowly, and to last.",
+   "stats": {"hp": 99, "attack_min": 10, "attack_max": 15, "defence": 2, "agility": 16}},
+  {"slug": "mira", "name": "Mira", "epithet": "Twin Blades", "bio": "Fights with a sword in each hand and a grudge in her heart.",
+   "stats": {"hp": 139, "attack_min": 5, "attack_max": 19, "defence": 0, "agility": 21}}
+]

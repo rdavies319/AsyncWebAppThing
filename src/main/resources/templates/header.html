@@ -1,0 +1,26 @@
+<!--
+    The header every arena page shares (not log in or sign up). current names the page whose plaque is lit:
+    arena, gladiators, fights or leaderboard. viewer is the logged-in player's name, from web.PageHeader.
+-->
+<header xmlns:th="http://www.thymeleaf.org" class="masthead" th:fragment="header(current)">
+    <div class="topbar">
+        <form th:if="${viewer}" method="post" th:action="@{/auth/logout}">
+            <span th:text="${viewer}">player</span> · <button type="submit" class="link">Log out</button>
+        </form>
+        <th:block th:unless="${viewer}">
+            <a th:href="@{/auth/login}">Log in</a>
+            <a class="signup" th:href="@{/auth/signup}">Sign up</a>
+        </th:block>
+    </div>
+    <h1 class="brush" th:if="${current == 'arena'}">The Arena</h1>
+    <a class="wordmark" th:unless="${current == 'arena'}" th:href="@{/}">The Arena</a>
+    <nav aria-label="Pages">
+        <ul class="plaques">
+            <li><a th:href="@{/}" th:aria-current="${current == 'arena'} ? 'page'">The Arena</a></li>
+            <li><a th:href="@{/gladiators}" th:aria-current="${current == 'gladiators'} ? 'page'">Gladiators</a></li>
+            <li><a th:href="@{/fights}" th:aria-current="${current == 'fights'} ? 'page'">Past fights</a></li>
+            <li><a th:href="@{/leaderboard}" th:aria-current="${current == 'leaderboard'} ? 'page'">Leaderboard</a></li>
+        </ul>
+    </nav>
+    <div class="meander"></div>
+</header>

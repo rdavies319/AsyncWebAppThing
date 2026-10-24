@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Sign up · The Arena</title>
+    <th:block th:replace="~{fonts :: fonts}"></th:block>
+    <link rel="stylesheet" th:href="@{/arena.css}">
+</head>
+<body>
+<main class="card auth">
+    <h2>Create an account</h2>
+    <p class="notice">You start with <span th:text="${#numbers.formatInteger(signupBonus, 1, 'COMMA')}">1,000</span> points. Points are virtual and can never be bought or cashed out.</p>
+    <p class="error" th:if="${error}" th:text="${error}" role="alert"></p>
+    <!-- th:action adds the CSRF token -->
+    <form method="post" th:action="@{/auth/signup}">
+        <label>Email <input type="email" name="email" th:value="${email}" autocomplete="email" required autofocus></label>
+        <label>Display name <input type="text" name="displayName" th:value="${displayName}"
+                                   pattern="[A-Za-z0-9_]{3,30}" title="3 to 30 letters, digits or underscores" required></label>
+        <label>Password <input type="password" name="password" minlength="8" autocomplete="new-password" required></label>
+        <button type="submit">Sign up</button>
+    </form>
+    <p>Already have an account? <a th:href="@{/auth/login}">Log in</a></p>
+</main>
+</body>
+</html>

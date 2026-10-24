@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title th:text="${gladiator.name()} + ' · The Arena'">Gladiator · The Arena</title>
+    <th:block th:replace="~{fonts :: fonts}"></th:block>
+    <link rel="stylesheet" th:href="@{/arena.css}">
+</head>
+<body>
+<main class="card page">
+    <header th:replace="~{header :: header('gladiators')}"></header>
+    <h2 th:text="${gladiator.name()}">Brutus</h2>
+    <p class="muted" th:text="${gladiator.epithet()}">the Anvil</p>
+    <p th:text="${gladiator.bio()}">A retired legionary who never learned to step aside.</p>
+
+    <table>
+        <tbody>
+        <tr th:each="figure : ${figures}">
+            <td th:text="${figure.label()}">Win rate</td>
+            <td class="num" th:text="${figure.value()}">50.0%</td>
+        </tr>
+        </tbody>
+    </table>
+
+    <h3>Head to head</h3>
+    <p class="muted" th:if="${opponents.isEmpty()}">No fights yet.</p>
+    <table th:unless="${opponents.isEmpty()}">
+        <thead><tr><th>Opponent</th><th class="num">W–L–D</th></tr></thead>
+        <tbody>
+        <tr th:each="row : ${opponents}" th:with="h=${row.opponent()}">
+            <td><a th:href="@{/gladiators/{slug}(slug=${h.opponentSlug()})}" th:text="${h.opponentName()}">Vex</a></td>
+            <td class="num" th:text="${row.record()}">1–0–0</td>
+        </tr>
+        </tbody>
+    </table>
+
+    <h3>Last results</h3>
+    <p class="muted" th:if="${results.isEmpty()}">No fights yet.</p>
+    <table th:unless="${results.isEmpty()}">
+        <thead><tr><th>Fight</th><th>Opponent</th><th>Result</th></tr></thead>
+        <tbody>
+        <tr th:each="row : ${results}" th:with="f=${row.fight()}">
+            <td><a th:href="@{/fights/{id}(id=${f.fightId()})}" th:text="${f.startsAt()}">2026-01-01T01:00:00Z</a></td>
+            <td><a th:href="@{/gladiators/{slug}(slug=${f.opponentSlug()})}" th:text="${f.opponentName()}">Vex</a></td>
+            <td th:text="${row.result()}">Won by KO</td>
+        </tr>
+        </tbody>
+    </table>
+</main>
+</body>
+</html>
