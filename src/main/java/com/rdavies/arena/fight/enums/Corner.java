@@ -22,6 +22,11 @@ public enum Corner {
         return null;
     }
 
+    /** {@code red} for the red corner, {@code blue} for the blue: every record's per-corner lookup. */
+    public <T> T pick(T red, T blue) {
+        return this == RED ? red : blue;
+    }
+
     public Corner other() {
         return this == RED ? BLUE : RED;
     }

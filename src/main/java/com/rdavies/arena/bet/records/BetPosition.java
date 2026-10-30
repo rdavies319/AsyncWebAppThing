@@ -24,7 +24,7 @@ public sealed interface BetPosition {
         }
 
         public List<Long> stakes(Corner corner) {
-            return corner == Corner.RED ? red : blue;
+            return corner.pick(red, blue);
         }
     }
 
