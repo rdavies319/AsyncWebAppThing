@@ -9,6 +9,6 @@ public record SettledFight(long fightId, LiveFight.Fighter red, LiveFight.Fighte
                            EndedBy endedBy, int roundsDone) {
 
     public LiveFight.Fighter fighter(Corner corner) {
-        return corner == Corner.RED ? red : blue;
+        return corner.pick(red, blue);
     }
 }

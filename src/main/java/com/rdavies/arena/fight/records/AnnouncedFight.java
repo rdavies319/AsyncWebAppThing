@@ -17,7 +17,7 @@ public record AnnouncedFight(long fightId, Instant startsAt, Instant cutoffAt, @
                              Fighter red, Fighter blue) {
 
     public Fighter fighter(Corner corner) {
-        return corner == Corner.RED ? red : blue;
+        return corner.pick(red, blue);
     }
 
     /**

@@ -17,6 +17,6 @@ public record BetRecord(long betId, long fightId, Instant startsAt, String red, 
 
     /** The gladiator this bet backed. */
     public String backed() {
-        return corner == Corner.RED ? red : blue;
+        return corner.pick(red, blue);
     }
 }

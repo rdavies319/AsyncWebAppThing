@@ -17,7 +17,7 @@ public record LiveFight(long fightId, Instant startsAt, Fighter red, Fighter blu
     }
 
     public Fighter fighter(Corner corner) {
-        return corner == Corner.RED ? red : blue;
+        return corner.pick(red, blue);
     }
 
     /**

@@ -18,7 +18,7 @@ public record FightRecord(long fightId, Instant startsAt, FightStatus status, Si
                           Winner winner, EndedBy endedBy, int roundsDone) {
 
     public Side side(Corner corner) {
-        return corner == Corner.RED ? red : blue;
+        return corner.pick(red, blue);
     }
 
     /**
