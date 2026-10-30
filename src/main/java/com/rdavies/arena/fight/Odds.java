@@ -1,5 +1,7 @@
 package com.rdavies.arena.fight;
 
+import java.util.List;
+
 /**
  * Fixed odds from public Elo (spec section 5, Odds), as pure functions. The chance is the game's one
  * floating-point calculation, rounded once; everything after it is integer maths in basis points.
@@ -21,8 +23,9 @@ final class Odds {
         return 98_000_000 / chanceBps;
     }
 
-    /** The largest stake allowed at this multiplier: max-stake, lowered so a win never pays more than max-payout. */
-    static long maxStake(long maxStake, long maxPayout, int multiplierBps) {
-        return Math.min(maxStake, maxPayout * 10_000 / multiplierBps);
+    /** The stake options allowed at this multiplier: those whose win can't pay more than max-payout. */
+    static List<Long> stakes(List<Long> stakeOptions, long maxPayout, int multiplierBps) {
+        long most = maxPayout * 10_000 / multiplierBps;
+        return stakeOptions.stream().filter(stake -> stake <= most).toList();
     }
 }

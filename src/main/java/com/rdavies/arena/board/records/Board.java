@@ -54,9 +54,9 @@ public record Board(Instant serverTime, Live live, Result lastResult, Next next,
 
     /**
      * @param multiplierBps what a winning bet on this corner pays per point staked, in basis points
-     * @param maxStake      the largest stake on this corner
+     * @param maxStake      the largest stake on this corner; null if the payout cap rules out every stake option
      */
-    public record Contender(String slug, String name, String epithet, int elo, int multiplierBps, long maxStake) {
+    public record Contender(String slug, String name, String epithet, int elo, int multiplierBps, Long maxStake) {
         /** The multiplier as shown, e.g. "1.96x": rounded down, so it never promises more than a win pays. */
         public String odds() {
             return Wording.odds(multiplierBps);
@@ -80,7 +80,7 @@ public record Board(Instant serverTime, Live live, Result lastResult, Next next,
     /** @param line e.g. "Brutus v Vex: 100 on Brutus at 1.96x · won 196" */
     public record PastBet(long fightId, String line) {}
 
-    /** The stake buttons for each corner: the stake options the player can afford, within the corner's max stake. */
+    /** The stake buttons for each corner: the stakes the player's bet position leaves open there. */
     public record BetForm(long fightId, List<Long> redStakes, List<Long> blueStakes) {
         public BetForm {
             redStakes = List.copyOf(redStakes);

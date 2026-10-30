@@ -71,7 +71,7 @@ class BetHistoryTests {
         bet(player, Corner.RED, 100);
         game.finishFight();
         AnnouncedFight second = announced();
-        bet(player, Corner.BLUE, 50); // pending
+        bet(player, Corner.BLUE, 10); // pending
 
         mockMvc.perform(get("/bets/me").with(user(player)))
                 .andExpect(status().isOk())
@@ -80,7 +80,7 @@ class BetHistoryTests {
                 .andExpect(jsonPath("$[0].red").value(second.red().name()))
                 .andExpect(jsonPath("$[0].blue").value(second.blue().name()))
                 .andExpect(jsonPath("$[0].corner").value("blue"))
-                .andExpect(jsonPath("$[0].stake").value(50))
+                .andExpect(jsonPath("$[0].stake").value(10))
                 .andExpect(jsonPath("$[0].status").value("pending"))
                 .andExpect(jsonPath("$[0].payout").value(nullValue()))
                 .andExpect(jsonPath("$[1].fight_id").value(first.fightId()))

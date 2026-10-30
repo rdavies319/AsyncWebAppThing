@@ -108,7 +108,7 @@
                                     <a class="name brush" th:href="@{/gladiators/{slug}(slug=${c.slug()})}" th:text="${c.name()}">Vex</a>
                                     <div class="epithet" th:text="${c.epithet()}">the Quick</div>
                                     <div class="odds" th:text="${c.odds()}">1.96x</div>
-                                    <div class="stat" th:text="'Elo ' + ${c.elo()} + ' · max stake ' + ${c.maxStake()}">Elo 1000 · max stake 500</div>
+                                    <div class="stat" th:text="'Elo ' + ${c.elo()} + (${c.maxStake()} ? ' · max stake ' + ${c.maxStake()} : '')">Elo 1000 · max stake 500</div>
                                 </div>
                                 <div class="vs" th:if="${side == 'red'}"><svg viewBox="0 0 100 100" aria-hidden="true"><use href="#laurel-branch"/><use href="#laurel-branch" transform="translate(100 0) scale(-1 1)"/></svg><span>VS</span></div>
                             </th:block>

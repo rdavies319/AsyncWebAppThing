@@ -1,5 +1,7 @@
 package com.rdavies.arena.fight.records;
 
+import com.rdavies.arena.fight.enums.Corner;
+
 import java.time.Instant;
 import java.util.List;
 
@@ -12,6 +14,10 @@ public record LiveFight(long fightId, Instant startsAt, Fighter red, Fighter blu
                         Instant nextRoundAt, List<RoundView> rounds) {
     public LiveFight {
         rounds = List.copyOf(rounds);
+    }
+
+    public Fighter fighter(Corner corner) {
+        return corner == Corner.RED ? red : blue;
     }
 
     /**

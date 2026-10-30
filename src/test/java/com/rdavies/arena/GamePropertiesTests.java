@@ -18,7 +18,7 @@ import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-/** game.* settings bound as at startup: stake options the server would always refuse stop the app starting. */
+/** game.* settings bound as at startup: stake options out of order or not positive stop the app starting. */
 class GamePropertiesTests {
 
     @Test
@@ -44,26 +44,23 @@ class GamePropertiesTests {
     }
 
     @Test
-    void stakeOptionsWithinTheLimitsBind() {
-        assertEquals(List.of(25L, 50L), bind(Map.of("game.stake-options", "25,50")).stakeOptions());
+    void anyAscendingPositiveStakeOptionsBind() {
+        assertEquals(List.of(25L, 50L, 2000L), bind(Map.of("game.stake-options", "25,50,2000")).stakeOptions());
     }
 
     @Test
-    void aStakeOptionBelowTheMinimumStopsStartup() {
-        assertStartupFails(Map.of("game.stake-options", "5,100"),
-                "game.stake-options: 5 is outside game.min-stake..game.max-stake (10..500)");
+    void aStakeOptionMustBePositive() {
+        assertStartupFails(Map.of("game.stake-options", "0,100"),
+                "game.stake-options must be positive and ascending: [0, 100]");
     }
 
     @Test
-    void aStakeOptionAboveTheMaximumStopsStartup() {
-        assertStartupFails(Map.of("game.stake-options", "100,1000"),
-                "game.stake-options: 1000 is outside game.min-stake..game.max-stake (10..500)");
-    }
-
-    @Test
-    void theLimitsThemselvesCanMoveTheOptionsOutOfRange() {
-        assertStartupFails(Map.of("game.max-stake", "400"),
-                "game.stake-options: 500 is outside game.min-stake..game.max-stake (10..400)");
+    void theStakeOptionsMustAscend() {
+        // The page's coins take their metal from their position, so the order is the order shown
+        assertStartupFails(Map.of("game.stake-options", "100,10"),
+                "game.stake-options must be positive and ascending: [100, 10]");
+        assertStartupFails(Map.of("game.stake-options", "10,10"),
+                "game.stake-options must be positive and ascending: [10, 10]");
     }
 
     @Test

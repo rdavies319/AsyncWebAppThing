@@ -14,8 +14,6 @@ import java.util.Optional;
 /** Package-private: bets change only through the bet feature's services. */
 interface BetRepository extends CrudRepository<Bet, Long> {
 
-    boolean existsByUserIdAndFightId(long userId, long fightId);
-
     Optional<Bet> findByUserIdAndFightId(long userId, long fightId);
 
     List<Bet> findByFightIdOrderById(long fightId);

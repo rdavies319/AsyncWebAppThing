@@ -83,16 +83,16 @@ class BoardTests {
         assertNull(board.live());
         assertNull(board.lastResult());
         assertEquals(new Board.Next(announced.fightId(),
-                new Board.Contender(announced.red().slug(), announced.red().name(), announced.red().epithet(), 1000, 19600, 500),
-                new Board.Contender(announced.blue().slug(), announced.blue().name(), announced.blue().epithet(), 1000, 19600, 500),
+                new Board.Contender(announced.red().slug(), announced.red().name(), announced.red().epithet(), 1000, 19600, 500L),
+                new Board.Contender(announced.blue().slug(), announced.blue().name(), announced.blue().epithet(), 1000, 19600, 500L),
                 ONE_AM, Instant.parse("2026-01-01T00:59:50Z"), true), board.next());
     }
 
     @Test
     void oddsShowAsAMultiplierRoundedDown() {
-        assertEquals("1.96x", new Board.Contender("vex", "Vex", "the Quick", 1000, 19600, 500).odds());
-        assertEquals("1.08x", new Board.Contender("vex", "Vex", "the Quick", 1383, 10888, 500).odds()); // pays 1.0888x
-        assertEquals("9.80x", new Board.Contender("vex", "Vex", "the Quick", 617, 98000, 500).odds());
+        assertEquals("1.96x", new Board.Contender("vex", "Vex", "the Quick", 1000, 19600, 500L).odds());
+        assertEquals("1.08x", new Board.Contender("vex", "Vex", "the Quick", 1383, 10888, 500L).odds()); // pays 1.0888x
+        assertEquals("9.80x", new Board.Contender("vex", "Vex", "the Quick", 617, 98000, 500L).odds());
     }
 
     @Test
@@ -203,22 +203,6 @@ class BoardTests {
 
         walletService.claimTopUp(alice.id());
         assertEquals(new Board.PlayerBoard("alice", 1000, null, null, null, null, List.of()), boardService.board(Optional.of(alice)).player());
-    }
-
-    @Test
-    void aPlayerIsOfferedTheStakesTheyCanAffordOnEachCorner() {
-        long fightId = game.boot().announced().fightId();
-
-        assertEquals(new Board.BetForm(fightId, List.of(10L, 100L, 500L), List.of(10L, 100L, 500L)),
-                boardService.board(Optional.of(alice)).player().betForm());
-
-        wallets.spend(alice.id(), 850);
-        assertEquals(new Board.BetForm(fightId, List.of(10L, 100L), List.of(10L, 100L)),
-                boardService.board(Optional.of(alice)).player().betForm());
-
-        wallets.spend(alice.id(), 145);
-        Board.BetForm broke = boardService.board(Optional.of(alice)).player().betForm();
-        assertTrue(broke.nothingAffordable());
     }
 
     @Test

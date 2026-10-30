@@ -154,6 +154,6 @@ public class FightService {
     private AnnouncedFight.Fighter announcedFighter(long gladiatorId, int elo, int multiplierBps) {
         Gladiator g = gladiators.gladiator(gladiatorId);
         return new AnnouncedFight.Fighter(g.slug(), g.name(), g.epithet(), elo, multiplierBps,
-                Odds.maxStake(game.maxStake(), game.maxPayout(), multiplierBps));
+                Odds.stakes(game.stakeOptions(), game.maxPayout(), multiplierBps));
     }
 }

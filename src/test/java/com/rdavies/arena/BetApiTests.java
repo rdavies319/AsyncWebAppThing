@@ -71,14 +71,14 @@ class BetApiTests {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"fight_id\": " + fight.fightId() + ", \"corner\": \"red\", \"stake\": 5}"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.detail").value("Stake must be between 10 and 500 pts on " + fight.red().name()));
+                .andExpect(jsonPath("$.detail").value("Stake must be one of 10, 100, 500 pts on " + fight.red().name()));
     }
 
     @Test
     void anUnknownCornerIsA400() throws Exception {
         mockMvc.perform(post("/bets").with(user(player)).with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"fight_id\": " + fight.fightId() + ", \"corner\": \"green\", \"stake\": 50}"))
+                        .content("{\"fight_id\": " + fight.fightId() + ", \"corner\": \"green\", \"stake\": 10}"))
                 .andExpect(status().isBadRequest());
     }
 
@@ -87,7 +87,7 @@ class BetApiTests {
         clock.now = Instant.parse("2026-01-01T00:59:50Z");
         mockMvc.perform(post("/bets").with(user(player)).with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"fight_id\": " + fight.fightId() + ", \"corner\": \"red\", \"stake\": 50}"))
+                        .content("{\"fight_id\": " + fight.fightId() + ", \"corner\": \"red\", \"stake\": 10}"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.detail").value("Betting on this fight has closed"));
     }
@@ -96,7 +96,7 @@ class BetApiTests {
     void aBetNeedsALogin() throws Exception {
         mockMvc.perform(post("/bets").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"fight_id\": " + fight.fightId() + ", \"corner\": \"red\", \"stake\": 50}"))
+                        .content("{\"fight_id\": " + fight.fightId() + ", \"corner\": \"red\", \"stake\": 10}"))
                 .andExpect(status().isUnauthorized());
     }
 

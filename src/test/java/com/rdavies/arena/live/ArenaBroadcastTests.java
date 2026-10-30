@@ -97,7 +97,7 @@ class ArenaBroadcastTests {
 
         viewer.awaitEvents(1, WAIT);
         String data = viewer.sent.getFirst();
-        assertTrue(data.contains("\"elo\":1000,\"multiplier_bps\":19600,\"max_stake\":500}"), data);
+        assertTrue(data.contains("\"elo\":1000,\"multiplier_bps\":19600,\"stakes\":[10,100,500]}"), data);
     }
 
     @Test

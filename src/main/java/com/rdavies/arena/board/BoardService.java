@@ -4,10 +4,10 @@ import com.rdavies.arena.GameProperties;
 import com.rdavies.arena.Wording;
 import com.rdavies.arena.bet.BetService;
 import com.rdavies.arena.bet.records.Bet;
+import com.rdavies.arena.bet.records.BetPosition;
 import com.rdavies.arena.bet.records.BetRecord;
 import com.rdavies.arena.board.records.Board;
 import com.rdavies.arena.fight.FightService;
-import com.rdavies.arena.fight.enums.Corner;
 import com.rdavies.arena.fight.records.AnnouncedFight;
 import com.rdavies.arena.fight.records.CurrentFights;
 import com.rdavies.arena.fight.records.LiveFight;
@@ -85,7 +85,7 @@ public class BoardService {
 
     private static Board.Contender contender(AnnouncedFight.Fighter fighter) {
         return new Board.Contender(fighter.slug(), fighter.name(), fighter.epithet(), fighter.elo(), fighter.multiplierBps(),
-                fighter.maxStake());
+                fighter.stakes().isEmpty() ? null : fighter.stakes().getLast());
     }
 
     private Board.PlayerBoard playerBoard(GamePrincipal viewer, CurrentFights current,
@@ -97,11 +97,10 @@ public class BoardService {
         String nextBet = null;
         if (next != null) {
             AnnouncedFight announced = current.announced();
-            Optional<Bet> bet = betService.bet(viewer.id(), next.fightId());
-            nextBet = bet.map(b -> pendingBet(b, announced.fighter(b.corner()).name())).orElse(null);
-            if (bet.isEmpty() && next.bettingOpen()) {
-                betForm = new Board.BetForm(next.fightId(),
-                        affordable(wallet.balance(), announced.red()), affordable(wallet.balance(), announced.blue()));
+            switch (betService.position(viewer.id(), announced)) {
+                case BetPosition.Placed placed -> nextBet = pendingBet(placed.bet(), announced.fighter(placed.bet().corner()).name());
+                case BetPosition.Open open -> betForm = new Board.BetForm(next.fightId(), open.red(), open.blue());
+                case BetPosition.Closed closed -> {}
             }
         }
 
@@ -109,12 +108,12 @@ public class BoardService {
         if (current.live() != null) {
             LiveFight live = current.live();
             fightBet = betService.bet(viewer.id(), live.fightId())
-                    .map(b -> pendingBet(b, (b.corner() == Corner.RED ? live.red() : live.blue()).name()))
+                    .map(b -> pendingBet(b, live.fighter(b.corner()).name()))
                     .orElse(null);
         } else if (lastSettled.isPresent()) {
             SettledFight settled = lastSettled.get();
             fightBet = betService.bet(viewer.id(), settled.fightId())
-                    .map(b -> settledBet(b, (b.corner() == Corner.RED ? settled.red() : settled.blue()).name()))
+                    .map(b -> settledBet(b, settled.fighter(b.corner()).name()))
                     .orElse(null);
         }
         List<Board.PastBet> recentBets = betService.history(viewer.id(), Limit.of(RECENT_BETS)).stream()
@@ -122,12 +121,6 @@ public class BoardService {
                 .toList();
         return new Board.PlayerBoard(viewer.displayName(), wallet.balance(), topUpTarget, betForm, nextBet, fightBet,
                 recentBets);
-    }
-
-    /** The stake options this balance covers, up to the corner's max stake. */
-    private List<Long> affordable(long balance, AnnouncedFight.Fighter fighter) {
-        long most = Math.min(balance, fighter.maxStake());
-        return game.stakeOptions().stream().filter(stake -> stake <= most).toList();
     }
 
     private static String settledBet(Bet bet, String gladiator) {

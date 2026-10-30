@@ -60,16 +60,16 @@ class BetSettlementTests {
     @Test
     void aWinPaysTheStakeTimesTheOddsAndALossPaysNothing() {
         game.plantFight(Winner.RED, EndedBy.KO);
-        Bet onRed = bet(redBacker, Corner.RED, 333);
+        Bet onRed = bet(redBacker, Corner.RED, 10);
         Bet onBlue = bet(blueBacker, Corner.BLUE, 100);
 
         FightResult result = game.finishFight();
 
         Bet won = betService.bet(redBacker, result.fightId()).orElseThrow();
         assertEquals(BetStatus.WON, won.status());
-        assertEquals(652, won.payout()); // floor(333 × 19600 / 10000) = floor(652.68)
-        assertEquals(1000 - 333 + 652, balance(redBacker));
-        assertEquals(List.of("STAKE:-333", "PAYOUT:652"), ledger(redBacker, onRed.id()));
+        assertEquals(19, won.payout()); // floor(10 × 19600 / 10000) = floor(19.6)
+        assertEquals(1000 - 10 + 19, balance(redBacker));
+        assertEquals(List.of("STAKE:-10", "PAYOUT:19"), ledger(redBacker, onRed.id()));
 
         Bet lost = betService.bet(blueBacker, result.fightId()).orElseThrow();
         assertEquals(BetStatus.LOST, lost.status());
@@ -82,7 +82,7 @@ class BetSettlementTests {
     @Test
     void aDrawRefundsEveryStake() {
         game.plantFight(Winner.DRAW, EndedBy.DOUBLE_KO);
-        Bet onRed = bet(redBacker, Corner.RED, 250);
+        Bet onRed = bet(redBacker, Corner.RED, 500);
         Bet onBlue = bet(blueBacker, Corner.BLUE, 10);
 
         FightResult result = game.finishFight();
