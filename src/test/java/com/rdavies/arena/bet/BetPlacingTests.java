@@ -7,6 +7,7 @@ import com.rdavies.arena.TestGame;
 import com.rdavies.arena.TestPlayers;
 import com.rdavies.arena.bet.enums.BetStatus;
 import com.rdavies.arena.bet.records.Bet;
+import com.rdavies.arena.bet.records.BetPosition;
 import com.rdavies.arena.fight.enums.Corner;
 import com.rdavies.arena.fight.records.AnnouncedFight;
 import com.rdavies.arena.user.UserService;
@@ -21,6 +22,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -113,19 +115,41 @@ class BetPlacingTests {
     }
 
     @Test
-    void theStakeMustBeWithinTheLimits() {
-        String limits = "Stake must be between 10 and 500 pts on " + fight.blue().name();
-        assertRefused(GameRuleException.Kind.INVALID, limits,
-                () -> betService.place(playerId, fight.fightId(), Corner.BLUE, 9L));
-        assertRefused(GameRuleException.Kind.INVALID, limits,
-                () -> betService.place(playerId, fight.fightId(), Corner.BLUE, 501L));
+    void theStakeMustBeOneOfTheStakeOptions() {
+        String options = "Stake must be one of 10, 100, 500 pts on " + fight.blue().name();
+        for (long stake : new long[] {9, 50, 501}) {
+            assertRefused(GameRuleException.Kind.INVALID, options,
+                    () -> betService.place(playerId, fight.fightId(), Corner.BLUE, stake));
+        }
 
         betService.place(playerId, fight.fightId(), Corner.BLUE, 500L);
         assertEquals(500, balance());
     }
 
     @Test
-    void oneBetPerPlayerPerFight() {
+    void everyStakeThePositionOffersIsAcceptedAndEveryOptionItWithholdsIsRefused() {
+        wallets.spend(playerId, 850); // 150 covers 10 and 100, not 500
+        BetPosition.Open open = (BetPosition.Open) betService.position(playerId, fight);
+
+        for (Corner corner : Corner.values()) {
+            for (long stake : fight.fighter(corner).stakes()) {
+                long punter = TestPlayers.signUp(userService, "p" + corner.ordinal() + "_" + stake).id();
+                wallets.spend(punter, 850);
+                if (open.stakes(corner).contains(stake)) {
+                    assertEquals(stake, betService.place(punter, fight.fightId(), corner, stake).stake());
+                } else {
+                    GameRuleException e = assertThrows(GameRuleException.class,
+                            () -> betService.place(punter, fight.fightId(), corner, stake));
+                    assertEquals(GameRuleException.Kind.CONFLICT, e.kind());
+                    assertEquals("Insufficient funds in wallet", e.getMessage());
+                }
+            }
+        }
+        assertEquals(List.of(10L, 100L), open.stakes(Corner.RED)); // the loop covered both outcomes
+    }
+
+    @Test
+    void oneBetPerPlayerPerFightWhateverTheStake() {
         betService.place(playerId, fight.fightId(), Corner.RED, 100L);
 
         for (Corner corner : Corner.values()) {
@@ -147,8 +171,8 @@ class BetPlacingTests {
         assertEquals(50, balance());
         assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM bets WHERE user_id = ?", Integer.class, playerId));
 
-        betService.place(playerId, fight.fightId(), Corner.RED, 50L); // the refusal didn't use up the one bet
-        assertEquals(0, balance());
+        betService.place(playerId, fight.fightId(), Corner.RED, 10L); // the refusal didn't use up the one bet
+        assertEquals(40, balance());
     }
 
     private long balance() {

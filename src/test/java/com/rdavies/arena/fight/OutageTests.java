@@ -183,13 +183,13 @@ class OutageTests {
 
         game.tickAt(ONE_AM.plusSeconds(5 * 60));
         clock.set(Instant.parse("2026-01-01T01:30:00Z"));
-        betService.place(late, announced.fightId(), Corner.BLUE, 50L);
+        betService.place(late, announced.fightId(), Corner.BLUE, 10L);
         clock.set(Instant.parse("2026-01-01T01:59:50Z"));
         assertThrows(GameRuleException.class, () -> betService.place(late, announced.fightId(), Corner.RED, 10L));
 
         assertEquals(BetStatus.PENDING, betService.bet(early, announced.fightId()).orElseThrow().status());
         assertEquals(900, walletService.getWallet(early).balance());
-        assertEquals(950, walletService.getWallet(late).balance());
+        assertEquals(990, walletService.getWallet(late).balance());
     }
 
     /** A fight of at least 12 rounds, long enough to outlast these outages. */

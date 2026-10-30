@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.rdavies.arena.fight.enums.Corner;
 
 import java.time.Instant;
+import java.util.List;
 
 /**
  * The next fight, open for betting, as anyone may see it.
@@ -22,7 +23,11 @@ public record AnnouncedFight(long fightId, Instant startsAt, Instant cutoffAt, @
     /**
      * @param elo           the rating stored at announcement
      * @param multiplierBps what a winning bet on this corner pays per point staked, stake included, in basis points
-     * @param maxStake      the largest stake on this corner: game.max-stake, lowered by the payout cap
+     * @param stakes        the stakes a bet on this corner may have: game.stake-options, less any the payout cap rules out
      */
-    public record Fighter(String slug, String name, String epithet, int elo, int multiplierBps, long maxStake) {}
+    public record Fighter(String slug, String name, String epithet, int elo, int multiplierBps, List<Long> stakes) {
+        public Fighter {
+            stakes = List.copyOf(stakes);
+        }
+    }
 }

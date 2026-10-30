@@ -2,6 +2,8 @@ package com.rdavies.arena.fight;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /** Fixed odds from public Elo, from spec section 5 (Odds). */
@@ -30,11 +32,10 @@ class OddsTests {
     }
 
     @Test
-    void thePayoutCapLowersTheMaxStake() {
-        // 10,000 / 9.8 = 1020.4, so the cap bites only when max-stake is above 1020
-        assertEquals(500, Odds.maxStake(500, 10_000, 98000));
-        assertEquals(1020, Odds.maxStake(2000, 10_000, 98000));
-        assertEquals(1020, Odds.maxStake(1020, 10_000, 98000));
-        assertEquals(5102, Odds.maxStake(10_000, 10_000, 19600)); // 10,000 / 1.96 = 5102.04
+    void thePayoutCapDropsTheStakeOptionsThatWouldPayTooMuch() {
+        // 10,000 / 9.8 = 1020.4, so at 9.8x a stake of 1020 can win at most 9,996 and 1021 would pay 10,005
+        assertEquals(List.of(10L, 100L, 500L, 1020L), Odds.stakes(List.of(10L, 100L, 500L, 1020L, 1021L, 2000L), 10_000, 98000));
+        assertEquals(List.of(10L, 100L, 500L), Odds.stakes(List.of(10L, 100L, 500L), 10_000, 19600)); // 1.96x: nothing near the cap
+        assertEquals(List.of(), Odds.stakes(List.of(2000L), 10_000, 98000));
     }
 }

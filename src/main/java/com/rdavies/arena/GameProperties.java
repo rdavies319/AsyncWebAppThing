@@ -13,12 +13,10 @@ import java.util.List;
  * Game settings, overridable as game.* properties.
  *
  * @param cutoff       betting on a fight closes this long before it starts
- * @param minStake     smallest stake accepted
- * @param maxStake     largest stake accepted, before the payout cap lowers it
  * @param maxPayout    most one bet can pay out, stake included
  * @param signupBonus  points credited to a new wallet
  * @param topUpTarget  the daily top-up refills a wallet to this balance
- * @param stakeOptions the stakes the game page offers as buttons, each within minStake..maxStake
+ * @param stakeOptions the only stakes a bet may have, ascending: the game page's buttons, and all the API accepts
  * @param fightCron        when fights start, as a Spring cron expression in UTC (spec section 4)
  * @param roundInterval the time between a fight's rounds; round n is due at starts_at + n × this
  * @param maxRounds     the round cap, after which a fight is decided on remaining HP share
@@ -28,8 +26,6 @@ import java.util.List;
 @ConfigurationProperties("game")
 public record GameProperties(
     @DefaultValue("10s") Duration cutoff,
-    @DefaultValue("10") long minStake,
-    @DefaultValue("500") long maxStake,
     @DefaultValue("10000") long maxPayout,
     @DefaultValue("1000") long signupBonus,
     @DefaultValue("1000") long topUpTarget,
@@ -51,17 +47,16 @@ public record GameProperties(
     }
 
     /**
-     * Checked at startup, so a stake button the server would always refuse can't ship, and a capped
-     * fight always settles before the next one's slot (spec section 7).
+     * Checked at startup, so the stake buttons show in order, and a capped fight always settles before
+     * the next one's slot (spec section 7).
      */
     public GameProperties {
         if (stakeOptions.isEmpty()) {
             throw new IllegalArgumentException("game.stake-options must list at least one stake");
         }
-        for (long stake : stakeOptions) {
-            if (stake < minStake || stake > maxStake) {
-                throw new IllegalArgumentException("game.stake-options: " + stake
-                        + " is outside game.min-stake..game.max-stake (" + minStake + ".." + maxStake + ")");
+        for (int i = 0; i < stakeOptions.size(); i++) {
+            if (stakeOptions.get(i) <= (i == 0 ? 0 : stakeOptions.get(i - 1))) {
+                throw new IllegalArgumentException("game.stake-options must be positive and ascending: " + stakeOptions);
             }
         }
         stakeOptions = List.copyOf(stakeOptions);

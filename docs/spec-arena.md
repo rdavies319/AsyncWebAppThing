@@ -107,7 +107,7 @@ The default cap is 30 rounds at 1 minute each, so every fight is over by :30. Th
 
 - Players bet on fight N+1 while it's `announced` and the server clock is before `starts_at − game.cutoff` (default 10s, so betting closes at **:59:50**).
 - **One bet per player per fight**, on one corner. Bets are final: no adding to, switching or cancelling them.
-- The stake limits are v2's `GameProperties` values: `game.min-stake` 10 and `game.max-stake` 500, lowered further by the payout cap: `max_stake = min(max-stake, floor(max-payout × 10000 / multiplier_bps))`. The stake is debited atomically: `UPDATE wallets … WHERE balance >= :stake`.
+- A stake must be one of `game.stake-options` (default 10, 100, 500), the same coins the page shows. No other amount is a stake. The payout cap drops any option above `floor(max-payout × 10000 / multiplier_bps)`, which leaves each corner's `stakes`. A player's **bet position** (their bet, or the stakes on each corner their balance covers, or nothing once betting closes) is what the page offers and exactly what placing accepts. The stake is debited atomically: `UPDATE wallets … WHERE balance >= :stake`.
 - **Win:** credit `payout = floor(stake × multiplier_bps / 10000)`, stake included, at most 10,000. **Loss:** the stake is kept. **Draw:** the stake is refunded (`push`).
 - Player versus the house. Players compete only on the leaderboard.
 - **In-fight betting is out of scope**, but the model leaves room for it. Odds belong to a fight's market, not to its gladiators, so a later "live market" could price bets from the current HP without changing settled bets.
@@ -225,8 +225,8 @@ Constraints:
 | Method and path | Purpose |
 | --- | --- |
 | `GET /` | Arena page (section 10) |
-| `GET /fights/current` | The live fight (corners, names, HP, rounds so far, next round time) and the announced fight (matchup, Elo, `multiplier_bps` and `max_stake` per corner, `cutoff_at`), plus `server_time` |
-| `POST /bets` | Body: `fight_id`, `corner`, `stake`. Returns the stored bet. 400 when invalid, 409 when closed, duplicate or insufficient. |
+| `GET /fights/current` | The live fight (corners, names, HP, rounds so far, next round time) and the announced fight (matchup, Elo, `multiplier_bps` and `stakes` per corner, `cutoff_at`), plus `server_time` |
+| `POST /bets` | Body: `fight_id`, `corner`, `stake`. Returns the stored bet. 400 when invalid (including a stake that isn't one of the corner's `stakes`), 409 when closed, duplicate or insufficient. |
 | `POST /wallet/topup` | Unchanged |
 | `GET /gladiators`, `GET /gladiators/{slug}` | Public records (below), as a page or as JSON |
 | `GET /fights?limit=50`, `GET /fights/{id}` | Fight history, and one fight's page: matchup, odds, result and the public round log |
@@ -256,7 +256,7 @@ All events are published after commit (`@TransactionalEventListener`).
 One SSE connection plus the htmx `board` fragment, refetched on every arena event. As in v2, the board renders one `board.Board` value from `BoardService`. The board shows:
 
 - **Now fighting:** two corner cards (name, epithet, HP bar), a countdown to the next round, and the round log, newest first ("Brutus hits Vex for 14 · Vex dodges"). Between fights, it shows the last result.
-- **Next fight:** both gladiators with Elo and record, odds and max stake per corner, the stake buttons and bet form (or your bet once placed), and a countdown to the cutoff.
+- **Next fight:** both gladiators with Elo and record, odds and the largest stake per corner, the stake buttons the player can afford and bet form (or your bet once placed), and a countdown to the cutoff.
 - **You:** balance, the top-up button when a claim would succeed, and your last 5 bets.
 - **Dev panel**, under the dev profile only.
 
@@ -281,7 +281,7 @@ Nothing has been deployed, so the old game is removed outright, as the first Pha
 | Stats? | HP, attack range, defence, agility. Simultaneous rounds. A crit stat may come later. |
 | Fight length? | Usually 8–15 rounds. Capped at 30, then decided on HP share. Double KO or equal share is a draw. |
 | Odds model? | Fixed odds from public Elo (K = 32), clamped to 10–90%, 2% edge, locked at announcement. Never from the hidden stats. |
-| Bet rules? | One final bet per fight. A draw refunds. Stake limits from v2's `GameProperties` (10–500, payout capped at 10,000). |
+| Bet rules? | One final bet per fight. A draw refunds. A stake is one of `game.stake-options` (10, 100, 500), less any the payout cap (10,000) rules out on that corner. This replaces v2's 10–500 range, so the page and the API share one rule: what the page offers is exactly what a bet may be. |
 | Crash in the middle of a fight? | Resume from the fight row and replay overdue rounds from the seed. Never void automatically. |
 | Downtime at a fight's start? | Move to the next slot with betting reopened. No backfill. |
 | Configuration? | Production defaults in `GameProperties`, overridden by environment variables, with `.env` files through compose. The dev cadence is in `application-dev.properties`. `.env.example` is committed. |

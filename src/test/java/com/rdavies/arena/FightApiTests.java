@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -52,16 +53,16 @@ class FightApiTests {
     }
 
     @Test
-    void theAnnouncedFightShowsEachCornersOddsAndMaxStake() throws Exception {
+    void theAnnouncedFightShowsEachCornersOddsAndStakes() throws Exception {
         game.boot(); // every rating starts at 1000, so the odds are even
 
         mockMvc.perform(get("/fights/current"))
                 .andExpect(jsonPath("$.announced.red.elo").value(1000))
                 .andExpect(jsonPath("$.announced.red.multiplier_bps").value(19600))
-                .andExpect(jsonPath("$.announced.red.max_stake").value(500))
+                .andExpect(jsonPath("$.announced.red.stakes").value(contains(10, 100, 500)))
                 .andExpect(jsonPath("$.announced.blue.elo").value(1000))
                 .andExpect(jsonPath("$.announced.blue.multiplier_bps").value(19600))
-                .andExpect(jsonPath("$.announced.blue.max_stake").value(500));
+                .andExpect(jsonPath("$.announced.blue.stakes").value(contains(10, 100, 500)));
     }
 
     @Test
