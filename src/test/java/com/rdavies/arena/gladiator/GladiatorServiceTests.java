@@ -8,10 +8,12 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
@@ -75,6 +77,24 @@ class GladiatorServiceTests {
     }
 
     @Test
+    void aRenamedCopyOfTheDevRosterIsRefused() throws IOException {
+        jdbc.update("DELETE FROM gladiators"); // rolled back after the test
+        Resource copy = named("roster.json", resources.getResource("classpath:roster-dev.json").getContentAsByteArray());
+
+        assertThrows(IllegalStateException.class, () -> gladiators.loadRosterIfEmpty(copy));
+    }
+
+    @Test
+    void aRealRosterNamedLikeTheDevOneLoads() {
+        jdbc.update("DELETE FROM gladiators"); // rolled back after the test
+        String roster = """
+                [{"slug": "vex", "name": "Vex", "epithet": "the Quick", "bio": "Fast.",
+                  "stats": {"hp": 90, "attack_min": 5, "attack_max": 12, "defence": 1, "agility": 25}}]""";
+
+        assertTrue(gladiators.loadRosterIfEmpty(named("roster-dev.json", roster.getBytes(StandardCharsets.UTF_8))));
+    }
+
+    @Test
     void aRealRosterLocationLoadsOutsideTheDevProfile() {
         jdbc.update("DELETE FROM gladiators"); // rolled back after the test
 
@@ -88,6 +108,15 @@ class GladiatorServiceTests {
         assertFalse(gladiators.loadRosterIfEmpty(resources.getResource("classpath:roster-dev.json")));
 
         assertEquals(8, gladiators.roster().size());
+    }
+
+    private static Resource named(String filename, byte[] content) {
+        return new ByteArrayResource(content) {
+            @Override
+            public String getFilename() {
+                return filename;
+            }
+        };
     }
 
     @Test

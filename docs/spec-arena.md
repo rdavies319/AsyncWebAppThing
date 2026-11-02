@@ -37,7 +37,7 @@ The ranges are a guide for the tuning tool (section 3, Tuning). The rules don't 
 ### Hidden stats
 
 - The stats live only in the `gladiators` table and the roster file. No API, page, SSE event or log line shows them. The stats are package-private in the `gladiator` feature, and a test checks that no public response contains a stat field.
-- The **real roster is kept out of git.** On first boot, when `gladiators` is empty, the app loads the roster from `game.roster-file`, a JSON file outside the repo (a secret mount in production). After that the database is the only source, and the file is ignored. Dev uses a checked-in throwaway roster at `classpath:roster-dev.json`, and tests use a copy of it at `classpath:roster-test.json`. The app refuses to start when it would load `roster-dev.json` into an empty `gladiators` table outside the dev profile, because its stats are public in git.
+- The **real roster is kept out of git.** On first boot, when `gladiators` is empty, the app loads the roster from `game.roster-file`, a JSON file outside the repo (a secret mount in production). After that the database is the only source, and the file is ignored. Dev uses a checked-in throwaway roster at `classpath:roster-dev.json`, and tests use a copy of it with one bio changed at `classpath:roster-test.json`. The app refuses to start when it would load a roster with the same contents as `roster-dev.json` into an empty `gladiators` table outside the dev profile, because its stats are public in git.
 - A trigger makes the stat columns immutable.
 
 ### Tuning
