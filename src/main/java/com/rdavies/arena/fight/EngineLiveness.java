@@ -16,7 +16,8 @@ import java.time.ZonedDateTime;
  * Whether the engine is still ticking, not just whether the app answers. Only a tick that commits
  * counts, so one that fails, rolls back or skips on the arena lock changes nothing. The limit is counted in
  * scheduled ticks, so it follows game.engine.cron. The clock starts at startup, so a fresh app isn't
- * unhealthy before its first tick. With the schedule off, no tick is expected.
+ * unhealthy before its first tick. With the schedule off there's no limit, and an engine that has
+ * never ticked counts as stopped, because it really isn't running.
  */
 @Component
 public class EngineLiveness {
@@ -41,8 +42,9 @@ public class EngineLiveness {
 
     public EngineHealth health() {
         Instant last = lastTickAt;
-        boolean stopped = engineCron != null
-                && clock.instant().isAfter(lastAllowedTick(last != null ? last : startedAt));
+        boolean stopped = engineCron == null
+                ? last == null
+                : clock.instant().isAfter(lastAllowedTick(last != null ? last : startedAt));
         return new EngineHealth(stopped ? EngineHealth.Status.STOPPED : EngineHealth.Status.OK, last);
     }
 

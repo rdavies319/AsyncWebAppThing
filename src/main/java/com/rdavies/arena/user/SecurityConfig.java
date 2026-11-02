@@ -33,6 +33,7 @@ public class SecurityConfig {
         http
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(HttpMethod.GET, "/", "/fragments/board", "/fights/**", "/gladiators/**", "/leaderboard", "/live", "/health", "/arena.css").permitAll()
+                .requestMatchers(HttpMethod.HEAD, "/health").permitAll() // uptime pingers may use HEAD
                 .requestMatchers("/auth/signup", "/error").permitAll()
                 .anyRequest().authenticated())
             .formLogin(form -> form

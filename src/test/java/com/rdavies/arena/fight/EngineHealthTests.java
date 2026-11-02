@@ -2,6 +2,7 @@ package com.rdavies.arena.fight;
 
 import com.rdavies.arena.GameTest;
 import com.rdavies.arena.MutableClock;
+import com.rdavies.arena.TestGame;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,6 +20,7 @@ import java.time.Instant;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.head;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -33,6 +35,7 @@ class EngineHealthTests {
     private static final Instant TICKED = Instant.parse("2026-06-01T00:00:00Z");
 
     @Autowired MockMvc mockMvc;
+    @Autowired TestGame game;
     @Autowired FightEngine engine;
     @Autowired MutableClock clock;
     @Autowired TestFights testFights;
@@ -42,8 +45,7 @@ class EngineHealthTests {
     @BeforeEach
     void tickOnce() {
         testFights.deleteAll();
-        clock.set(TICKED);
-        assertTrue(engine.tick());
+        game.tickAt(TICKED);
     }
 
     @Test
@@ -51,6 +53,11 @@ class EngineHealthTests {
         health().andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("ok"))
                 .andExpect(jsonPath("$.last_tick_at").value("2026-06-01T00:00:00Z"));
+    }
+
+    @Test
+    void aPingerCanUseHead() throws Exception {
+        mockMvc.perform(head("/health")).andExpect(status().isOk());
     }
 
     @Test

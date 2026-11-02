@@ -10,7 +10,7 @@ public record EngineHealth(Status status, Instant lastTickAt) {
         OK, STOPPED;
 
         @JsonValue
-        public String json() {
+        public String label() {
             return name().toLowerCase();
         }
     }

@@ -2,6 +2,7 @@ package com.rdavies.arena.fight;
 
 import com.rdavies.arena.GameProperties;
 import com.rdavies.arena.MutableClock;
+import com.rdavies.arena.fight.events.EngineTicked;
 import com.rdavies.arena.fight.records.EngineHealth;
 import org.junit.jupiter.api.Test;
 
@@ -48,8 +49,14 @@ class EngineLivenessTests {
     }
 
     @Test
-    void withTheScheduleOffNoTickIsExpected() {
+    void withTheScheduleOffAnEngineThatNeverTickedIsStopped() {
+        assertEquals(EngineHealth.Status.STOPPED, liveness("-").health().status());
+    }
+
+    @Test
+    void withTheScheduleOffAManualTickHasNoLimit() {
         EngineLiveness liveness = liveness("-");
+        liveness.on(new EngineTicked(Instant.parse("2026-06-01T12:00:00Z")));
 
         clock.set(Instant.parse("2030-01-01T00:00:00Z"));
         assertEquals(EngineHealth.Status.OK, liveness.health().status());
