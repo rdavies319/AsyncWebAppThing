@@ -2,8 +2,6 @@
 
 These tasks replace Higher or Lower with the gladiator arena in [spec-arena.md](spec-arena.md) v3. Each task is a vertical slice that can be shown or checked on its own. Each is built test-first: write the failing test for an acceptance criterion, then make it pass. Each task leaves `./mvnw test` green.
 
-The full ticket for each task, with acceptance criteria, is in `.scratch/arena/issues/NN-*.md`. Keep this file and the tickets in step as tasks land.
-
 **Status:** 01–12 done.
 
 ## Order

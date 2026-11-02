@@ -5,6 +5,8 @@ import com.rdavies.arena.gladiator.records.RosterEntry;
 import com.rdavies.arena.gladiator.records.Stats;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.env.Environment;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,11 +20,14 @@ import java.util.List;
 @Service
 public class GladiatorService {
     private static final Logger log = LoggerFactory.getLogger(GladiatorService.class);
+    private static final Resource DEV_ROSTER = new ClassPathResource("roster-dev.json");
 
     private final GladiatorRepository gladiators;
+    private final boolean devProfile;
 
-    public GladiatorService(GladiatorRepository gladiators) {
+    public GladiatorService(GladiatorRepository gladiators, Environment environment) {
         this.gladiators = gladiators;
+        this.devProfile = environment.matchesProfiles("dev");
     }
 
     /** Every gladiator's public face, by id. */
@@ -58,17 +63,18 @@ public class GladiatorService {
      * RosterLoader calls it, at startup.
      *
      * @return whether the roster was loaded
+     * @throws IllegalStateException if this would load the dev roster outside the dev profile
      */
     @Transactional
     boolean loadRosterIfEmpty(Resource rosterFile) {
         if (gladiators.count() > 0) {
             return false;
         }
-        List<RosterEntry> roster;
-        try (InputStream in = rosterFile.getInputStream()) {
-            roster = Roster.read(in);
-        } catch (IOException e) {
-            throw new UncheckedIOException("Can't read the roster file " + rosterFile.getDescription(), e);
+        List<RosterEntry> roster = read(rosterFile);
+        if (!devProfile && roster.equals(read(DEV_ROSTER))) {
+            throw new IllegalStateException("Refusing to load the dev roster outside the dev profile, because its"
+                    + " hidden stats are public in git. Set GAME_ROSTER_FILE (game.roster-file) to the real roster,"
+                    + " or run under the dev profile.");
         }
         for (RosterEntry entry : roster) {
             Stats s = entry.stats();
@@ -77,5 +83,13 @@ public class GladiatorService {
         }
         log.info("Loaded {} gladiators from {}", roster.size(), rosterFile.getDescription());
         return true;
+    }
+
+    private static List<RosterEntry> read(Resource rosterFile) {
+        try (InputStream in = rosterFile.getInputStream()) {
+            return Roster.read(in);
+        } catch (IOException e) {
+            throw new UncheckedIOException("Can't read the roster file " + rosterFile.getDescription(), e);
+        }
     }
 }

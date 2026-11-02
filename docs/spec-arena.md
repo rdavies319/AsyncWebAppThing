@@ -37,7 +37,7 @@ The ranges are a guide for the tuning tool (section 3, Tuning). The rules don't 
 ### Hidden stats
 
 - The stats live only in the `gladiators` table and the roster file. No API, page, SSE event or log line shows them. The stats are package-private in the `gladiator` feature, and a test checks that no public response contains a stat field.
-- The **real roster is kept out of git.** On first boot, when `gladiators` is empty, the app loads the roster from `game.roster-file`, a JSON file outside the repo (a secret mount in production). After that the database is the only source, and the file is ignored. Dev and tests use a checked-in throwaway roster at `classpath:roster-dev.json`.
+- The **real roster is kept out of git.** On first boot, when `gladiators` is empty, the app loads the roster from `game.roster-file`, a JSON file outside the repo (a secret mount in production). After that the database is the only source, and the file is ignored. Dev uses a checked-in throwaway roster at `classpath:roster-dev.json`, and tests use a copy of it with one bio changed at `classpath:roster-test.json`. The app refuses to start when it would load a roster with the same contents as `roster-dev.json` into an empty `gladiators` table outside the dev profile, because its stats are public in git.
 - A trigger makes the stat columns immutable.
 
 ### Tuning
@@ -185,10 +185,10 @@ The engine replaces Higher or Lower's `RoundEngine`. It runs on `game.engine.cro
 
 ### Configuration and profiles
 
-- **Production values are the defaults** in `GameProperties`. Every `game.*` setting can be overridden by an environment variable, which Spring Boot binds automatically (`GAME_ROUND_INTERVAL=5s`, `GAME_FIGHT_CRON=0 */3 * * * *`).
+- **Production values are the defaults** in `GameProperties`, except `game.roster-file`, whose default is the dev roster that only the dev profile may load. Every `game.*` setting can be overridden by an environment variable, which Spring Boot binds automatically (`GAME_ROUND_INTERVAL=5s`, `GAME_FIGHT_CRON=0 */3 * * * *`).
 - **The dev profile holds the fast dev cadence** in `application-dev.properties` (a fight every 3 minutes, 5-second rounds and a tick every second), so compose and `./mvnw spring-boot:run -Dspring-boot.run.profiles=dev` read the same values.
-- **`.env` files per environment.** `docker-compose.yml` loads the file named by `ENV_FILE` through `env_file`. `.env.dev` holds `SPRING_PROFILES_ACTIVE=dev`, so `ENV_FILE=.env.dev docker compose up` runs dev and plain `docker compose up` runs production values.
-- `.env*` files are gitignored. A committed `.env.example` lists every key with its production default.
+- **`.env` files per environment.** `docker-compose.yml` loads the file named by `ENV_FILE` through `env_file`. `.env.dev` holds `SPRING_PROFILES_ACTIVE=dev`, so `ENV_FILE=.env.dev docker compose up` runs dev. Plain `docker compose up` runs production values, so on a fresh database it stops until `GAME_ROSTER_FILE` names a real roster.
+- `.env*` files are gitignored. A committed `.env.example` lists every key with its default.
 - At startup the app checks that `max-rounds × round-interval` is shorter than the gap between two consecutive fight-cron slots, and refuses to start otherwise.
 
 ### Dev controls

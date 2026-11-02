@@ -22,8 +22,9 @@ services:
     container_name: arena-app
     ports:
       - "8080:8080"
-    # game.* overrides as environment variables (.env.example lists them). Plain `docker compose up`
-    # loads .env if there is one, else runs on the production defaults; ENV_FILE=.env.dev runs dev.
+    # game.* overrides as environment variables (.env.example lists them). ENV_FILE=.env.dev runs the
+    # arena locally. Plain `docker compose up` loads .env if there is one, and on a fresh database the
+    # app refuses to start on the dev roster. This file mounts no real roster, so that's the expected end.
     env_file:
       - path: ${ENV_FILE:-.env}
         required: false
