@@ -4,8 +4,11 @@ import com.rdavies.arena.GameTest;
 import com.rdavies.arena.gladiator.records.Gladiator;
 import com.rdavies.arena.gladiator.records.Stats;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.ResourceLoader;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,9 +23,10 @@ import static org.junit.jupiter.api.Assertions.*;
 class GladiatorServiceTests {
     @Autowired GladiatorService gladiators;
     @Autowired JdbcTemplate jdbc;
+    @Autowired ResourceLoader resources;
 
     @Test
-    void theDevRosterLoadedOnBoot() {
+    void theRosterLoadedOnBoot() {
         List<Gladiator> roster = gladiators.roster();
 
         assertEquals(8, roster.size());
@@ -54,6 +58,36 @@ class GladiatorServiceTests {
         Gladiator vex = gladiators.roster().getFirst();
         assertEquals("Vex", vex.name());
         assertEquals(new Stats(90, 5, 12, 1, 25), gladiators.stats(vex.id()));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"classpath:roster-dev.json", "classpath:/roster-dev.json",
+            "file:src/main/resources/roster-dev.json"})
+    void theDevRosterIsRefusedOutsideTheDevProfile(String location) {
+        jdbc.update("DELETE FROM gladiators"); // rolled back after the test
+
+        IllegalStateException refusal = assertThrows(IllegalStateException.class,
+                () -> gladiators.loadRosterIfEmpty(resources.getResource(location)));
+
+        assertTrue(refusal.getMessage().contains("GAME_ROSTER_FILE"), refusal.getMessage());
+        assertFalse(refusal.getMessage().matches(".*\\d.*"), "no stat values: " + refusal.getMessage());
+        assertEquals(List.of(), gladiators.roster());
+    }
+
+    @Test
+    void aRealRosterLocationLoadsOutsideTheDevProfile() {
+        jdbc.update("DELETE FROM gladiators"); // rolled back after the test
+
+        assertTrue(gladiators.loadRosterIfEmpty(resources.getResource("classpath:roster-test.json")));
+
+        assertEquals(8, gladiators.roster().size());
+    }
+
+    @Test
+    void theDevRosterLocationDoesNotStopARestart() {
+        assertFalse(gladiators.loadRosterIfEmpty(resources.getResource("classpath:roster-dev.json")));
+
+        assertEquals(8, gladiators.roster().size());
     }
 
     @Test

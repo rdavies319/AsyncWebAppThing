@@ -5,6 +5,7 @@ import com.rdavies.arena.gladiator.records.RosterEntry;
 import com.rdavies.arena.gladiator.records.Stats;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.env.Environment;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,11 +19,14 @@ import java.util.List;
 @Service
 public class GladiatorService {
     private static final Logger log = LoggerFactory.getLogger(GladiatorService.class);
+    private static final String DEV_ROSTER = "roster-dev.json";
 
     private final GladiatorRepository gladiators;
+    private final Environment environment;
 
-    public GladiatorService(GladiatorRepository gladiators) {
+    public GladiatorService(GladiatorRepository gladiators, Environment environment) {
         this.gladiators = gladiators;
+        this.environment = environment;
     }
 
     /** Every gladiator's public face, by id. */
@@ -58,11 +62,17 @@ public class GladiatorService {
      * RosterLoader calls it, at startup.
      *
      * @return whether the roster was loaded
+     * @throws IllegalStateException if this would load the dev roster outside the dev profile
      */
     @Transactional
     boolean loadRosterIfEmpty(Resource rosterFile) {
         if (gladiators.count() > 0) {
             return false;
+        }
+        if (DEV_ROSTER.equals(rosterFile.getFilename()) && !environment.matchesProfiles("dev")) {
+            throw new IllegalStateException("Refusing to load the dev roster (" + DEV_ROSTER + ") outside the dev"
+                    + " profile, because its hidden stats are public in git. Set GAME_ROSTER_FILE (game.roster-file)"
+                    + " to the real roster, or run under the dev profile.");
         }
         List<RosterEntry> roster;
         try (InputStream in = rosterFile.getInputStream()) {

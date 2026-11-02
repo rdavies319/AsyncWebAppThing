@@ -11,7 +11,7 @@ import java.util.List;
 
 /**
  * Reads a roster file (spec section 3): a JSON array of gladiators, each with a snake_case
- * {@code stats} block. The real roster lives outside git; dev and tests use {@code roster-dev.json}.
+ * {@code stats} block. The real roster lives outside git; dev uses {@code roster-dev.json}.
  */
 public final class Roster {
     private static final JsonMapper JSON = JsonMapper.builder()

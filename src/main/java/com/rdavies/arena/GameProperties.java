@@ -20,7 +20,8 @@ import java.util.List;
  * @param fightCron        when fights start, as a Spring cron expression in UTC (spec section 4)
  * @param roundInterval the time between a fight's rounds; round n is due at starts_at + n × this
  * @param maxRounds     the round cap, after which a fight is decided on remaining HP share
- * @param rosterFile       where the roster loads from on first boot, as a Spring resource location
+ * @param rosterFile       where the roster loads from on first boot, as a Spring resource location.
+ *                         The default is the dev roster, which only the dev profile may load
  * @param engine           when the fight engine ticks
  */
 @ConfigurationProperties("game")
