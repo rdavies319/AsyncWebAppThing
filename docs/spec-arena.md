@@ -233,6 +233,7 @@ Constraints:
 | `GET /bets/me` | Your bet history |
 | `GET /leaderboard` | The top balances (below) |
 | `GET /live` | SSE stream |
+| `GET /health` | Public engine check: 200 with `status` `ok` and `last_tick_at`, or 503 with `status` `stopped` once three scheduled engine ticks have passed since the last committed tick |
 | `POST /dev/fights/{start,round,finish}` | Dev profile only (section 7) |
 
 Watching stays public: `/`, `/fragments/board`, `/fights/**`, `/gladiators/**`, `/leaderboard` and `/live`. Everything else needs login, with the same 401 and `HX-Redirect` behaviour as v2.
