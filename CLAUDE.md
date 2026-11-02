@@ -7,8 +7,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 A persistent gladiator arena. A fixed roster with hidden stats fights a 1v1 duel every hour, one round per minute. Players stake virtual points on the **next** fight. Phase 2 is building this to replace the original "Higher or Lower" minute-roll game, which task 01 removed. It was never deployed.
 
 - [docs/spec-arena.md](docs/spec-arena.md) (v3) is the source of truth for the arena's rules, data model and API. Read the relevant section before implementing a feature. Section 12 records the settled decisions, so build on them rather than reopening them.
-- [docs/tasks-phase-2.md](docs/tasks-phase-2.md) lists the ordered arena tasks (01–12) and what blocks each one. The full ticket for each task, with acceptance criteria, is in `.scratch/arena/issues/`. Read the ticket before starting a task, build it test-first, and keep both files current as tasks land.
-- [docs/tasks-production.md](docs/tasks-production.md) is the backlog for making the arena safe to deploy (P1–P8). None of it has started.
+- [docs/tasks-phase-2.md](docs/tasks-phase-2.md) records the arena tasks (01–12), which are all done.
+- [docs/tasks-production.md](docs/tasks-production.md) is the backlog for making the arena safe to deploy (P0–P8). None of it has started.
 - [docs/spec-higher-or-lower.md](docs/spec-higher-or-lower.md) (v2) describes the old game. It's history only: none of its code remains.
 
 **Arena rules that cause real bugs** (details in spec-arena.md):
