@@ -40,7 +40,7 @@ docker compose up db                                   # or Postgres in Docker..
 ./mvnw spring-boot:run -Dspring-boot.run.profiles=dev  # ...and the app from Maven
 ```
 
-`ENV_FILE=.env.dev docker compose …` is Bash syntax. In PowerShell, set the variable first: `$env:ENV_FILE = ".env.dev"; docker compose up --build`. It stays set for that PowerShell session, so run `Remove-Item Env:ENV_FILE` to clear it.
+`ENV_FILE=.env.dev docker compose …` is Bash syntax. The PowerShell form under [Running it](#running-it) stays set for that PowerShell session, so run `Remove-Item Env:ENV_FILE` to clear it.
 
 Maven doesn't need `.env.dev`. Any `GAME_*` environment variable still overrides the dev cadence. The datasource still comes from `SPRING_DATASOURCE_*` (`jdbc:postgresql://localhost:5432/arena`, user `user`, password `password` for the compose database). Log in to see the dev panel. The buttons only pull due times forward, so a forced fight ends exactly as it would have.
 

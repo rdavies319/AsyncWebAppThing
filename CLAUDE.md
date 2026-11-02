@@ -8,7 +8,7 @@ A persistent gladiator arena. A fixed roster with hidden stats fights a 1v1 duel
 
 - [docs/spec-arena.md](docs/spec-arena.md) (v3) is the source of truth for the arena's rules, data model and API. Read the relevant section before implementing a feature. Section 12 records the settled decisions, so build on them rather than reopening them.
 - [docs/tasks-phase-2.md](docs/tasks-phase-2.md) records the arena tasks (01–12), which are all done.
-- [docs/tasks-production.md](docs/tasks-production.md) is the backlog for making the arena safe to deploy (P0–P8). None of it has started.
+- [docs/tasks-production.md](docs/tasks-production.md) is the backlog for making the arena safe to deploy (P0–P8), split into tickets in `.scratch/production/issues/`. Ticket 01 is done.
 - [docs/spec-higher-or-lower.md](docs/spec-higher-or-lower.md) (v2) describes the old game. It's history only: none of its code remains.
 
 **Arena rules that cause real bugs** (details in spec-arena.md):
@@ -26,7 +26,7 @@ A persistent gladiator arena. A fixed roster with hidden stats fights a 1v1 duel
 
 Arena code follows these patterns: feature services, `GameRuleException`, the board value, events after commit, `TestGame`. When code and the spec disagree, the spec wins.
 
-- **Settings:** `GameProperties` (`game.*`), with production defaults in the record's `@DefaultValue`s. Its constructor refuses to start the app on bad settings (stake options that aren't positive and ascending, or a capped fight that doesn't fit between two `fight-cron` slots). `GladiatorService` also refuses to load a roster file named `roster-dev.json` into an empty arena outside the dev profile, because its stats are public in git. Environment variables override any key (`GAME_ROUND_INTERVAL=5s`), and `.env.example` lists them all. Compose loads `${ENV_FILE:-.env}`. The dev cadence lives in `application-dev.properties`, and `.env.dev` only sets `SPRING_PROFILES_ACTIVE=dev` for compose.
+- **Settings:** `GameProperties` (`game.*`), with production defaults in the record's `@DefaultValue`s, except `roster-file`, which defaults to the dev roster. Its constructor refuses to start the app on bad settings (stake options that aren't positive and ascending, or a capped fight that doesn't fit between two `fight-cron` slots). `GladiatorService` also refuses to load a roster file named `roster-dev.json` into an empty arena outside the dev profile, because its stats are public in git. Environment variables override any key (`GAME_ROUND_INTERVAL=5s`), and `.env.example` lists them all. Compose loads `${ENV_FILE:-.env}`. The dev cadence lives in `application-dev.properties`, and `.env.dev` only sets `SPRING_PROFILES_ACTIVE=dev` for compose.
 - **Dev profile:** `FightForcing` (fight feature) and `dev.DevController` (`POST /dev/fights/{start,round,finish}`) exist only under `@Profile("dev")`. They pull a due time forward and call the real `tick()`. The board shows the dev panel to logged-in viewers under the dev profile. `fight.DevRatings` (dev profile too) seeds a fresh arena's ratings from a simulated season (`fight.EloSeason`) at startup. That is the only place ratings come from the hidden stats, so keep it out of production.
 - **Auth:** `user.SecurityConfig` sets up form login (`/auth/login`, `/auth/signup`, `/auth/logout`), BCrypt and CSRF. Watching is public (`/`, `/fragments/board`, `/live`, `/fights/**`, `/gladiators/**`, `/leaderboard`), and everything else needs login. Logged-out callers get a 401 from the JSON API, a 401 with `HX-Redirect` from htmx, and the login page from a plain browser. `user.CurrentUser` gives the logged-in `GamePrincipal`, which carries the user id. `UserService.signup` creates the user and their wallet (signup bonus) together.
 - **JSON API:** `web.GameApiController` serves `POST /bets` and `POST /wallet/topup`. Errors are ProblemDetails. Services refuse player requests with `GameRuleException.invalid(...)` (400) or `.conflict(...)` (409), and the page shows the same message inline. Any other exception is a bug and becomes a 500, so never use a `GameRuleException` for internal faults. JSON is snake_case, and enums serialise in lower case (`@JsonValue`).
@@ -53,7 +53,7 @@ All time logic reads the injected `java.time.Clock` bean. Tests swap it for a `M
 Run these from the repo root. Use `./mvnw` in Git Bash, or `mvnw.cmd` in PowerShell.
 
 ```bash
-./mvnw spring-boot:run
+./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
 ./mvnw test
 ./mvnw test -Dtest=WalletTests                          # single class
 ./mvnw test -Dtest=WalletTests#topUpIsOncePerUtcDay     # single method

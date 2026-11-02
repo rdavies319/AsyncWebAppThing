@@ -22,11 +22,11 @@ public class GladiatorService {
     private static final String DEV_ROSTER = "roster-dev.json";
 
     private final GladiatorRepository gladiators;
-    private final Environment environment;
+    private final boolean devProfile;
 
     public GladiatorService(GladiatorRepository gladiators, Environment environment) {
         this.gladiators = gladiators;
-        this.environment = environment;
+        this.devProfile = environment.matchesProfiles("dev");
     }
 
     /** Every gladiator's public face, by id. */
@@ -69,7 +69,7 @@ public class GladiatorService {
         if (gladiators.count() > 0) {
             return false;
         }
-        if (DEV_ROSTER.equals(rosterFile.getFilename()) && !environment.matchesProfiles("dev")) {
+        if (DEV_ROSTER.equals(rosterFile.getFilename()) && !devProfile) {
             throw new IllegalStateException("Refusing to load the dev roster (" + DEV_ROSTER + ") outside the dev"
                     + " profile, because its hidden stats are public in git. Set GAME_ROSTER_FILE (game.roster-file)"
                     + " to the real roster, or run under the dev profile.");
