@@ -1,18 +1,13 @@
 package com.rdavies.arena.fight.enums;
 
-import com.fasterxml.jackson.annotation.JsonValue;
+import com.rdavies.arena.Labelled;
 
 /** How a fight ended (spec section 4, Ending). */
-public enum EndedBy {
+public enum EndedBy implements Labelled {
     /** Exactly one gladiator at HP 0 or below. */
     KO,
     /** Both at HP 0 or below in the same round: a draw. */
     DOUBLE_KO,
     /** Reached the round cap with both standing, so decided on remaining HP share. */
-    DECISION;
-
-    @JsonValue
-    public String label() {
-        return name().toLowerCase();
-    }
+    DECISION
 }

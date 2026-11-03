@@ -1,13 +1,8 @@
 package com.rdavies.arena.fight.enums;
 
-import com.fasterxml.jackson.annotation.JsonValue;
+import com.rdavies.arena.Labelled;
 
 /** Who won a fight. */
-public enum Winner {
-    RED, BLUE, DRAW;
-
-    @JsonValue
-    public String label() {
-        return name().toLowerCase();
-    }
+public enum Winner implements Labelled {
+    RED, BLUE, DRAW
 }
