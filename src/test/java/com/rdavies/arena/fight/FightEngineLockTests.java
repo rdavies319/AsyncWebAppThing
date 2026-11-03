@@ -7,14 +7,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.transaction.support.TransactionTemplate;
-
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -29,8 +21,6 @@ class FightEngineLockTests {
     @Autowired MutableClock clock;
     @Autowired FightService fightService;
     @Autowired TestFights testFights;
-    @Autowired TransactionTemplate transactions;
-    @Autowired JdbcTemplate jdbc;
 
     @BeforeEach
     @AfterEach
@@ -40,36 +30,13 @@ class FightEngineLockTests {
 
     @Test
     void aTickSkipsWhileAnotherHoldsTheLock() throws Exception {
-        CountDownLatch locked = new CountDownLatch(1);
-        CountDownLatch release = new CountDownLatch(1);
-        ExecutorService other = Executors.newSingleThreadExecutor();
-        try {
-            Future<?> holder = other.submit(() -> transactions.executeWithoutResult(tx -> {
-                jdbc.queryForObject("SELECT pg_advisory_xact_lock(?)", Object.class, FightEngine.LOCK_KEY);
-                locked.countDown();
-                await(release);
-            }));
-            assertTrue(locked.await(10, TimeUnit.SECONDS), "the other transaction took the lock");
-
+        testFights.whileEngineLocked(() -> {
             clock.set(TestGame.BOOT);
             assertFalse(engine.tick(), "the tick says it skipped");
             assertNull(fightService.current().announced(), "and changed nothing: no fight was announced");
+        });
 
-            release.countDown();
-            holder.get(10, TimeUnit.SECONDS);
-            assertTrue(engine.tick(), "with the lock free, the tick runs");
-            assertNotNull(fightService.current().announced());
-        } finally {
-            release.countDown();
-            other.shutdownNow();
-        }
-    }
-
-    private static void await(CountDownLatch latch) {
-        try {
-            latch.await(10, TimeUnit.SECONDS);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
+        assertTrue(engine.tick(), "with the lock free, the tick runs");
+        assertNotNull(fightService.current().announced());
     }
 }

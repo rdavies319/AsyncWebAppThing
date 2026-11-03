@@ -12,9 +12,6 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.support.TransactionTemplate;
 
-import javax.sql.DataSource;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
 import java.time.Instant;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -40,7 +37,6 @@ class EngineHealthTests {
     @Autowired MutableClock clock;
     @Autowired TestFights testFights;
     @Autowired TransactionTemplate transaction;
-    @Autowired DataSource dataSource;
 
     @BeforeEach
     void tickOnce() {
@@ -92,15 +88,7 @@ class EngineHealthTests {
     void aSkippedTickChangesNothing() throws Exception {
         clock.set(Instant.parse("2027-06-01T00:00:00Z"));
 
-        try (Connection other = dataSource.getConnection()) {
-            other.setAutoCommit(false);
-            try (PreparedStatement lock = other.prepareStatement("SELECT pg_advisory_xact_lock(?)")) {
-                lock.setLong(1, FightEngine.LOCK_KEY);
-                lock.execute();
-            }
-            assertFalse(engine.tick());
-            other.rollback();
-        }
+        testFights.whileEngineLocked(() -> assertFalse(engine.tick()));
 
         health().andExpect(status().isOk())
                 .andExpect(jsonPath("$.last_tick_at").value("2026-06-01T00:00:00Z"));

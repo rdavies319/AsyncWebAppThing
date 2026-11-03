@@ -10,12 +10,19 @@ import com.rdavies.arena.fight.records.SimulatedFight;
 import com.rdavies.arena.gladiator.GladiatorService;
 import com.rdavies.arena.gladiator.records.Stats;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.security.SecureRandom;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 /**
@@ -30,8 +37,11 @@ public class TestFights {
     private final FightRepository fights;
     private final GladiatorService gladiators;
     private final GameProperties game;
+    private final TransactionTemplate transactions;
 
-    TestFights(JdbcTemplate jdbc, FightRepository fights, GladiatorService gladiators, GameProperties game) {
+    TestFights(JdbcTemplate jdbc, FightRepository fights, GladiatorService gladiators, GameProperties game,
+               TransactionTemplate transactions) {
+        this.transactions = transactions;
         this.jdbc = jdbc;
         this.fights = fights;
         this.gladiators = gladiators;
@@ -81,6 +91,44 @@ public class TestFights {
             }
         }
         fail("no seed in " + SEARCH_LIMIT + " tries gives " + description);
+    }
+
+    /** What a test does while {@link #whileEngineLocked} holds the arena lock. */
+    public interface WhileLocked {
+        void run() throws Exception;
+    }
+
+    /**
+     * Runs {@code action} while another transaction, on its own thread, holds the arena's advisory
+     * lock, and returns once that's released. The caller must not be @Transactional, because the
+     * test transaction would hold the lock itself.
+     */
+    public void whileEngineLocked(WhileLocked action) throws Exception {
+        CountDownLatch locked = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        ExecutorService other = Executors.newSingleThreadExecutor();
+        try {
+            Future<?> holder = other.submit(() -> transactions.executeWithoutResult(tx -> {
+                jdbc.queryForObject("SELECT pg_advisory_xact_lock(?)", Object.class, FightEngine.LOCK_KEY);
+                locked.countDown();
+                awaitRelease(release);
+            }));
+            assertTrue(locked.await(10, TimeUnit.SECONDS), "the other transaction took the lock");
+            action.run();
+            release.countDown();
+            holder.get(10, TimeUnit.SECONDS);
+        } finally {
+            release.countDown();
+            other.shutdownNow();
+        }
+    }
+
+    private static void awaitRelease(CountDownLatch release) {
+        try {
+            release.await(10, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     /**

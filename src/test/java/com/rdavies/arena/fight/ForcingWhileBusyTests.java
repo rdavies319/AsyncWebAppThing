@@ -10,15 +10,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.transaction.support.TransactionTemplate;
-
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -39,8 +31,6 @@ class ForcingWhileBusyTests {
     @Autowired TestFights testFights;
     @Autowired FightService fightService;
     @Autowired UserService userService;
-    @Autowired TransactionTemplate transactions;
-    @Autowired JdbcTemplate jdbc;
 
     @BeforeEach
     @AfterEach
@@ -52,36 +42,12 @@ class ForcingWhileBusyTests {
     void aForcedStartIsRefusedWhileAnotherTickHoldsTheLock() throws Exception {
         GamePrincipal dev = TestPlayers.signUp(userService, "busy");
         AnnouncedFight announced = game.boot().announced();
-        CountDownLatch locked = new CountDownLatch(1);
-        CountDownLatch release = new CountDownLatch(1);
-        ExecutorService other = Executors.newSingleThreadExecutor();
-        try {
-            Future<?> holder = other.submit(() -> transactions.executeWithoutResult(tx -> {
-                jdbc.queryForObject("SELECT pg_advisory_xact_lock(?)", Object.class, FightEngine.LOCK_KEY);
-                locked.countDown();
-                await(release);
-            }));
-            assertTrue(locked.await(10, TimeUnit.SECONDS), "the other transaction took the lock");
+        testFights.whileEngineLocked(() ->
+                mockMvc.perform(post("/dev/fights/start").with(user(dev)).with(csrf()))
+                        .andExpect(status().isConflict())
+                        .andExpect(jsonPath("$.detail").value("The engine is busy; try again")));
 
-            mockMvc.perform(post("/dev/fights/start").with(user(dev)).with(csrf()))
-                    .andExpect(status().isConflict())
-                    .andExpect(jsonPath("$.detail").value("The engine is busy; try again"));
-
-            release.countDown();
-            holder.get(10, TimeUnit.SECONDS);
-            assertNull(fightService.current().live());
-            assertEquals(announced.startsAt(), fightService.current().announced().startsAt(), "the pull forward rolled back");
-        } finally {
-            release.countDown();
-            other.shutdownNow();
-        }
-    }
-
-    private static void await(CountDownLatch latch) {
-        try {
-            latch.await(10, TimeUnit.SECONDS);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
+        assertNull(fightService.current().live());
+        assertEquals(announced.startsAt(), fightService.current().announced().startsAt(), "the pull forward rolled back");
     }
 }
