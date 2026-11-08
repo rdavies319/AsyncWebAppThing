@@ -2,6 +2,7 @@ package com.rdavies.arena;
 
 import com.rdavies.arena.user.UserRepository;
 import com.rdavies.arena.user.UserService;
+import com.rdavies.arena.wallet.TestWallets;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -38,6 +39,7 @@ class AuthRateLimitTests {
     @Autowired GameProperties game;
     @Autowired UserService userService;
     @Autowired UserRepository userRepository;
+    @Autowired TestWallets wallets;
 
     private Instant timeBefore;
 
@@ -50,6 +52,11 @@ class AuthRateLimitTests {
     @AfterEach
     void putTheClockBack() {
         clock.set(timeBefore);
+    }
+
+    @AfterEach
+    void everyWalletMatchesItsLedger() {
+        wallets.assertEveryWalletMatchesItsLedger();
     }
 
     @Test

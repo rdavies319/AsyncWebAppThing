@@ -57,6 +57,19 @@ class AttemptLimiterTests {
     }
 
     @Test
+    void aWindowEndsOnTimeEvenIfTheClockStepsBackBehindAnotherIp() {
+        AttemptLimiter limiter = new AttemptLimiter(clock, 1, Duration.ofMinutes(10), 100);
+        clock.set(START.plus(Duration.ofHours(1)));
+        limiter.attempt("203.0.113.1");
+        clock.set(START);
+        limiter.attempt("203.0.113.2");
+
+        clock.set(START.plus(Duration.ofMinutes(10)));
+
+        assertEquals(Optional.empty(), limiter.attempt("203.0.113.2"));
+    }
+
+    @Test
     void theOldestCountMakesWayWhenTooManyIpsAreTracked() {
         AttemptLimiter limiter = new AttemptLimiter(clock, 1, Duration.ofMinutes(10), 2);
         limiter.attempt("203.0.113.1");

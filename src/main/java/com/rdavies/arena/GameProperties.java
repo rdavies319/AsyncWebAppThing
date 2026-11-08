@@ -52,21 +52,15 @@ public record GameProperties(
         @DefaultValue("100000") int maxTrackedIps
     ) {
         public AuthLimits {
-            requirePositive("login-max-attempts", loginMaxAttempts);
-            requirePositive("login-window", loginWindow);
-            requirePositive("signup-max-attempts", signupMaxAttempts);
-            requirePositive("signup-window", signupWindow);
-            requirePositive("max-tracked-ips", maxTrackedIps);
+            requirePositive(loginMaxAttempts > 0, "login-max-attempts", loginMaxAttempts);
+            requirePositive(loginWindow.isPositive(), "login-window", loginWindow);
+            requirePositive(signupMaxAttempts > 0, "signup-max-attempts", signupMaxAttempts);
+            requirePositive(signupWindow.isPositive(), "signup-window", signupWindow);
+            requirePositive(maxTrackedIps > 0, "max-tracked-ips", maxTrackedIps);
         }
 
-        private static void requirePositive(String key, int value) {
-            if (value <= 0) {
-                throw new IllegalArgumentException("game.auth-limits." + key + " must be positive: " + value);
-            }
-        }
-
-        private static void requirePositive(String key, Duration value) {
-            if (!value.isPositive()) {
+        private static void requirePositive(boolean positive, String key, Object value) {
+            if (!positive) {
                 throw new IllegalArgumentException("game.auth-limits." + key + " must be positive: " + value);
             }
         }

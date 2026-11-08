@@ -40,6 +40,10 @@ final class AttemptLimiter {
         dropEnded(now);
         String key = key(ip);
         Window window = windows.get(key);
+        if (window != null && !window.ends.isAfter(now)) { // dropEnded stops early if the clock stepped back
+            windows.remove(key);
+            window = null;
+        }
         if (window == null) {
             if (windows.size() >= maxTrackedIps) {
                 dropOldest();
