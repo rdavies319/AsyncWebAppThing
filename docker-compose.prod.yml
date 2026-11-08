@@ -1,0 +1,42 @@
+# The production stack: Caddy in front of the app, against an external database. Every value comes
+# from .env.prod (.env.prod.example lists them). docs/production-compose.md has the commands.
+# docker-compose.yml stays the local development stack.
+name: arena-prod
+
+services:
+  caddy:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      SITE_DOMAIN: ${SITE_DOMAIN:?Set SITE_DOMAIN in .env.prod}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data # certificates: losing these means asking Let's Encrypt for new ones
+      - caddy_config:/config
+    depends_on:
+      - app
+
+  app:
+    image: ${APP_IMAGE:?Set APP_IMAGE in .env.prod}
+    restart: unless-stopped
+    # No ports: only Caddy can reach the app, over the stack's own network.
+    env_file:
+      - .env.prod # any game.* override
+    environment:
+      SPRING_PROFILES_ACTIVE: prod # beats anything in .env.prod, so the dev profile can't be switched on
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL:?Set SPRING_DATASOURCE_URL in .env.prod}
+      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME:?Set SPRING_DATASOURCE_USERNAME in .env.prod}
+      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD:?Set SPRING_DATASOURCE_PASSWORD in .env.prod}
+      GAME_ROSTER_FILE: file:/run/arena/roster.json
+      SERVER_FORWARD_HEADERS_STRATEGY: framework
+      # Tomcat creates the session cookie below the forwarded-header filter, so it can't see the https
+      SERVER_SERVLET_SESSION_COOKIE_SECURE: "true"
+    volumes:
+      - ${ROSTER_FILE:?Set ROSTER_FILE in .env.prod}:/run/arena/roster.json:ro
+
+volumes:
+  caddy_data:
+  caddy_config:
