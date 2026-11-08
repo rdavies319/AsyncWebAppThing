@@ -73,6 +73,7 @@ AGENTS.md
 # Environment files: settings and secrets per machine. Only the example is committed.
 .env*
 !.env.example
+!.env.prod.example
 
 # Maven / Spring Boot
 HELP.md

@@ -26,9 +26,13 @@ Plain `docker compose up` doesn't run the arena on a fresh database. Outside the
 
 To run the app or tests directly, use the Maven wrapper (`./mvnw spring-boot:run -Dspring-boot.run.profiles=dev`, `./mvnw test`). The app needs a PostgreSQL datasource (`SPRING_DATASOURCE_URL`, `_USERNAME`, `_PASSWORD`), for example the `db` service from `docker compose up db`.
 
+### Production
+
+[docs/production-compose.md](docs/production-compose.md) covers the production stack (Caddy and the app against an external database) and how to try it on a laptop.
+
 ### Settings
 
-Production values are the defaults, except the roster: `GAME_ROSTER_FILE` must point at a real roster outside the dev profile. Any `game.*` setting can be overridden by an environment variable, such as `GAME_ROUND_INTERVAL=5s`. [`.env.example`](.env.example) lists every key with its default. Copy it to `.env` to change them: `docker compose up` loads `.env` if there is one. Every `.env*` file except the example is gitignored.
+Production values are the defaults, except the roster: `GAME_ROSTER_FILE` must point at a real roster outside the dev profile. Any `game.*` setting can be overridden by an environment variable, such as `GAME_ROUND_INTERVAL=5s`. [`.env.example`](.env.example) lists every key with its default. Copy it to `.env` to change them: `docker compose up` loads `.env` if there is one. Every `.env*` file except the examples is gitignored.
 
 ### Dev mode
 
