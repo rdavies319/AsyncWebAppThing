@@ -47,7 +47,7 @@ class EngineHealthTests {
     @Test
     void aCommittedTickIsHealthy() throws Exception {
         health().andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("ok"))
+                .andExpect(jsonPath("$.status").value("OK"))
                 .andExpect(jsonPath("$.last_tick_at").value("2026-06-01T00:00:00Z"));
     }
 
@@ -68,7 +68,7 @@ class EngineHealthTests {
         clock.set(Instant.parse("2029-01-01T00:00:01Z"));
 
         health().andExpect(status().isServiceUnavailable())
-                .andExpect(jsonPath("$.status").value("stopped"))
+                .andExpect(jsonPath("$.status").value("STOPPED"))
                 .andExpect(jsonPath("$.last_tick_at").value("2026-06-01T00:00:00Z"));
     }
 
