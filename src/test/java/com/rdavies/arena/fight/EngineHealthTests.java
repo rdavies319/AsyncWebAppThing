@@ -22,7 +22,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * GET /health against the real engine, with no login. A yearly tick gives the check a cadence to
+ * GET /health/engine against the real engine, with no login. A yearly tick gives the check a cadence to
  * measure while keeping the scheduler quiet, so only these tests tick. Not @Transactional, because
  * a tick counts only once it commits.
  */
@@ -53,7 +53,7 @@ class EngineHealthTests {
 
     @Test
     void aPingerCanUseHead() throws Exception {
-        mockMvc.perform(head("/health")).andExpect(status().isOk());
+        mockMvc.perform(head("/health/engine")).andExpect(status().isOk());
     }
 
     @Test
@@ -95,6 +95,6 @@ class EngineHealthTests {
     }
 
     private ResultActions health() throws Exception {
-        return mockMvc.perform(get("/health").accept(MediaType.APPLICATION_JSON));
+        return mockMvc.perform(get("/health/engine").accept(MediaType.APPLICATION_JSON));
     }
 }

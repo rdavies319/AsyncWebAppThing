@@ -7,7 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-/** GET /health: 200 while the engine is ticking, 503 once it has stopped. Public, for an uptime pinger. */
+/** GET /health/engine: 200 while the engine is ticking, 503 once it has stopped. Public, for an uptime pinger. */
 @RestController
 public class HealthController {
     private final EngineLiveness liveness;
@@ -16,7 +16,7 @@ public class HealthController {
         this.liveness = liveness;
     }
 
-    @GetMapping("/health")
+    @GetMapping("/health/engine")
     public ResponseEntity<EngineHealth> health() {
         EngineHealth health = liveness.health();
         HttpStatus status = health.status() == EngineHealth.Status.OK ? HttpStatus.OK : HttpStatus.SERVICE_UNAVAILABLE;
