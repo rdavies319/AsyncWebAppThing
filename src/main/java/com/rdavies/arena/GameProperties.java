@@ -23,6 +23,7 @@ import java.util.List;
  * @param rosterFile       where the roster loads from on first boot, as a Spring resource location.
  *                         The default is the dev roster, which only the dev profile may load
  * @param engine           when the fight engine ticks
+ * @param authLimits       how many signup and login attempts one IP gets
  */
 @ConfigurationProperties("game")
 public record GameProperties(
@@ -35,8 +36,42 @@ public record GameProperties(
     @DefaultValue("1m") Duration roundInterval,
     @DefaultValue("30") int maxRounds,
     @DefaultValue("classpath:roster-dev.json") String rosterFile,
-    @DefaultValue Engine engine
+    @DefaultValue Engine engine,
+    @DefaultValue AuthLimits authLimits
 ) {
+    /**
+     * How many signup and login attempts one IP gets. Counted separately, in memory.
+     *
+     * @param maxTrackedIps most IPs remembered for each of signup and login, keeping memory bounded
+     */
+    public record AuthLimits(
+        @DefaultValue("20") int loginMaxAttempts,
+        @DefaultValue("15m") Duration loginWindow,
+        @DefaultValue("5") int signupMaxAttempts,
+        @DefaultValue("1h") Duration signupWindow,
+        @DefaultValue("100000") int maxTrackedIps
+    ) {
+        public AuthLimits {
+            requirePositive("login-max-attempts", loginMaxAttempts);
+            requirePositive("login-window", loginWindow);
+            requirePositive("signup-max-attempts", signupMaxAttempts);
+            requirePositive("signup-window", signupWindow);
+            requirePositive("max-tracked-ips", maxTrackedIps);
+        }
+
+        private static void requirePositive(String key, int value) {
+            if (value <= 0) {
+                throw new IllegalArgumentException("game.auth-limits." + key + " must be positive: " + value);
+            }
+        }
+
+        private static void requirePositive(String key, Duration value) {
+            if (!value.isPositive()) {
+                throw new IllegalArgumentException("game.auth-limits." + key + " must be positive: " + value);
+            }
+        }
+    }
+
     /**
      * @param cron when the engine ticks, as a Spring cron expression; "-" turns the schedule off,
      *             along with the tick at startup, so tests drive every tick themselves

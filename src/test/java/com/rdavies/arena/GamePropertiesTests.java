@@ -107,6 +107,45 @@ class GamePropertiesTests {
                         + "two game.fight-cron slots (PT20M)");
     }
 
+    @Test
+    void theAuthLimitsDefaultToProduction() {
+        GameProperties.AuthLimits limits = bind(Map.of()).authLimits();
+
+        assertEquals(20, limits.loginMaxAttempts());
+        assertEquals(Duration.ofMinutes(15), limits.loginWindow());
+        assertEquals(5, limits.signupMaxAttempts());
+        assertEquals(Duration.ofHours(1), limits.signupWindow());
+        assertEquals(100_000, limits.maxTrackedIps());
+    }
+
+    @Test
+    void environmentVariablesOverrideTheAuthLimits() {
+        Map<String, Object> env = Map.of(
+                "GAME_AUTH_LIMITS_LOGIN_MAX_ATTEMPTS", "7",
+                "GAME_AUTH_LIMITS_SIGNUP_WINDOW", "2h");
+
+        GameProperties.AuthLimits limits = new Binder(ConfigurationPropertySources.from(
+                new SystemEnvironmentPropertySource(StandardEnvironment.SYSTEM_ENVIRONMENT_PROPERTY_SOURCE_NAME, env)))
+                .bindOrCreate("game", GameProperties.class).authLimits();
+
+        assertEquals(7, limits.loginMaxAttempts());
+        assertEquals(Duration.ofHours(2), limits.signupWindow());
+    }
+
+    @Test
+    void authLimitsMustBePositive() {
+        assertStartupFails(Map.of("game.auth-limits.login-max-attempts", "0"),
+                "game.auth-limits.login-max-attempts must be positive: 0");
+        assertStartupFails(Map.of("game.auth-limits.login-window", "0s"),
+                "game.auth-limits.login-window must be positive: PT0S");
+        assertStartupFails(Map.of("game.auth-limits.signup-max-attempts", "-1"),
+                "game.auth-limits.signup-max-attempts must be positive: -1");
+        assertStartupFails(Map.of("game.auth-limits.signup-window", "-1m"),
+                "game.auth-limits.signup-window must be positive: PT-1M");
+        assertStartupFails(Map.of("game.auth-limits.max-tracked-ips", "0"),
+                "game.auth-limits.max-tracked-ips must be positive: 0");
+    }
+
     private static GameProperties bind(Map<String, String> properties) {
         return new Binder(new MapConfigurationPropertySource(properties))
                 .bindOrCreate("game", GameProperties.class);

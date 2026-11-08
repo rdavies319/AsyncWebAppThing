@@ -1,5 +1,7 @@
 package com.rdavies.arena.user;
 
+import com.rdavies.arena.GameProperties;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -11,8 +13,13 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
 import org.springframework.security.web.util.matcher.MediaTypeRequestMatcher;
+import org.springframework.web.servlet.ViewResolver;
 
+import java.time.Clock;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -29,8 +36,10 @@ public class SecurityConfig {
     }
 
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    SecurityFilterChain securityFilterChain(HttpSecurity http, Clock clock, GameProperties game,
+                                            @Qualifier("thymeleafViewResolver") ViewResolver views) throws Exception {
         http
+            .addFilterBefore(authRateLimitFilter(clock, game, views), UsernamePasswordAuthenticationFilter.class)
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(HttpMethod.GET, "/", "/fragments/board", "/fights/**", "/gladiators/**", "/leaderboard", "/live", "/health/engine", "/arena.css").permitAll()
                 .requestMatchers(HttpMethod.HEAD, "/health/engine").permitAll() // uptime pingers may use HEAD
@@ -46,6 +55,20 @@ public class SecurityConfig {
                 .logoutSuccessUrl("/"))
             .exceptionHandling(e -> e.authenticationEntryPoint(entryPoint()));
         return http.build();
+    }
+
+    private static AuthRateLimitFilter authRateLimitFilter(Clock clock, GameProperties game, ViewResolver views) {
+        GameProperties.AuthLimits limits = game.authLimits();
+        return new AuthRateLimitFilter(List.of(
+                new AuthRateLimitFilter.Rule(
+                        PathPatternRequestMatcher.withDefaults().matcher(HttpMethod.POST, LOGIN_PAGE),
+                        new AttemptLimiter(clock, limits.loginMaxAttempts(), limits.loginWindow(), limits.maxTrackedIps()),
+                        "auth/login"),
+                new AuthRateLimitFilter.Rule(
+                        PathPatternRequestMatcher.withDefaults().matcher(HttpMethod.POST, "/auth/signup"),
+                        new AttemptLimiter(clock, limits.signupMaxAttempts(), limits.signupWindow(), limits.maxTrackedIps()),
+                        "auth/signup")),
+                views, game.signupBonus());
     }
 
     /**
