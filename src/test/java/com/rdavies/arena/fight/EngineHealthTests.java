@@ -1,0 +1,100 @@
+package com.rdavies.arena.fight;
+
+import com.rdavies.arena.GameTest;
+import com.rdavies.arena.MutableClock;
+import com.rdavies.arena.TestGame;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
+import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.ResultActions;
+import org.springframework.transaction.support.TransactionTemplate;
+
+import java.time.Instant;
+
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.head;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+/**
+ * GET /health/engine against the real engine, with no login. A yearly tick gives the check a cadence to
+ * measure while keeping the scheduler quiet, so only these tests tick. Not @Transactional, because
+ * a tick counts only once it commits.
+ */
+@GameTest
+@TestPropertySource(properties = "game.engine.cron=0 0 0 1 1 ?")
+class EngineHealthTests {
+    private static final Instant TICKED = Instant.parse("2026-06-01T00:00:00Z");
+
+    @Autowired MockMvc mockMvc;
+    @Autowired TestGame game;
+    @Autowired FightEngine engine;
+    @Autowired MutableClock clock;
+    @Autowired TestFights testFights;
+    @Autowired TransactionTemplate transaction;
+
+    @BeforeEach
+    void tickOnce() {
+        testFights.deleteAll();
+        game.tickAt(TICKED);
+    }
+
+    @Test
+    void aCommittedTickIsHealthy() throws Exception {
+        health().andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("OK"))
+                .andExpect(jsonPath("$.last_tick_at").value("2026-06-01T00:00:00Z"));
+    }
+
+    @Test
+    void aPingerCanUseHead() throws Exception {
+        mockMvc.perform(head("/health/engine")).andExpect(status().isOk());
+    }
+
+    @Test
+    void itStaysHealthyUntilThreeScheduledTicksHavePassed() throws Exception {
+        clock.set(Instant.parse("2029-01-01T00:00:00Z")); // the third tick since is only just due
+
+        health().andExpect(status().isOk());
+    }
+
+    @Test
+    void itReportsStoppedOnceThreeScheduledTicksHavePassed() throws Exception {
+        clock.set(Instant.parse("2029-01-01T00:00:01Z"));
+
+        health().andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.status").value("STOPPED"))
+                .andExpect(jsonPath("$.last_tick_at").value("2026-06-01T00:00:00Z"));
+    }
+
+    @Test
+    void aRolledBackTickDoesNotCount() throws Exception {
+        clock.set(Instant.parse("2027-06-01T00:00:00Z"));
+
+        transaction.executeWithoutResult(tx -> {
+            assertTrue(engine.tick());
+            tx.setRollbackOnly();
+        });
+
+        health().andExpect(jsonPath("$.last_tick_at").value("2026-06-01T00:00:00Z"));
+    }
+
+    @Test
+    void aSkippedTickChangesNothing() throws Exception {
+        clock.set(Instant.parse("2027-06-01T00:00:00Z"));
+
+        testFights.whileEngineLocked(() -> assertFalse(engine.tick()));
+
+        health().andExpect(status().isOk())
+                .andExpect(jsonPath("$.last_tick_at").value("2026-06-01T00:00:00Z"));
+    }
+
+    private ResultActions health() throws Exception {
+        return mockMvc.perform(get("/health/engine").accept(MediaType.APPLICATION_JSON));
+    }
+}

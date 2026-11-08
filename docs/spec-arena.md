@@ -233,9 +233,10 @@ Constraints:
 | `GET /bets/me` | Your bet history |
 | `GET /leaderboard` | The top balances (below) |
 | `GET /live` | SSE stream |
+| `GET /health/engine` | Public engine check: 200 with `status` `OK` and `last_tick_at`, or 503 with `status` `STOPPED` once three scheduled engine ticks have passed since the last committed tick |
 | `POST /dev/fights/{start,round,finish}` | Dev profile only (section 7) |
 
-Watching stays public: `/`, `/fragments/board`, `/fights/**`, `/gladiators/**`, `/leaderboard` and `/live`. Everything else needs login, with the same 401 and `HX-Redirect` behaviour as v2.
+Watching stays public: `/`, `/fragments/board`, `/fights/**`, `/gladiators/**`, `/leaderboard` and `/live`, and `/health/engine` is public for uptime pingers. Everything else needs login, with the same 401 and `HX-Redirect` behaviour as v2.
 
 **Public gladiator record:** W/L/D, win %, Elo, average damage dealt and taken per round (misses included), dodge rate (attacks dodged ÷ attacks received), KO rate (KO wins ÷ wins), average fight length, a head-to-head record against each opponent, and the last 5 results with links to `/fights/{id}`. All of it is computed from the public columns of `fights` and `fight_rounds` only.
 

@@ -2,6 +2,7 @@ package com.rdavies.arena.fight;
 
 import com.rdavies.arena.GameProperties;
 import com.rdavies.arena.fight.enums.FightStatus;
+import com.rdavies.arena.fight.events.EngineTicked;
 import com.rdavies.arena.fight.events.RoundFought;
 import com.rdavies.arena.fight.events.FightSettled;
 import com.rdavies.arena.fight.events.FightStarted;
@@ -97,6 +98,7 @@ public class FightEngine {
         } else if (!fighting) {
             announce(nextSlot(now), null); // bootstrap
         }
+        events.publishEvent(new EngineTicked(now));
         return true;
     }
 

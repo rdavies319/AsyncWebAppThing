@@ -32,7 +32,8 @@ public class SecurityConfig {
     SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers(HttpMethod.GET, "/", "/fragments/board", "/fights/**", "/gladiators/**", "/leaderboard", "/live", "/arena.css").permitAll()
+                .requestMatchers(HttpMethod.GET, "/", "/fragments/board", "/fights/**", "/gladiators/**", "/leaderboard", "/live", "/health/engine", "/arena.css").permitAll()
+                .requestMatchers(HttpMethod.HEAD, "/health/engine").permitAll() // uptime pingers may use HEAD
                 .requestMatchers("/auth/signup", "/error").permitAll()
                 .anyRequest().authenticated())
             .formLogin(form -> form

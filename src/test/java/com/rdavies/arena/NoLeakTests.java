@@ -65,6 +65,7 @@ class NoLeakTests {
         List<String> bodies = new ArrayList<>();
         bodies.add(body("/fragments/board", MediaType.TEXT_HTML)); // a fight live, the next announced
         bodies.add(body("/fights/current", MediaType.APPLICATION_JSON));
+        bodies.add(body("/health/engine", MediaType.APPLICATION_JSON));
         FightResult result = game.finishFight();
         viewer.awaitEvents(3 + result.roundsDone() + 1, Duration.ofSeconds(5));
         bodies.addAll(viewer.sent);

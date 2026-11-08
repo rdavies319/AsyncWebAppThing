@@ -2,7 +2,7 @@
 
 The arena is feature-complete (Phase 2, tasks 01–12), but its deployment setup is still a local dev setup. These tasks make it safe to run on a public host. The target is AWS, chosen partly as a way to learn it: the app and a reverse proxy run under compose on one EC2 instance, and the database is RDS for PostgreSQL. Local development keeps the existing compose file and its Postgres container. The tasks are split into tickets 01–11 in `.scratch/production/issues/`, each with acceptance criteria. Read the ticket before starting it, and keep the tickets and this file in step.
 
-**Status:** ticket 01 is done: the app refuses the dev roster outside the dev profile (part of P1). The rest hasn't started.
+**Status:** tickets 01 and 02 are done: the app refuses the dev roster outside the dev profile (part of P1), and `GET /health/engine` reports whether the engine is ticking (part of P8). The rest hasn't started.
 
 ## Order
 
