@@ -23,7 +23,7 @@ import java.util.List;
  * @param rosterFile       where the roster loads from on first boot, as a Spring resource location.
  *                         The default is the dev roster, which only the dev profile may load
  * @param engine           when the fight engine ticks
- * @param authLimits       how many signup and login attempts one IP gets
+ * @param authLimits       how many signup and login attempts one IP gets, and failed logins one account gets
  */
 @ConfigurationProperties("game")
 public record GameProperties(
@@ -40,14 +40,19 @@ public record GameProperties(
     @DefaultValue AuthLimits authLimits
 ) {
     /**
-     * How many signup and login attempts one IP gets. Counted separately, in memory.
+     * How many signup and login attempts one IP gets, and how many failed logins one account gets
+     * from any IP. Each counted separately, in memory.
      *
+     * @param loginAccountMaxFailures wrong passwords an account takes before every login to it is
+     *                                refused, the right password included, until its window ends
      * @param maxTrackedIps most IPs remembered for each of signup and login, keeping memory bounded.
      *                      Beyond this, new IPs share one count until windows end
      */
     public record AuthLimits(
         @DefaultValue("20") int loginMaxAttempts,
         @DefaultValue("15m") Duration loginWindow,
+        @DefaultValue("10") int loginAccountMaxFailures,
+        @DefaultValue("15m") Duration loginAccountWindow,
         @DefaultValue("5") int signupMaxAttempts,
         @DefaultValue("1h") Duration signupWindow,
         @DefaultValue("100000") int maxTrackedIps
@@ -55,6 +60,8 @@ public record GameProperties(
         public AuthLimits {
             requirePositive(loginMaxAttempts > 0, "login-max-attempts", loginMaxAttempts);
             requirePositive(loginWindow.isPositive(), "login-window", loginWindow);
+            requirePositive(loginAccountMaxFailures > 0, "login-account-max-failures", loginAccountMaxFailures);
+            requirePositive(loginAccountWindow.isPositive(), "login-account-window", loginAccountWindow);
             requirePositive(signupMaxAttempts > 0, "signup-max-attempts", signupMaxAttempts);
             requirePositive(signupWindow.isPositive(), "signup-window", signupWindow);
             requirePositive(maxTrackedIps > 0, "max-tracked-ips", maxTrackedIps);

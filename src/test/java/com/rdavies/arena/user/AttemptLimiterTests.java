@@ -53,7 +53,7 @@ class AttemptLimiterTests {
         clock.set(START.plus(Duration.ofMinutes(11)));
         limiter.attempt("203.0.113.3");
 
-        assertEquals(2, limiter.trackedIps());
+        assertEquals(2, limiter.trackedKeys());
     }
 
     @Test
@@ -77,7 +77,7 @@ class AttemptLimiterTests {
 
         limiter.attempt("203.0.113.3");
 
-        assertEquals(2, limiter.trackedIps());
+        assertEquals(2, limiter.trackedKeys());
         assertTrue(limiter.attempt("203.0.113.1").isPresent(), "the oldest is still counted");
         assertTrue(limiter.attempt("203.0.113.2").isPresent(), "so is the newest");
     }
@@ -117,25 +117,22 @@ class AttemptLimiterTests {
 
         assertEquals(Optional.empty(), limiter.attempt("203.0.113.2"));
         assertTrue(limiter.attempt("203.0.113.2").isPresent(), "tracked under its own count now");
-        assertEquals(1, limiter.trackedIps());
+        assertEquals(1, limiter.trackedKeys());
     }
 
     @Test
-    void ipv6AddressesInTheSameSlash64ShareACount() {
-        AttemptLimiter limiter = new AttemptLimiter(clock, 1, Duration.ofMinutes(10), 100);
+    void checkingWithoutCountingSaysHowLongToWait() {
+        AttemptLimiter limiter = new AttemptLimiter(clock, 2, Duration.ofMinutes(10), 100);
 
-        limiter.attempt("2001:db8:1:2:aaaa::1");
+        assertEquals(Optional.empty(), limiter.check(IP));
+        limiter.attempt(IP);
+        assertEquals(Optional.empty(), limiter.check(IP));
+        assertEquals(Optional.empty(), limiter.check(IP), "checking doesn't count");
+        limiter.attempt(IP);
 
-        assertTrue(limiter.attempt("2001:db8:1:2:bbbb::2").isPresent());
-        assertEquals(Optional.empty(), limiter.attempt("2001:db8:1:3::1"));
-    }
-
-    @Test
-    void anIpv4AddressMappedIntoIpv6CountsAsThatIpv4Address() {
-        AttemptLimiter limiter = new AttemptLimiter(clock, 1, Duration.ofMinutes(10), 100);
-
-        limiter.attempt("203.0.113.1");
-
-        assertTrue(limiter.attempt("::ffff:203.0.113.1").isPresent());
+        clock.set(START.plus(Duration.ofMinutes(4)));
+        assertEquals(Optional.of(Duration.ofMinutes(6)), limiter.check(IP));
+        clock.set(START.plus(Duration.ofMinutes(10)));
+        assertEquals(Optional.empty(), limiter.check(IP));
     }
 }

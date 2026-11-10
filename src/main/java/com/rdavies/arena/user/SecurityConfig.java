@@ -16,6 +16,7 @@ import org.springframework.security.web.authentication.LoginUrlAuthenticationEnt
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
 import org.springframework.security.web.util.matcher.MediaTypeRequestMatcher;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.web.servlet.ViewResolver;
 
 import java.time.Clock;
@@ -36,10 +37,14 @@ public class SecurityConfig {
     }
 
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http, Clock clock, GameProperties game,
+    SecurityFilterChain securityFilterChain(HttpSecurity http, Clock clock, GameProperties game, UserService users,
                                             @Qualifier("thymeleafViewResolver") ViewResolver views) throws Exception {
+        GameProperties.AuthLimits limits = game.authLimits();
+        // Keyed by real accounts only, so the number of players already bounds it
+        AttemptLimiter accountFailures = new AttemptLimiter(
+                clock, limits.loginAccountMaxFailures(), limits.loginAccountWindow(), Integer.MAX_VALUE);
         http
-            .addFilterBefore(authRateLimitFilter(clock, game, views), UsernamePasswordAuthenticationFilter.class)
+            .addFilterBefore(authRateLimitFilter(clock, game, accountFailures, views), UsernamePasswordAuthenticationFilter.class)
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(HttpMethod.GET, "/", "/fragments/board", "/fights/**", "/gladiators/**", "/leaderboard", "/live", "/health/engine", "/arena.css").permitAll()
                 .requestMatchers(HttpMethod.HEAD, "/health/engine").permitAll() // uptime pingers may use HEAD
@@ -48,6 +53,7 @@ public class SecurityConfig {
             .formLogin(form -> form
                 .loginPage(LOGIN_PAGE)
                 .usernameParameter("email")
+                .failureHandler(new AccountLoginFailures(LOGIN_PAGE + "?error", accountFailures, users))
                 .defaultSuccessUrl("/", true)
                 .permitAll())
             .logout(logout -> logout
@@ -57,14 +63,19 @@ public class SecurityConfig {
         return http.build();
     }
 
-    private static AuthRateLimitFilter authRateLimitFilter(Clock clock, GameProperties game, ViewResolver views) {
+    private static AuthRateLimitFilter authRateLimitFilter(Clock clock, GameProperties game, AttemptLimiter accountFailures,
+                                                           ViewResolver views) {
         GameProperties.AuthLimits limits = game.authLimits();
+        RequestMatcher login = PathPatternRequestMatcher.withDefaults().matcher(HttpMethod.POST, LOGIN_PAGE);
         return new AuthRateLimitFilter(List.of(
-                new AuthRateLimitFilter.Rule(
-                        PathPatternRequestMatcher.withDefaults().matcher(HttpMethod.POST, LOGIN_PAGE),
+                AuthRateLimitFilter.Rule.perIp(
+                        login,
                         new AttemptLimiter(clock, limits.loginMaxAttempts(), limits.loginWindow(), limits.maxTrackedIps()),
                         "auth/login"),
                 new AuthRateLimitFilter.Rule(
+                        login, AccountLoginFailures::key, false, accountFailures,
+                        "auth/login", AuthRateLimitFilter.TOO_MANY_FAILURES),
+                AuthRateLimitFilter.Rule.perIp(
                         PathPatternRequestMatcher.withDefaults().matcher(HttpMethod.POST, "/auth/signup"),
                         new AttemptLimiter(clock, limits.signupMaxAttempts(), limits.signupWindow(), limits.maxTrackedIps()),
                         "auth/signup")),

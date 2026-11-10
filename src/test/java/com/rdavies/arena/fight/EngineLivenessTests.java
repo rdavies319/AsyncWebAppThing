@@ -66,6 +66,6 @@ class EngineLivenessTests {
         return new EngineLiveness(clock, new GameProperties(Duration.ofSeconds(10), 10_000, 1_000, 1_000,
                 List.of(10L), "0 0 * * * *", Duration.ofMinutes(1), 30, "classpath:roster-test.json",
                 new GameProperties.Engine(engineCron),
-                new GameProperties.AuthLimits(20, Duration.ofMinutes(15), 5, Duration.ofHours(1), 100_000)));
+                new GameProperties.AuthLimits(20, Duration.ofMinutes(15), 10, Duration.ofMinutes(15), 5, Duration.ofHours(1), 100_000)));
     }
 }

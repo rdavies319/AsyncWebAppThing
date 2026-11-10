@@ -33,6 +33,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class AuthRateLimitTests {
     private static final Instant START = Instant.parse("2026-06-01T12:00:00Z");
     private static final String REFUSED = "Too many attempts";
+    private static final String ACCOUNT_REFUSED = "Too many failed logins for this account";
 
     @Autowired MockMvc mockMvc;
     @Autowired MutableClock clock;
@@ -151,6 +152,55 @@ class AuthRateLimitTests {
 
         attemptSignup(forwardedFor("198.51.100.10", proxy)).andExpect(status().isTooManyRequests());
         attemptSignup(forwardedFor("198.51.100.11", proxy)).andExpect(status().isOk());
+    }
+
+    @Test
+    void anAccountWithTooManyFailedLoginsIsRefusedFromAnyIpEvenWithTheRightPassword() throws Exception {
+        TestPlayers.signUp(userService, "ratelimit_fay");
+        failLoginsFromManyIps("ratelimit_fay@example.invalid", 20);
+
+        login("198.51.100.30", " Ratelimit_Fay@Example.invalid", TestPlayers.PASSWORD)
+                .andExpect(status().isTooManyRequests())
+                .andExpect(header().string("Retry-After", "900"))
+                .andExpect(content().string(containsString(ACCOUNT_REFUSED)))
+                .andExpect(unauthenticated());
+    }
+
+    @Test
+    void anAccountCanLogInAgainOnceItsWindowHasPassed() throws Exception {
+        TestPlayers.signUp(userService, "ratelimit_gus");
+        failLoginsFromManyIps("ratelimit_gus@example.invalid", 40);
+
+        clock.set(START.plus(game.authLimits().loginAccountWindow()));
+
+        login("198.51.100.31", "ratelimit_gus@example.invalid", TestPlayers.PASSWORD)
+                .andExpect(authenticated().withUsername("ratelimit_gus@example.invalid"));
+    }
+
+    @Test
+    void oneAccountOverTheLimitDoesNotAffectAnother() throws Exception {
+        TestPlayers.signUp(userService, "ratelimit_hal");
+        TestPlayers.signUp(userService, "ratelimit_ivy");
+        failLoginsFromManyIps("ratelimit_hal@example.invalid", 60);
+
+        login("198.51.100.32", "ratelimit_ivy@example.invalid", TestPlayers.PASSWORD)
+                .andExpect(authenticated().withUsername("ratelimit_ivy@example.invalid"));
+    }
+
+    @Test
+    void successfulLoginsDoNotCountAgainstTheAccount() throws Exception {
+        TestPlayers.signUp(userService, "ratelimit_jo");
+        for (int i = 0; i <= game.authLimits().loginAccountMaxFailures(); i++) {
+            login("198.51.100.33", "ratelimit_jo@example.invalid", TestPlayers.PASSWORD)
+                    .andExpect(authenticated().withUsername("ratelimit_jo@example.invalid"));
+        }
+    }
+
+    /** Wrong passwords for one account, each from its own IP so no per-IP limit is reached. */
+    private void failLoginsFromManyIps(String email, int firstHost) throws Exception {
+        for (int i = 0; i < game.authLimits().loginAccountMaxFailures(); i++) {
+            login("203.0.113." + (firstHost + i), email, "wrong password").andExpect(redirectedUrl("/auth/login?error"));
+        }
     }
 
     private MockHttpServletRequestBuilder forwardedFor(String client, String proxy) {
