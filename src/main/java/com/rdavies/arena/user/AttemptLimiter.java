@@ -1,5 +1,8 @@
 package com.rdavies.arena.user;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -17,8 +20,12 @@ import java.util.Optional;
  * counts live in memory, so a restart clears them. Every window here is the same length, so the
  * map's insertion order is also the order they end in: old counts are dropped from its head
  * without a scan or a scheduled job.
+ *
+ * <p>An active count is never evicted, because cycling through more addresses than the cap would
+ * then escape the limit altogether. While the map is full, new IPs share one extra count instead.
  */
 final class AttemptLimiter {
+    private static final Logger log = LoggerFactory.getLogger(AttemptLimiter.class);
     private static final int IPV6_NETWORK_BYTES = 8;
 
     private final Clock clock;
@@ -26,6 +33,7 @@ final class AttemptLimiter {
     private final Duration length;
     private final int maxTrackedIps;
     private final Map<String, Window> windows = new LinkedHashMap<>();
+    private Window overflow;
 
     AttemptLimiter(Clock clock, int maxAttempts, Duration length, int maxTrackedIps) {
         this.clock = clock;
@@ -39,22 +47,27 @@ final class AttemptLimiter {
         Instant now = clock.instant();
         dropEnded(now);
         String key = key(ip);
-        Window window = windows.get(key);
-        if (window != null && !window.ends.isAfter(now)) { // dropEnded stops early if the clock stepped back
-            windows.remove(key);
-            window = null;
-        }
+        Window window = unlessEnded(windows.get(key), now);
         if (window == null) {
-            if (windows.size() >= maxTrackedIps) {
-                dropOldest();
-            }
-            windows.put(key, new Window(now.plus(length), 1));
-            return Optional.empty();
+            windows.remove(key); // dropEnded stops early if the clock stepped back
         }
-        if (window.attempts >= maxAttempts) {
+        boolean full = window == null && windows.size() >= maxTrackedIps;
+        if (full) {
+            window = unlessEnded(overflow, now);
+            if (window == null) {
+                log.warn("Attempt limiter ({} per {}) is tracking its maximum of {} IPs: new IPs now share one count",
+                        maxAttempts, length, maxTrackedIps);
+            }
+        }
+        if (window != null && window.attempts >= maxAttempts) {
             return Optional.of(Duration.between(now, window.ends));
         }
-        windows.put(key, new Window(window.ends, window.attempts + 1)); // keeps its place in the order
+        Window counted = window == null ? new Window(now.plus(length), 1) : new Window(window.ends, window.attempts + 1);
+        if (full) {
+            overflow = counted;
+        } else {
+            windows.put(key, counted); // an existing key keeps its place in the order
+        }
         return Optional.empty();
     }
 
@@ -69,10 +82,8 @@ final class AttemptLimiter {
         }
     }
 
-    private void dropOldest() {
-        Iterator<Window> oldestFirst = windows.values().iterator();
-        oldestFirst.next();
-        oldestFirst.remove();
+    private static Window unlessEnded(Window window, Instant now) {
+        return window != null && window.ends.isAfter(now) ? window : null;
     }
 
     /**

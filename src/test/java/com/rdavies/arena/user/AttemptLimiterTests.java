@@ -70,7 +70,7 @@ class AttemptLimiterTests {
     }
 
     @Test
-    void theOldestCountMakesWayWhenTooManyIpsAreTracked() {
+    void aFullLimiterKeepsItsActiveCounts() {
         AttemptLimiter limiter = new AttemptLimiter(clock, 1, Duration.ofMinutes(10), 2);
         limiter.attempt("203.0.113.1");
         limiter.attempt("203.0.113.2");
@@ -78,9 +78,46 @@ class AttemptLimiterTests {
         limiter.attempt("203.0.113.3");
 
         assertEquals(2, limiter.trackedIps());
-        assertTrue(limiter.attempt("203.0.113.3").isPresent(), "the newest is still counted");
-        assertTrue(limiter.attempt("203.0.113.2").isPresent(), "so is the one before it");
-        assertEquals(Optional.empty(), limiter.attempt("203.0.113.1"), "the oldest was forgotten");
+        assertTrue(limiter.attempt("203.0.113.1").isPresent(), "the oldest is still counted");
+        assertTrue(limiter.attempt("203.0.113.2").isPresent(), "so is the newest");
+    }
+
+    @Test
+    void newIpsShareOneCountWhileTheLimiterIsFull() {
+        AttemptLimiter limiter = new AttemptLimiter(clock, 2, Duration.ofMinutes(10), 1);
+        limiter.attempt("203.0.113.1");
+
+        assertEquals(Optional.empty(), limiter.attempt("203.0.113.2"));
+        clock.set(START.plus(Duration.ofMinutes(3)));
+        assertEquals(Optional.empty(), limiter.attempt("203.0.113.3"));
+
+        assertEquals(Optional.of(Duration.ofMinutes(7)), limiter.attempt("203.0.113.4"));
+    }
+
+    @Test
+    void cyclingThroughMoreIpsThanTheCapDoesNotEscapeTheLimit() {
+        AttemptLimiter limiter = new AttemptLimiter(clock, 1, Duration.ofMinutes(10), 2);
+        String[] ips = {"203.0.113.1", "203.0.113.2", "203.0.113.3", "203.0.113.4"};
+        for (String ip : ips) {
+            limiter.attempt(ip);
+        }
+
+        for (String ip : ips) {
+            assertTrue(limiter.attempt(ip).isPresent(), ip);
+        }
+    }
+
+    @Test
+    void theLimiterTracksNewIpsAgainOnceWindowsHaveEnded() {
+        AttemptLimiter limiter = new AttemptLimiter(clock, 1, Duration.ofMinutes(10), 1);
+        limiter.attempt("203.0.113.1");
+        limiter.attempt("203.0.113.2");
+
+        clock.set(START.plus(Duration.ofMinutes(10)));
+
+        assertEquals(Optional.empty(), limiter.attempt("203.0.113.2"));
+        assertTrue(limiter.attempt("203.0.113.2").isPresent(), "tracked under its own count now");
+        assertEquals(1, limiter.trackedIps());
     }
 
     @Test

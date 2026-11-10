@@ -42,7 +42,8 @@ public record GameProperties(
     /**
      * How many signup and login attempts one IP gets. Counted separately, in memory.
      *
-     * @param maxTrackedIps most IPs remembered for each of signup and login, keeping memory bounded
+     * @param maxTrackedIps most IPs remembered for each of signup and login, keeping memory bounded.
+     *                      Beyond this, new IPs share one count until windows end
      */
     public record AuthLimits(
         @DefaultValue("20") int loginMaxAttempts,
