@@ -1,5 +1,7 @@
 package com.rdavies.arena.user;
 
+import com.rdavies.arena.GameProperties;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -11,8 +13,14 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
 import org.springframework.security.web.util.matcher.MediaTypeRequestMatcher;
+import org.springframework.security.web.util.matcher.RequestMatcher;
+import org.springframework.web.servlet.ViewResolver;
 
+import java.time.Clock;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -29,8 +37,14 @@ public class SecurityConfig {
     }
 
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    SecurityFilterChain securityFilterChain(HttpSecurity http, Clock clock, GameProperties game, UserService users,
+                                            @Qualifier("thymeleafViewResolver") ViewResolver views) throws Exception {
+        GameProperties.AuthLimits limits = game.authLimits();
+        // Keyed by real accounts only, so the number of players already bounds it
+        AttemptLimiter accountFailures = new AttemptLimiter(
+                clock, limits.loginAccountMaxFailures(), limits.loginAccountWindow(), Integer.MAX_VALUE);
         http
+            .addFilterBefore(authRateLimitFilter(clock, game, accountFailures, views), UsernamePasswordAuthenticationFilter.class)
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(HttpMethod.GET, "/", "/fragments/board", "/fights/**", "/gladiators/**", "/leaderboard", "/live", "/health/engine", "/arena.css").permitAll()
                 .requestMatchers(HttpMethod.HEAD, "/health/engine").permitAll() // uptime pingers may use HEAD
@@ -39,6 +53,7 @@ public class SecurityConfig {
             .formLogin(form -> form
                 .loginPage(LOGIN_PAGE)
                 .usernameParameter("email")
+                .failureHandler(new AccountLoginFailures(LOGIN_PAGE + "?error", accountFailures, users))
                 .defaultSuccessUrl("/", true)
                 .permitAll())
             .logout(logout -> logout
@@ -46,6 +61,25 @@ public class SecurityConfig {
                 .logoutSuccessUrl("/"))
             .exceptionHandling(e -> e.authenticationEntryPoint(entryPoint()));
         return http.build();
+    }
+
+    private static AuthRateLimitFilter authRateLimitFilter(Clock clock, GameProperties game, AttemptLimiter accountFailures,
+                                                           ViewResolver views) {
+        GameProperties.AuthLimits limits = game.authLimits();
+        RequestMatcher login = PathPatternRequestMatcher.withDefaults().matcher(HttpMethod.POST, LOGIN_PAGE);
+        return new AuthRateLimitFilter(List.of(
+                AuthRateLimitFilter.Rule.perIp(
+                        login,
+                        new AttemptLimiter(clock, limits.loginMaxAttempts(), limits.loginWindow(), limits.maxTrackedIps()),
+                        "auth/login"),
+                new AuthRateLimitFilter.Rule(
+                        login, AccountLoginFailures::key, false, accountFailures,
+                        "auth/login", AuthRateLimitFilter.TOO_MANY_FAILURES),
+                AuthRateLimitFilter.Rule.perIp(
+                        PathPatternRequestMatcher.withDefaults().matcher(HttpMethod.POST, "/auth/signup"),
+                        new AttemptLimiter(clock, limits.signupMaxAttempts(), limits.signupWindow(), limits.maxTrackedIps()),
+                        "auth/signup")),
+                views, game.signupBonus());
     }
 
     /**

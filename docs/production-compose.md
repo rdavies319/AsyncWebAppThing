@@ -60,3 +60,15 @@ This needs Docker and nothing from AWS. Ports 80 and 443 must be free. With `SIT
 ## Client IPs
 
 The app trusts forwarded headers (`server.forward-headers-strategy=framework`), which is only safe because nothing can reach it except Caddy. Caddy replaces `X-Forwarded-For`, `-Proto` and `-Host` with what it saw, and `deploy/Caddyfile` removes the other forwarded headers the app reads, so a client that sends them can't change what the app believes.
+
+The signup and login limits count attempts by that client IP, so check it on any new host. Send more signups than `GAME_AUTH_LIMITS_SIGNUP_MAX_ATTEMPTS` with a different forged header each time, and the extra ones must still get a 429. Fetch a page first for the session cookie and CSRF token, because a POST without them gets a 403 and isn't counted:
+
+```bash
+TOKEN=$(curl -ks -c /tmp/arena-cookies https://localhost/auth/signup | sed -n 's/.*name="_csrf" value="\([^"]*\)".*/\1/p')
+for i in 1 2 3 4 5 6 7; do
+  curl -ks -o /dev/null -w '%{http_code}\n' -b /tmp/arena-cookies -H "X-Forwarded-For: 203.0.113.$i" \
+    --data-urlencode "_csrf=$TOKEN" -d 'email=bad&displayName=nobody&password=nothing-real' https://localhost/auth/signup
+done
+```
+
+At the default limit, five lines of `200` are followed by `429`s. If real players are refused together, the app is seeing one shared address: check that Caddy logs each client's own IP (Docker's networking can hide it, notably for IPv6), and give Caddy `trusted_proxies` if a load balancer ever sits in front of it.

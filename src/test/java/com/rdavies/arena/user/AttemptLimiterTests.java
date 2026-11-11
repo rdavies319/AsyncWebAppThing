@@ -1,0 +1,138 @@
+package com.rdavies.arena.user;
+
+import com.rdavies.arena.MutableClock;
+import org.junit.jupiter.api.Test;
+
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+/** How many attempts one IP gets, and how long the limiter remembers it. */
+class AttemptLimiterTests {
+    private static final Instant START = Instant.parse("2026-06-01T12:00:00Z");
+    private static final String IP = "203.0.113.1";
+
+    private final MutableClock clock = new MutableClock();
+
+    AttemptLimiterTests() {
+        clock.set(START);
+    }
+
+    @Test
+    void refusesAttemptsOverTheLimitUntilTheWindowHasPassed() {
+        AttemptLimiter limiter = new AttemptLimiter(clock, 2, Duration.ofMinutes(10), 100);
+
+        assertEquals(Optional.empty(), limiter.attempt(IP));
+        clock.set(START.plus(Duration.ofMinutes(4)));
+        assertEquals(Optional.empty(), limiter.attempt(IP));
+        assertEquals(Optional.of(Duration.ofMinutes(6)), limiter.attempt(IP));
+
+        clock.set(START.plus(Duration.ofMinutes(10)));
+        assertEquals(Optional.empty(), limiter.attempt(IP));
+    }
+
+    @Test
+    void oneIpGoingOverTheLimitDoesNotAffectAnother() {
+        AttemptLimiter limiter = new AttemptLimiter(clock, 1, Duration.ofMinutes(10), 100);
+
+        limiter.attempt(IP);
+        assertTrue(limiter.attempt(IP).isPresent());
+        assertEquals(Optional.empty(), limiter.attempt("203.0.113.2"));
+    }
+
+    @Test
+    void countsAreDroppedOnceTheirWindowHasPassed() {
+        AttemptLimiter limiter = new AttemptLimiter(clock, 1, Duration.ofMinutes(10), 100);
+        limiter.attempt("203.0.113.1");
+        clock.set(START.plus(Duration.ofMinutes(5)));
+        limiter.attempt("203.0.113.2");
+
+        clock.set(START.plus(Duration.ofMinutes(11)));
+        limiter.attempt("203.0.113.3");
+
+        assertEquals(2, limiter.trackedKeys());
+    }
+
+    @Test
+    void aWindowEndsOnTimeEvenIfTheClockStepsBackBehindAnotherIp() {
+        AttemptLimiter limiter = new AttemptLimiter(clock, 1, Duration.ofMinutes(10), 100);
+        clock.set(START.plus(Duration.ofHours(1)));
+        limiter.attempt("203.0.113.1");
+        clock.set(START);
+        limiter.attempt("203.0.113.2");
+
+        clock.set(START.plus(Duration.ofMinutes(10)));
+
+        assertEquals(Optional.empty(), limiter.attempt("203.0.113.2"));
+    }
+
+    @Test
+    void aFullLimiterKeepsItsActiveCounts() {
+        AttemptLimiter limiter = new AttemptLimiter(clock, 1, Duration.ofMinutes(10), 2);
+        limiter.attempt("203.0.113.1");
+        limiter.attempt("203.0.113.2");
+
+        limiter.attempt("203.0.113.3");
+
+        assertEquals(2, limiter.trackedKeys());
+        assertTrue(limiter.attempt("203.0.113.1").isPresent(), "the oldest is still counted");
+        assertTrue(limiter.attempt("203.0.113.2").isPresent(), "so is the newest");
+    }
+
+    @Test
+    void newIpsShareOneCountWhileTheLimiterIsFull() {
+        AttemptLimiter limiter = new AttemptLimiter(clock, 2, Duration.ofMinutes(10), 1);
+        limiter.attempt("203.0.113.1");
+
+        assertEquals(Optional.empty(), limiter.attempt("203.0.113.2"));
+        clock.set(START.plus(Duration.ofMinutes(3)));
+        assertEquals(Optional.empty(), limiter.attempt("203.0.113.3"));
+
+        assertEquals(Optional.of(Duration.ofMinutes(7)), limiter.attempt("203.0.113.4"));
+    }
+
+    @Test
+    void cyclingThroughMoreIpsThanTheCapDoesNotEscapeTheLimit() {
+        AttemptLimiter limiter = new AttemptLimiter(clock, 1, Duration.ofMinutes(10), 2);
+        String[] ips = {"203.0.113.1", "203.0.113.2", "203.0.113.3", "203.0.113.4"};
+        for (String ip : ips) {
+            limiter.attempt(ip);
+        }
+
+        for (String ip : ips) {
+            assertTrue(limiter.attempt(ip).isPresent(), ip);
+        }
+    }
+
+    @Test
+    void theLimiterTracksNewIpsAgainOnceWindowsHaveEnded() {
+        AttemptLimiter limiter = new AttemptLimiter(clock, 1, Duration.ofMinutes(10), 1);
+        limiter.attempt("203.0.113.1");
+        limiter.attempt("203.0.113.2");
+
+        clock.set(START.plus(Duration.ofMinutes(10)));
+
+        assertEquals(Optional.empty(), limiter.attempt("203.0.113.2"));
+        assertTrue(limiter.attempt("203.0.113.2").isPresent(), "tracked under its own count now");
+        assertEquals(1, limiter.trackedKeys());
+    }
+
+    @Test
+    void checkingWithoutCountingSaysHowLongToWait() {
+        AttemptLimiter limiter = new AttemptLimiter(clock, 2, Duration.ofMinutes(10), 100);
+
+        assertEquals(Optional.empty(), limiter.check(IP));
+        limiter.attempt(IP);
+        assertEquals(Optional.empty(), limiter.check(IP));
+        assertEquals(Optional.empty(), limiter.check(IP), "checking doesn't count");
+        limiter.attempt(IP);
+
+        clock.set(START.plus(Duration.ofMinutes(4)));
+        assertEquals(Optional.of(Duration.ofMinutes(6)), limiter.check(IP));
+        clock.set(START.plus(Duration.ofMinutes(10)));
+        assertEquals(Optional.empty(), limiter.check(IP));
+    }
+}

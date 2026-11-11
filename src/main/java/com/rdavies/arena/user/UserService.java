@@ -88,8 +88,13 @@ public class UserService implements UserDetailsService {
                 .orElseThrow(() -> new UsernameNotFoundException("No account for " + email));
     }
 
+    /** Whether an account has this normalised email. */
+    boolean hasAccount(String normalisedEmail) {
+        return userRepository.existsByEmail(normalisedEmail);
+    }
+
     /** Signup and login must agree on this, or players can't log in with the email they signed up with. */
-    private static String normaliseEmail(String email) {
+    static String normaliseEmail(String email) {
         return email.strip().toLowerCase(Locale.ROOT);
     }
 }
